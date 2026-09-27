@@ -1,0 +1,21 @@
+[package]
+name = "nene-ruler"
+description = "A tiny frameless screen ruler for X11"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+# 配布は GitHub Release のバイナリ。crates.io には出さない。
+publish = false
+
+[[bin]]
+name = "nene-ruler"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+# 🔴 依存は許可制（ARC-013）。x11rb と cairo-rs は ADR 0002 で方針を決めてあり、
+#    最初の縦切りの Issue で足す。ここに足すときは deny.toml の allow も実測で更新する。
+[dependencies]

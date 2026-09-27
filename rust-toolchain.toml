@@ -1,0 +1,6 @@
+# 版を固定する。「手元では通る」を環境差で作らないため（QLT-011）。
+# xi-tools と同じ 1.98.0。lint 名の生存はこの版で確かめてある（docs/quality/gate-proofs.md）。
+[toolchain]
+channel = "1.98.0"
+# llvm-tools-preview は make coverage（cargo-llvm-cov）が要る。
+components = ["rustfmt", "clippy", "llvm-tools-preview"]
