@@ -50,7 +50,7 @@ pub(crate) fn no_default_construction(file: &SourceFile) -> Vec<Violation> {
 }
 
 /// CNF-002 が禁じる構文と、その理由。
-const FORBIDDEN_CONSTRUCTS: [(&str, &str); 5] = [
+const FORBIDDEN_CONSTRUCTS: [(&str, &str); 7] = [
     (concat!("dyn ", "Any"), "型の代用に使われる（RS-006）"),
     (
         concat!("Once", "Lock"),
@@ -67,6 +67,14 @@ const FORBIDDEN_CONSTRUCTS: [(&str, &str); 5] = [
     (
         concat!("proc-macro", " = true"),
         "手続きマクロは書かない（RS-010）",
+    ),
+    (
+        concat!("Xlib", "Surface"),
+        "描画は ImageSurface に完成させてから転送する。X の surface は unsafe を要する（ADR 0002）",
+    ),
+    (
+        concat!("XCB", "Surface"),
+        "描画は ImageSurface に完成させてから転送する。X の surface は unsafe を要する（ADR 0002）",
     ),
 ];
 
@@ -599,6 +607,15 @@ mod tests {
     fn cnf002_catches_proc_macro_manifest() {
         let file = fixture("a/Cargo.toml", "[lib]\nproc-macro = true\n");
         assert_eq!(no_forbidden_constructs(&file).len(), 1);
+    }
+
+    #[test]
+    fn cnf002_catches_x_surfaces() {
+        let file = fixture(
+            "crates/ui-x11/src/canvas.rs",
+            "let s = cairo::XlibSurface::create(d, w, v, 1, 1);\nlet t = cairo::XCBSurface::create(c, d, v, 1, 1);\n",
+        );
+        assert_eq!(no_forbidden_constructs(&file).len(), 2);
     }
 
     #[test]

@@ -1,0 +1,72 @@
+//! 描くための値の組。最新の状態から生成する（用語集「表示フレーム」）。
+
+use alloc::vec::Vec;
+
+use nene_ruler_core::axis::Axis;
+use nene_ruler_core::frame_layout::FrameLayout;
+use nene_ruler_core::hit_region::HitRegion;
+use nene_ruler_core::ink_color::InkColor;
+use nene_ruler_core::length_text::LengthText;
+
+use crate::frame_texts::FrameTexts;
+use crate::transparency::Transparency;
+
+/// UI が読むすべて。UI はこれを描いて意図を返すだけ（ARC-011）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RulerFrame {
+    layout: FrameLayout,
+    texts: FrameTexts,
+    ink: InkColor,
+    transparency: Transparency,
+}
+
+impl RulerFrame {
+    /// 値を束ねる。生成は `RulerController::frame` だけが行う。
+    #[must_use]
+    pub const fn new(
+        layout: FrameLayout,
+        texts: FrameTexts,
+        ink: InkColor,
+        transparency: Transparency,
+    ) -> Self {
+        Self {
+            layout,
+            texts,
+            ink,
+            transparency,
+        }
+    }
+
+    /// 幾何。
+    #[must_use]
+    pub const fn layout(&self) -> FrameLayout {
+        self.layout
+    }
+
+    /// 軸ごとの表示文字列。表示とコピーで同じもの（FR-007）。
+    #[must_use]
+    pub const fn text(&self, axis: Axis) -> &LengthText {
+        self.texts.along(axis)
+    }
+
+    /// インク色。
+    #[must_use]
+    pub const fn ink(&self) -> InkColor {
+        self.ink
+    }
+
+    /// 透明に描けるか。
+    #[must_use]
+    pub const fn transparency(&self) -> Transparency {
+        self.transparency
+    }
+
+    /// 当たり判定。文字数は表示文字列から取る。
+    #[must_use]
+    pub fn hit_regions(&self) -> Vec<HitRegion> {
+        self.layout.hit_regions(
+            self.text(Axis::Horizontal).chars(),
+            self.text(Axis::Vertical).chars(),
+        )
+    }
+}

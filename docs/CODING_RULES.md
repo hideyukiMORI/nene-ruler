@@ -216,8 +216,8 @@
 
 | 依存 | 用途 | 根拠 |
 | --- | --- | --- |
-| `x11rb`（予定） | X プロトコル（純 Rust・libX11 不要） | [ADR 0002](adr/0002-x11rb-and-cairo-without-a-toolkit.md)。最初の縦切りで足す |
-| `cairo-rs`（予定） | `ImageSurface` への図形と文字の描画 | 同上 |
+| `x11rb` 0.14（feature: `randr` / `xfixes` / `shape`） | X プロトコル（純 Rust・libX11 不要）。adapters-x11 と ui-x11 | [ADR 0002](adr/0002-x11rb-and-cairo-without-a-toolkit.md)・[ADR 0005](adr/0005-transparent-frame-with-input-shape.md)。Issue #2 で足した |
+| `cairo-rs` 0.22（default-features 無し） | `ImageSurface` への図形と文字の描画。ui-x11 | 同上 |
 
 版は `Cargo.lock` で固定し、マニフェストに `*` や `=` を書かない。ゲートは lock が更新される状態を拒む（QLT-011）。
 

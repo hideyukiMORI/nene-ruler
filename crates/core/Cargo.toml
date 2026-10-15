@@ -1,0 +1,15 @@
+[package]
+name = "nene-ruler-core"
+description = "NeNe Ruler の中核。値・不変条件・閉じた選択肢・整形・目盛と当たり判定の計算。#![no_std]・依存 0"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+# 🔴 依存 0 を保つ（ARC-013）。CNF-013 が拒む。
+[dependencies]

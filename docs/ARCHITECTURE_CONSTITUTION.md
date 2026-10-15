@@ -81,7 +81,7 @@
 🔑 中核クレートは `#![no_std]` ＋ `extern crate alloc` で書く。`std::fs` / `std::env` / `std::time` が
 lint 違反ではなく**名前解決エラー**になる。宣言そのものが消えていないことは CNF-007 が見る。
 
-- 機械強制: **planned**（中核クレートはまだ無い。最初の縦切りで `nene-ruler-core` / `nene-ruler-application` が生まれた時点で、CNF-007 と CNF-013 の実ファイルでの発火を記録して active にする）
+- 機械強制: **active**（`#![no_std]` の宣言＝CNF-007、外部 crate の禁止＝CNF-013。Issue #2 で `nene-ruler-core` / `nene-ruler-application` の実ファイルでの発火を記録した。[gate-proofs](quality/gate-proofs.md) 第 8 節）
 
 ### ARC-004 — 状態には唯一の所有者がいる
 

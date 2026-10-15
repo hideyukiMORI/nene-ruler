@@ -2,8 +2,9 @@
 
 A tiny frameless screen ruler for X11. Rust, `x11rb` + `cairo`, no UI toolkit.
 
-> **Status (2026-10-15):** repository initialised (Issue #1); the first vertical slice (Issue #2) is in progress. The rules, the gates and their proofs exist;
-> the ruler itself does not yet. `cargo run` prints the reason and exits. Nothing to download.
+> **Status (2026-10-15):** first vertical slice (Issue #2). `cargo run` opens a transparent frame with ticks,
+> moves when you drag a line and resizes when you drag an anchor. Units, colour, copy and the settings window are not there yet.
+> Verified on Xvfb (`make screenshot`); not yet on a real desktop. Nothing to download.
 
 ## What it will be
 
@@ -32,7 +33,7 @@ Verification is chosen per change (`make lint`, `make test`, `make conformance`,
 make check REASON='why a narrower check cannot cover this change'
 ```
 
-It needs the toolchain pinned in `rust-toolchain.toml` (rustup installs it), `cargo-deny`, and `libcairo2-dev` for the upcoming UI crates.
+It needs the toolchain pinned in `rust-toolchain.toml` (rustup installs it), `cargo-deny`, and `libcairo2-dev` for the UI crate.
 `make doctor` lists what is missing.
 
 ## License
