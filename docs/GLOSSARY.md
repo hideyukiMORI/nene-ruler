@@ -16,17 +16,22 @@
 | 抑制 | `#[expect(lint, reason = "<規則 ID>: …")]`。理由付きで、発火しなくなれば落ちる | RS-019 |
 | 機械強制の状態 | active / planned / 不能 / 不採用 | `docs/QUALITY_GATES.md` の強制マトリクス |
 | negative proof | ゲートが意図した規則で落ちることの実測 | `make prove` / `docs/quality/gate-proofs.md` |
-| 長さ | 物差しが測っている物理画素の数。単位換算の元 | `Length`（core） |
-| 向き | 横か縦かの閉じた集合 | `Orientation`（core） |
+| 長さ | 枠の一辺が測っている物理画素の数。幅と高さの両方がこれ。単位換算の元 | `Length`（core） |
+| 枠 | 物差しそのもの。左上を原点とする幅と高さの組 | `FrameSize`（core） |
+| 軸 | 横（幅）か縦（高さ）かの閉じた集合。目盛と数字がどちらの辺のものかを言う | `Axis`（core） |
 | 単位 | px / mm / in の閉じた集合。巡回の順もここが正本 | `Unit`（core） |
 | 物理寸法 | RandR が返す画面の画素数とミリ寸法。mm / in の換算に使う | `ScreenMetrics`（core） |
 | 表示文字列 | 長さを単位に従って綴った文字列。表示とクリップボードで同じものを使う | `LengthText`（core） |
-| テーマ | 利用者が選ぶ配色。ダーク・ライト・システムに従うの閉じた集合 | `Theme`（core） |
-| 見えの配色 | 実際に描くほうの閉じた集合。ダーク・ライトの 2 つだけ | `ThemeAppearance`（core） |
-| 配色表 | 見えの配色ごとの色の対応。X11 にも cairo にも依存しない | `ThemePalette`（core） |
+| 目盛 | 線の上の位置と、小・中・主の種類 | `TickMark` / `TickKind`（core） |
+| インク色 | 枠の窓に描くものすべてに使う 1 色。`#RRGGBB` で読み書きする | `InkColor`（core） |
+| アンカー | 左上と右下の鉤括弧。掴んで伸縮する | `Anchor`（core） |
+| 当たり判定 | クリックを受ける物理画素の矩形と、そこを掴んだときの意味（移動・伸縮・ギア・コピー） | `HitRegion` / `HitTarget`（core） |
+| 透明 | 描いたもの以外のアルファが 0 であること。合成器が無ければ不透明に落ちる | `Transparency`（application） |
+| 合成器 | `_NET_WM_CM_S0` を所有し、ARGB の窓を画面に合成するプログラム（Weston・xcompmgr 等） | adapters-x11 / ui-x11 |
+| モーダルの見え | 設定モーダルの背景と文字の配色。ダーク・ライト・システムに従うの閉じた集合。枠の窓には効かない | `ModalTheme`（core） |
 | 重なり順 | 常に最前面か、通常の重なり順かの閉じた集合 | `WindowLayer`（core） |
-| 設定 | テーマ・単位・向き・重なり順の組。保存される値の正本 | `RulerSettings`（core） |
-| 物差しの状態の所有者 | 長さ・向き・単位・設定を 1 つ持ち、意図で次の状態へ置き換える | `RulerController`（application） |
+| 設定 | インク色・モーダルの見え・単位・重なり順の組。保存される値の正本 | `RulerSettings`（core） |
+| 物差しの状態の所有者 | 枠・単位・設定を 1 つ持ち、意図で次の状態へ置き換える | `RulerController`（application） |
 | 表示フレーム | 最新の状態から生成する、描くための値の組 | `RulerFrame`（application） |
 | 画素の列 | cairo の `ImageSurface` に描いた ARGB の並び。X へは転送するだけ | ui-x11 |
 
