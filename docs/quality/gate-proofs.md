@@ -1,6 +1,6 @@
 # ゲート発火の証明 — NeNe Ruler
 
-> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）。以下は実行した結果のみ。
+> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）。以下は実行した結果のみ。
 > 関連: QLT-007 / QLT-011 / QLT-013 / ADR 0003
 
 ## 1. 環境と範囲
@@ -278,3 +278,32 @@ make screenshot
 
 - クリップボードマネージャ（WSLg の Windows 側の同期を含む）との相性。所有を取った直後に相手が `TARGETS` と `UTF8_STRING` を要求する流れは `xclip` で見ただけ
 - 失敗の取り消し線は画素の単体テストでだけ見ている（Xvfb では失敗させられなかった）
+
+## 12. Issue #10 — 矢印での移動（2026-10-16）
+
+同じコンテナ。Issue #8 の枝の上に積んだ。
+
+### 12.1 ゲート
+
+| target | 結果 |
+| --- | --- |
+| `make lint` | 0 件 |
+| `make test` | core 44・application 14・adapters-x11 11・ui-x11 22・xtask 69、すべて成功 |
+| `make conformance` | 違反なし（120 ファイル） |
+| `make deny` / `make fmt-check` / `make doc-check` | ok・差分なし・警告なし |
+| `make coverage` | core ＋ application: regions 98.10%・functions 95.56%・lines 97.11% |
+
+### 12.2 Xvfb での鍵（WM 無し・焦点は `PointerRoot`）
+
+窓を (100, 100) に置き、ポインタを上辺の帯（根の (300, 105)）に置いて `xdotool key` を送った。
+
+| 鍵 | `getwindowgeometry` の Position |
+| --- | --- |
+| 前 | `100,100` |
+| `Right` | `101,100` |
+| `shift+Right` | `111,100` |
+| `Down` → `shift+Up` | `111,91` |
+| `Left` × 2（帯の上で） | `98,100`（別の起動で 100,100 から） |
+
+🔴 **記録しておくこと:** 窓が動いてポインタが中身（入力 shape の外）に乗ると、WM 無しの Xvfb では鍵が根へ行き、動かなくなる。
+これは焦点が `PointerRoot` の環境の性質で、WM があればクリックで焦点が枠の窓に付く。WSLg での焦点の挙動は施主の目視（Issue #10 のやらないこと）。

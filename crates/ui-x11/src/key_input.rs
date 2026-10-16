@@ -1,5 +1,7 @@
 //! keysym を、この製品が反応する鍵に読み替える。
 
+use nene_ruler_core::nudge_direction::NudgeDirection;
+
 /// `XK_Escape`。
 const ESCAPE: u32 = 0xff1b;
 /// `XK_Return`。
@@ -8,6 +10,11 @@ const RETURN: u32 = 0xff0d;
 const KP_ENTER: u32 = 0xff8d;
 /// `XK_BackSpace`。
 const BACKSPACE: u32 = 0xff08;
+/// `XK_Left` / `XK_Up` / `XK_Right` / `XK_Down`。
+const LEFT: u32 = 0xff51;
+const UP: u32 = 0xff52;
+const RIGHT: u32 = 0xff53;
+const DOWN: u32 = 0xff54;
 
 /// 反応する鍵の閉じた集合。それ以外は `Other`。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -20,6 +27,8 @@ pub enum KeyInput {
     Backspace,
     /// 印字できる ASCII の 1 文字。
     Character(char),
+    /// 矢印。枠を動かす（FR-015）。
+    Arrow(NudgeDirection),
     /// 反応しない鍵。
     Other,
 }
@@ -32,6 +41,10 @@ impl KeyInput {
             ESCAPE => Self::Escape,
             RETURN | KP_ENTER => Self::Return,
             BACKSPACE => Self::Backspace,
+            LEFT => Self::Arrow(NudgeDirection::Left),
+            UP => Self::Arrow(NudgeDirection::Up),
+            RIGHT => Self::Arrow(NudgeDirection::Right),
+            DOWN => Self::Arrow(NudgeDirection::Down),
             0x20..=0x7e => char::from_u32(keysym).map_or(Self::Other, Self::Character),
             _ => Self::Other,
         }
@@ -50,6 +63,14 @@ mod tests {
         assert_eq!(KeyInput::from_keysym(0xff08), KeyInput::Backspace);
         assert_eq!(KeyInput::from_keysym(0x23), KeyInput::Character('#'));
         assert_eq!(KeyInput::from_keysym(0x46), KeyInput::Character('F'));
+        assert_eq!(
+            KeyInput::from_keysym(0xff51),
+            KeyInput::Arrow(NudgeDirection::Left)
+        );
+        assert_eq!(
+            KeyInput::from_keysym(0xff54),
+            KeyInput::Arrow(NudgeDirection::Down)
+        );
         assert_eq!(KeyInput::from_keysym(0xffe1), KeyInput::Other);
     }
 }
