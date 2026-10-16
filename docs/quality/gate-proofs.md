@@ -1,6 +1,6 @@
 # ゲート発火の証明 — NeNe Ruler
 
-> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）。以下は実行した結果のみ。
+> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）。以下は実行した結果のみ。
 > 関連: QLT-007 / QLT-011 / QLT-013 / ADR 0003
 
 ## 1. 環境と範囲
@@ -246,3 +246,35 @@ make screenshot
 
 - 書けない失敗（権限・ディスク）の通知。単体テスト（ファイルの代わりにディレクトリ）でしか見ていない
 - WSLg（`XDG_CONFIG_HOME` が設定された環境）での置き場
+
+## 11. Issue #8 — クリップボード（2026-10-16）
+
+同じコンテナ。Issue #6 の枝の上に積んだ。貼り付け側は `xclip`（`apt-get install xclip`）。
+
+### 11.1 ゲート
+
+| target | 結果 |
+| --- | --- |
+| `make lint` | 0 件 |
+| `make test` | core 43・application 14・adapters-x11 11・ui-x11 22・xtask 69、すべて成功 |
+| `make conformance` | 違反なし（118 ファイル） |
+| `make deny` / `make fmt-check` / `make doc-check` | ok・差分なし・警告なし |
+| `make coverage` | core ＋ application: regions 98.07%・functions 95.49%・lines 97.06% |
+
+### 11.2 Xvfb での貼り付け（合成器あり・WM 無し）
+
+| 手順 | 結果 | PNG |
+| --- | --- | --- |
+| `400 px` を押す（`mousemove 204 36 click 1`） | 数字が反転（インクの箱に透明の文字） | [copied](screenshots/2026-10-16-xvfb-copied.png) |
+| `xclip -o -selection clipboard` | `400 px` | |
+| `xclip -o -selection clipboard -t TARGETS` | `TARGETS UTF8_STRING STRING` | |
+| ポインタを中身へ（`mousemove 300 120`） | 印が消える。貼り付けは引き続き `400 px` | |
+| 単位を in にして `240 px` を押す | `xclip -o` は `240 px`（Xvfb はミリ寸法が 0 で px に降格） | |
+
+🔴 **見つかった欠陥:** 印が消えなかった。中身は入力 shape の外なので、数字から中身へ動いたときに届くのは `MotionNotify` ではなく
+`LeaveNotify` である。`LEAVE_WINDOW` を選び、`LeaveNotify` でも印を消すようにして消えた。入力 shape（ADR 0005）の帰結で、Xvfb の実測で出た。
+
+### 11.3 まだ証明していないこと（Issue #8）
+
+- クリップボードマネージャ（WSLg の Windows 側の同期を含む）との相性。所有を取った直後に相手が `TARGETS` と `UTF8_STRING` を要求する流れは `xclip` で見ただけ
+- 失敗の取り消し線は画素の単体テストでだけ見ている（Xvfb では失敗させられなかった）

@@ -10,6 +10,8 @@ use nene_ruler_core::screen_metrics::ScreenMetrics;
 use nene_ruler_core::screen_metrics_failure::ScreenMetricsFailure;
 use nene_ruler_core::unit::Unit;
 
+use crate::copy_mark::CopyMark;
+use crate::frame_style::FrameStyle;
 use crate::frame_texts::FrameTexts;
 use crate::modal_session::ModalSession;
 use crate::ports::Ports;
@@ -31,6 +33,7 @@ pub struct RulerController<'p> {
     modal: Option<ModalSession>,
     metrics: Result<ScreenMetrics, ScreenMetricsFailure>,
     store_failure: Option<SettingsStoreFailure>,
+    copy_mark: Option<CopyMark>,
     transparency: Transparency,
     version: ProductVersion,
 }
@@ -52,6 +55,7 @@ impl<'p> RulerController<'p> {
             modal: None,
             metrics: ports.metrics().screen_metrics(),
             store_failure,
+            copy_mark: None,
             transparency,
             version,
         }
@@ -82,6 +86,11 @@ impl<'p> RulerController<'p> {
                 self.edit(|session| session.clone().with_entry(session.entry().backspaced()));
             }
             RulerIntent::HexSubmit => self.submit_hex(),
+            RulerIntent::CopyText(axis) => {
+                let outcome = self.ports.clipboard().copy(self.text(axis).as_str());
+                self.copy_mark = Some(CopyMark::new(axis, outcome));
+            }
+            RulerIntent::ClearCopyMark => self.copy_mark = None,
         }
     }
 
@@ -91,8 +100,12 @@ impl<'p> RulerController<'p> {
         RulerFrame::new(
             FrameLayout::new(self.size),
             FrameTexts::new(self.text(Axis::Horizontal), self.text(Axis::Vertical)),
-            (self.settings.ink(), self.settings.layer()),
-            self.transparency,
+            FrameStyle::new(
+                self.settings.ink(),
+                self.settings.layer(),
+                self.transparency,
+                self.copy_mark,
+            ),
         )
     }
 
@@ -184,8 +197,12 @@ impl<'p> RulerController<'p> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::clipboard_failure::ClipboardFailure;
+    use crate::clipboard_port::ClipboardPort;
     use crate::screen_metrics_port::ScreenMetricsPort;
     use crate::settings_store_port::SettingsStorePort;
+    use alloc::borrow::ToOwned as _;
+    use alloc::string::String;
     use core::cell::RefCell;
     use nene_ruler_core::modal_theme::ModalTheme;
     use nene_ruler_core::rgb::Rgb;
@@ -228,16 +245,46 @@ mod tests {
         }
     }
 
+    /// 置かれた文字列を覚える偽のクリップボード。
+    struct MemoryClipboard {
+        copied: RefCell<Option<String>>,
+        failure: Option<ClipboardFailure>,
+    }
+
+    impl ClipboardPort for MemoryClipboard {
+        fn copy(&self, text: &str) -> Result<(), ClipboardFailure> {
+            *self.copied.borrow_mut() = Some(text.to_owned());
+            self.failure.map_or(Ok(()), Err)
+        }
+    }
+
+    fn clipboard() -> MemoryClipboard {
+        MemoryClipboard {
+            copied: RefCell::new(None),
+            failure: None,
+        }
+    }
+
     fn screen() -> FixedScreen {
         FixedScreen(ScreenMetrics::new(1920, 1080, 480, 270))
     }
 
     fn controller<'p>(screen: &'p FixedScreen, store: &'p MemoryStore) -> RulerController<'p> {
+        static NO_CLIPBOARD: NoClipboard = NoClipboard;
         RulerController::new(
-            Ports::new(screen, store),
+            Ports::new(screen, store, &NO_CLIPBOARD),
             Transparency::Composited,
             ProductVersion::new("0.1.0"),
         )
+    }
+
+    /// 何もしないクリップボード。コピーを見ないテストで使う。
+    struct NoClipboard;
+
+    impl ClipboardPort for NoClipboard {
+        fn copy(&self, _text: &str) -> Result<(), ClipboardFailure> {
+            Ok(())
+        }
     }
 
     #[test]
@@ -462,5 +509,42 @@ mod tests {
             controller.store_failure(),
             Some(SettingsStoreFailure::Unwritable)
         );
+    }
+
+    #[test]
+    fn copying_sends_the_displayed_string_and_marks_the_number() {
+        let (screen, store, board) = (screen(), MemoryStore::empty(), clipboard());
+        let mut controller = RulerController::new(
+            Ports::new(&screen, &store, &board),
+            Transparency::Composited,
+            ProductVersion::new("0.1.0"),
+        );
+        controller.apply(RulerIntent::ChooseUnit(Unit::Mm));
+        controller.apply(RulerIntent::CopyText(Axis::Vertical));
+        assert_eq!(board.copied.borrow().as_deref(), Some("60.0 mm"));
+        let mark = controller.frame().copy_mark().unwrap();
+        assert_eq!(mark.axis(), Axis::Vertical);
+        assert!(mark.succeeded());
+        controller.apply(RulerIntent::ClearCopyMark);
+        assert!(controller.frame().copy_mark().is_none());
+    }
+
+    #[test]
+    fn a_failed_copy_is_marked_as_such() {
+        let screen = screen();
+        let store = MemoryStore::empty();
+        let board = MemoryClipboard {
+            copied: RefCell::new(None),
+            failure: Some(ClipboardFailure::Rejected),
+        };
+        let mut controller = RulerController::new(
+            Ports::new(&screen, &store, &board),
+            Transparency::Composited,
+            ProductVersion::new("0.1.0"),
+        );
+        controller.apply(RulerIntent::CopyText(Axis::Horizontal));
+        let mark = controller.frame().copy_mark().unwrap();
+        assert!(!mark.succeeded());
+        assert_eq!(mark.failure(), Some(ClipboardFailure::Rejected));
     }
 }

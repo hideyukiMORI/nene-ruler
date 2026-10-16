@@ -86,7 +86,8 @@ impl<'d> RulerWindow<'d> {
                     | EventMask::STRUCTURE_NOTIFY
                     | EventMask::BUTTON_PRESS
                     | EventMask::BUTTON_RELEASE
-                    | EventMask::BUTTON1_MOTION
+                    | EventMask::POINTER_MOTION
+                    | EventMask::LEAVE_WINDOW
                     | EventMask::KEY_PRESS,
             );
         let window = WindowWrapper::create_window(
@@ -157,9 +158,13 @@ impl<'d> RulerWindow<'d> {
             self.set_input_shape(&frame.hit_regions())?;
             self.present(&frame)?;
         } else if let Event::ButtonPress(press) = event {
-            return self.pressed(&controller.frame(), press);
+            return self.pressed(controller, press);
         } else if let Event::MotionNotify(motion) = event {
             self.dragged((motion.root_x, motion.root_y))?;
+            self.moved_off_the_mark(controller, Some((motion.event_x, motion.event_y)))?;
+        } else if let Event::LeaveNotify(_) = event {
+            // 中身は入力 shape の外なので、数字から中身へ動くと MotionNotify ではなく LeaveNotify が届く。
+            self.moved_off_the_mark(controller, None)?;
         } else if let Event::ButtonRelease(_) = event {
             self.drag = None;
         } else if let Event::KeyPress(key) = event {
@@ -178,10 +183,15 @@ impl<'d> RulerWindow<'d> {
     }
 
     /// 左ボタンで掴んだ場所の意味に従う。移動と伸縮は WM に任せ、できなければ自前で引く。
-    fn pressed(&mut self, frame: &RulerFrame, press: &ButtonPressEvent) -> Result<Flow, UiFailure> {
+    fn pressed(
+        &mut self,
+        controller: &mut RulerController<'_>,
+        press: &ButtonPressEvent,
+    ) -> Result<Flow, UiFailure> {
         if press.detail != BUTTON_LEFT {
             return Ok(Flow::Continue);
         }
+        let frame = controller.frame();
         let Some(point) = PixelPoint::from_event(press.event_x, press.event_y) else {
             return Ok(Flow::Continue);
         };
@@ -193,8 +203,11 @@ impl<'d> RulerWindow<'d> {
             HitTarget::Resize(Anchor::TopLeft) => MOVERESIZE_SIZE_TOPLEFT,
             HitTarget::Resize(Anchor::BottomRight) => MOVERESIZE_SIZE_BOTTOMRIGHT,
             HitTarget::Gear => return Ok(Flow::OpenSettings),
-            // 数字のコピーは後続の Issue（クリップボード）。いまは何もしない。
-            HitTarget::Copy(_) => return Ok(Flow::Continue),
+            HitTarget::Copy(axis) => {
+                controller.apply(RulerIntent::CopyText(axis));
+                self.present(&controller.frame())?;
+                return Ok(Flow::Continue);
+            }
         };
         if self.wm_moves {
             self.ask_wm_to_move_resize(press, direction)?;
@@ -203,6 +216,29 @@ impl<'d> RulerWindow<'d> {
             self.drag = Some(Drag::begin(target, (press.root_x, press.root_y), start));
         }
         Ok(Flow::Continue)
+    }
+
+    /// コピーの印があり、ポインタがその数字から離れたら印を消す（ADR 0007 の 5）。
+    fn moved_off_the_mark(
+        &self,
+        controller: &mut RulerController<'_>,
+        position: Option<(i16, i16)>,
+    ) -> Result<(), UiFailure> {
+        let frame = controller.frame();
+        let Some(mark) = frame.copy_mark() else {
+            return Ok(());
+        };
+        let hit = frame
+            .layout()
+            .label_hit(mark.axis(), frame.text(mark.axis()).chars());
+        let still_over = position
+            .and_then(|(x, y)| PixelPoint::from_event(x, y))
+            .is_some_and(|point| hit.contains(point));
+        if still_over {
+            return Ok(());
+        }
+        controller.apply(RulerIntent::ClearCopyMark);
+        self.present(&controller.frame())
     }
 
     /// 自前のドラッグ中なら窓の幾何を更新する。

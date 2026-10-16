@@ -10,6 +10,7 @@ use std::process::ExitCode;
 use nene_ruler_adapters_x11::adapter_failure::AdapterFailure;
 use nene_ruler_adapters_x11::file_settings_store::FileSettingsStore;
 use nene_ruler_adapters_x11::randr_screen_metrics::RandrScreenMetrics;
+use nene_ruler_adapters_x11::x11_clipboard::X11Clipboard;
 use nene_ruler_application::ports::Ports;
 use nene_ruler_application::product_version::ProductVersion;
 use nene_ruler_application::ruler_controller::RulerController;
@@ -26,6 +27,8 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 enum StartupFailure {
     /// 物理寸法のアダプタが X に繋げなかった。
     Metrics(AdapterFailure),
+    /// クリップボードのアダプタが X に繋げなかった、または窓を作れなかった。
+    Clipboard(AdapterFailure),
     /// 設定の置き場が決まらなかった。
     Store(SettingsStoreFailure),
     /// 画面側が失敗した。
@@ -36,6 +39,7 @@ impl fmt::Display for StartupFailure {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Metrics(error) => write!(formatter, "RandR adapter: {error}"),
+            Self::Clipboard(error) => write!(formatter, "clipboard adapter: {error}"),
             Self::Store(failure) => formatter.write_str(failure.describe()),
             Self::Ui(error) => write!(formatter, "{error}"),
         }
@@ -46,9 +50,10 @@ impl fmt::Display for StartupFailure {
 fn run() -> Result<(), StartupFailure> {
     let metrics = RandrScreenMetrics::connect().map_err(StartupFailure::Metrics)?;
     let store = FileSettingsStore::in_xdg_config().map_err(StartupFailure::Store)?;
+    let clipboard = X11Clipboard::connect().map_err(StartupFailure::Clipboard)?;
     let display = Display::connect().map_err(StartupFailure::Ui)?;
     let mut controller = RulerController::new(
-        Ports::new(&metrics, &store),
+        Ports::new(&metrics, &store, &clipboard),
         display.transparency(),
         ProductVersion::new(VERSION),
     );

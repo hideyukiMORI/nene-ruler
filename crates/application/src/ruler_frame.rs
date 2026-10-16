@@ -10,6 +10,8 @@ use nene_ruler_core::length_text::LengthText;
 use nene_ruler_core::rgb::Rgb;
 use nene_ruler_core::window_layer::WindowLayer;
 
+use crate::copy_mark::CopyMark;
+use crate::frame_style::FrameStyle;
 use crate::frame_texts::FrameTexts;
 use crate::transparency::Transparency;
 
@@ -18,26 +20,17 @@ use crate::transparency::Transparency;
 pub struct RulerFrame {
     layout: FrameLayout,
     texts: FrameTexts,
-    ink: Rgb,
-    layer: WindowLayer,
-    transparency: Transparency,
+    style: FrameStyle,
 }
 
 impl RulerFrame {
     /// 値を束ねる。生成は `RulerController::frame` だけが行う。
     #[must_use]
-    pub const fn new(
-        layout: FrameLayout,
-        texts: FrameTexts,
-        ink: (Rgb, WindowLayer),
-        transparency: Transparency,
-    ) -> Self {
+    pub const fn new(layout: FrameLayout, texts: FrameTexts, style: FrameStyle) -> Self {
         Self {
             layout,
             texts,
-            ink: ink.0,
-            layer: ink.1,
-            transparency,
+            style,
         }
     }
 
@@ -56,19 +49,25 @@ impl RulerFrame {
     /// インク色。
     #[must_use]
     pub const fn ink(&self) -> Rgb {
-        self.ink
+        self.style.ink()
     }
 
     /// 重なり順。窓の属性であって画素ではないが、UI が読む値なのでここに乗せる。
     #[must_use]
     pub const fn layer(&self) -> WindowLayer {
-        self.layer
+        self.style.layer()
     }
 
     /// 透明に描けるか。
     #[must_use]
     pub const fn transparency(&self) -> Transparency {
-        self.transparency
+        self.style.transparency()
+    }
+
+    /// コピーの印。ポインタが数字から離れるまで（FR-007）。
+    #[must_use]
+    pub const fn copy_mark(&self) -> Option<CopyMark> {
+        self.style.copy_mark()
     }
 
     /// 当たり判定。文字数は表示文字列から取る。

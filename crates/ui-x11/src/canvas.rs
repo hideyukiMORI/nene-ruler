@@ -3,6 +3,7 @@
 use core::f64::consts::{FRAC_PI_2, PI};
 
 use cairo::{Context, FontSlant, FontWeight, Format, ImageSurface, Operator};
+use nene_ruler_application::copy_mark::CopyMark;
 use nene_ruler_application::ruler_frame::RulerFrame;
 use nene_ruler_application::transparency::Transparency;
 use nene_ruler_core::axis::Axis;
@@ -175,9 +176,15 @@ fn draw_tick_labels(context: &Context, frame: &RulerFrame) -> Result<(), UiFailu
 }
 
 /// 幅・高さの数字。横軸は上辺の中央、縦軸は左辺の中央に 90 度回して。
+/// コピーの印があれば、成功は反転（インクの箱に透明の文字）、失敗は取り消し線（ADR 0007 の 5）。
 fn draw_label(context: &Context, frame: &RulerFrame, axis: Axis) -> Result<(), UiFailure> {
     let text = frame.text(axis).as_str();
     let baseline = frame.layout().label_baseline(axis);
+    let mark = frame.copy_mark().filter(|mark| mark.axis() == axis);
+    let hit = frame.layout().label_hit(axis, frame.text(axis).chars());
+    if mark.is_some_and(CopyMark::succeeded) {
+        fill_rect(context, hit)?;
+    }
     context.select_font_face(FONT_FAMILY, FontSlant::Normal, FontWeight::Normal);
     context.set_font_size(LABEL_FONT_PX);
     let extents = context.text_extents(text)?;
@@ -187,10 +194,25 @@ fn draw_label(context: &Context, frame: &RulerFrame, axis: Axis) -> Result<(), U
     if axis == Axis::Vertical {
         context.rotate(-FRAC_PI_2);
     }
+    if mark.is_some_and(CopyMark::succeeded) {
+        context.set_operator(Operator::Clear);
+    }
     context.move_to(centred, 0.0_f64);
     context.show_text(text)?;
     context.restore()?;
+    if mark.is_some_and(|mark| !mark.succeeded()) {
+        strike_through(context, hit, axis)?;
+    }
     Ok(())
+}
+
+/// 数字の中央を横切る 1 px の線。縦軸の数字は縦に走る。
+fn strike_through(context: &Context, hit: PixelRect, axis: Axis) -> Result<(), UiFailure> {
+    let line = match axis {
+        Axis::Horizontal => PixelRect::new(hit.x(), hit.y() + hit.height() / 2, hit.width(), 1),
+        Axis::Vertical => PixelRect::new(hit.x() + hit.width() / 2, hit.y(), 1, hit.height()),
+    };
+    fill_rect(context, line)
 }
 
 /// 原点を点へ移す。
@@ -283,13 +305,81 @@ mod tests {
         }
     }
 
-    fn canvas(transparency: Transparency) -> Canvas {
-        let controller = RulerController::new(
-            nene_ruler_application::ports::Ports::new(&NoScreen, &NoStore),
+    struct FakeClipboard(Result<(), nene_ruler_application::clipboard_failure::ClipboardFailure>);
+
+    impl nene_ruler_application::clipboard_port::ClipboardPort for FakeClipboard {
+        fn copy(
+            &self,
+            _text: &str,
+        ) -> Result<(), nene_ruler_application::clipboard_failure::ClipboardFailure> {
+            self.0
+        }
+    }
+
+    fn controller_with(
+        transparency: Transparency,
+        clipboard: &FakeClipboard,
+    ) -> RulerController<'_> {
+        RulerController::new(
+            nene_ruler_application::ports::Ports::new(&NoScreen, &NoStore, clipboard),
             transparency,
             nene_ruler_application::product_version::ProductVersion::new("0.1.0"),
-        );
+        )
+    }
+
+    fn canvas(transparency: Transparency) -> Canvas {
+        let board = FakeClipboard(Ok(()));
+        let controller = controller_with(transparency, &board);
         Canvas::render(&controller.frame(), Format::ARgb32).unwrap()
+    }
+
+    #[test]
+    fn a_successful_copy_inverts_the_number() {
+        use nene_ruler_application::ruler_intent::RulerIntent;
+        let board = FakeClipboard(Ok(()));
+        let mut controller = controller_with(Transparency::Composited, &board);
+        controller.apply(RulerIntent::CopyText(Axis::Horizontal));
+        let frame = controller.frame();
+        let hit = frame
+            .layout()
+            .label_hit(Axis::Horizontal, frame.text(Axis::Horizontal).chars());
+        let mut canvas = Canvas::render(&frame, Format::ARgb32).unwrap();
+        // 箱の角はインク、文字の無い所も含めて箱の中は透明の文字以外がインク。
+        assert_eq!(
+            canvas.pixel(hit.x(), hit.y()).unwrap(),
+            Some([0x35, 0x39, 0xE5, 0xFF])
+        );
+        let inside: Vec<[u8; 4]> = (hit.x()..=hit.right())
+            .filter_map(|x| canvas.pixel(x, hit.y() + 2).unwrap())
+            .collect();
+        assert!(inside.iter().any(|p| p[3] == 0xFF));
+        assert!(inside.iter().any(|p| p[3] < 0xFF));
+    }
+
+    #[test]
+    fn a_failed_copy_strikes_the_number_through() {
+        use nene_ruler_application::clipboard_failure::ClipboardFailure;
+        use nene_ruler_application::ruler_intent::RulerIntent;
+        let board = FakeClipboard(Err(ClipboardFailure::Rejected));
+        let mut controller = controller_with(Transparency::Composited, &board);
+        controller.apply(RulerIntent::CopyText(Axis::Vertical));
+        let frame = controller.frame();
+        let hit = frame
+            .layout()
+            .label_hit(Axis::Vertical, frame.text(Axis::Vertical).chars());
+        let mut canvas = Canvas::render(&frame, Format::ARgb32).unwrap();
+        let x = hit.x() + hit.width() / 2;
+        let column: Vec<[u8; 4]> = (hit.y()..=hit.bottom())
+            .filter_map(|y| canvas.pixel(x, y).unwrap())
+            .collect();
+        assert!(column.iter().all(|p| p[3] == 0xFF));
+        // 反転ではないので、数字の箱の外（右隣）は透明のまま。
+        assert_eq!(
+            canvas
+                .pixel(hit.right() + 3, hit.y() + hit.height() / 2)
+                .unwrap(),
+            Some([0, 0, 0, 0])
+        );
     }
 
     #[test]
