@@ -7,14 +7,14 @@ use nene_ruler_application::ruler_frame::RulerFrame;
 use nene_ruler_application::transparency::Transparency;
 use nene_ruler_core::axis::Axis;
 use nene_ruler_core::edge::Edge;
-use nene_ruler_core::ink_color::InkColor;
 use nene_ruler_core::pixel_point::PixelPoint;
 use nene_ruler_core::pixel_rect::PixelRect;
+use nene_ruler_core::rgb::Rgb;
 
 use crate::ui_failure::UiFailure;
 
 /// 数字のフォント。toy text API なので家族名だけ（ADR 0002）。
-const FONT_FAMILY: &str = "sans-serif";
+pub(crate) const FONT_FAMILY: &str = "sans-serif";
 /// 幅・高さの数字の大きさ。
 const LABEL_FONT_PX: f64 = 11.0;
 /// 主目盛の数字の大きさ。
@@ -31,35 +31,49 @@ pub struct Canvas {
 }
 
 impl Canvas {
-    /// フレームを描き切る。透明なら背景はアルファ 0 のまま、不透明なら補色で塗る。
+    /// 枠のフレームを描き切る。透明なら背景はアルファ 0 のまま、不透明なら補色で塗る。
     ///
     /// # Errors
     ///
     /// cairo が surface を作れない、または描画に失敗した。
     pub fn render(frame: &RulerFrame, format: Format) -> Result<Self, UiFailure> {
-        let window = frame.layout().window();
+        Self::paint(frame.layout().window(), format, |context| {
+            paint_background(context, frame)?;
+            set_ink(context, frame.ink());
+            for rect in frame.layout().ink_rects() {
+                fill_rect(context, rect)?;
+            }
+            draw_tick_labels(context, frame)?;
+            draw_label(context, frame, Axis::Horizontal)?;
+            draw_label(context, frame, Axis::Vertical)?;
+            draw_gear(context, frame.layout().gear())
+        })
+    }
+
+    /// `bounds` の大きさの surface を作り、`draw` で描き切る。
+    ///
+    /// # Errors
+    ///
+    /// cairo が surface を作れない、または `draw` が失敗した。
+    pub fn paint<D: FnOnce(&Context) -> Result<(), UiFailure>>(
+        bounds: PixelRect,
+        format: Format,
+        draw: D,
+    ) -> Result<Self, UiFailure> {
         let surface = ImageSurface::create(
             format,
-            i32::from(window.width()),
-            i32::from(window.height()),
+            i32::from(bounds.width()),
+            i32::from(bounds.height()),
         )?;
         {
             let context = Context::new(&surface)?;
-            paint_background(&context, frame)?;
-            set_ink(&context, frame.ink());
-            for rect in frame.layout().ink_rects() {
-                fill_rect(&context, rect)?;
-            }
-            draw_tick_labels(&context, frame)?;
-            draw_label(&context, frame, Axis::Horizontal)?;
-            draw_label(&context, frame, Axis::Vertical)?;
-            draw_gear(&context, frame.layout().gear())?;
+            draw(&context)?;
         }
         surface.flush();
         Ok(Self {
             surface,
-            width: window.width(),
-            height: window.height(),
+            width: bounds.width(),
+            height: bounds.height(),
         })
     }
 
@@ -126,7 +140,7 @@ fn paint_background(context: &Context, frame: &RulerFrame) -> Result<(), UiFailu
 }
 
 /// 描く色を不透明のインク色にする。
-fn set_ink(context: &Context, ink: InkColor) {
+pub(crate) fn set_ink(context: &Context, ink: Rgb) {
     context.set_source_rgb(
         f64::from(ink.red()) / 255.0_f64,
         f64::from(ink.green()) / 255.0_f64,
@@ -135,7 +149,7 @@ fn set_ink(context: &Context, ink: InkColor) {
 }
 
 /// 整数座標の矩形を塗る。線・目盛・鉤括弧はすべてこれ（アンチエイリアスが要らない）。
-fn fill_rect(context: &Context, rect: PixelRect) -> Result<(), UiFailure> {
+pub(crate) fn fill_rect(context: &Context, rect: PixelRect) -> Result<(), UiFailure> {
     context.rectangle(
         f64::from(rect.x()),
         f64::from(rect.y()),
@@ -180,7 +194,7 @@ fn draw_label(context: &Context, frame: &RulerFrame, axis: Axis) -> Result<(), U
 }
 
 /// 原点を点へ移す。
-fn translate_to(context: &Context, point: PixelPoint) {
+pub(crate) fn translate_to(context: &Context, point: PixelPoint) {
     context.translate(f64::from(point.x()), f64::from(point.y()));
 }
 
@@ -249,7 +263,11 @@ mod tests {
     }
 
     fn canvas(transparency: Transparency) -> Canvas {
-        let controller = RulerController::new(&NoScreen, transparency);
+        let controller = RulerController::new(
+            &NoScreen,
+            transparency,
+            nene_ruler_application::product_version::ProductVersion::new("0.1.0"),
+        );
         Canvas::render(&controller.frame(), Format::ARgb32).unwrap()
     }
 

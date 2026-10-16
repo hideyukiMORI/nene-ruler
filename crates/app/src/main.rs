@@ -9,9 +9,10 @@ use std::process::ExitCode;
 
 use nene_ruler_adapters_x11::adapter_failure::AdapterFailure;
 use nene_ruler_adapters_x11::randr_screen_metrics::RandrScreenMetrics;
+use nene_ruler_application::product_version::ProductVersion;
 use nene_ruler_application::ruler_controller::RulerController;
 use nene_ruler_ui_x11::display::Display;
-use nene_ruler_ui_x11::ruler_window::RulerWindow;
+use nene_ruler_ui_x11::event_loop;
 use nene_ruler_ui_x11::ui_failure::UiFailure;
 
 /// 製品の版。`Cargo.toml` の `[workspace.package] version` から cargo が渡す唯一の経路（FR-011）。
@@ -39,10 +40,12 @@ impl fmt::Display for StartupFailure {
 fn run() -> Result<(), StartupFailure> {
     let metrics = RandrScreenMetrics::connect().map_err(StartupFailure::Metrics)?;
     let display = Display::connect().map_err(StartupFailure::Ui)?;
-    let mut controller = RulerController::new(&metrics, display.transparency());
-    let mut window =
-        RulerWindow::open(&display, &controller.frame()).map_err(StartupFailure::Ui)?;
-    window.run(&mut controller).map_err(StartupFailure::Ui)
+    let mut controller = RulerController::new(
+        &metrics,
+        display.transparency(),
+        ProductVersion::new(VERSION),
+    );
+    event_loop::run(&display, &mut controller).map_err(StartupFailure::Ui)
 }
 
 // 🔴 標準エラーへ書いてよい唯一の場所（RS-014）。この #[expect] が宣言そのものである。

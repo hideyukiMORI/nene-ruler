@@ -10,8 +10,11 @@ extern crate alloc;
 extern crate std;
 
 pub mod frame_texts;
+pub mod modal_session;
+pub mod product_version;
 pub mod ruler_controller;
 pub mod ruler_frame;
 pub mod ruler_intent;
 pub mod screen_metrics_port;
+pub mod settings_frame;
 pub mod transparency;

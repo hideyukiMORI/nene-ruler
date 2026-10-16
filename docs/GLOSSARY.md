@@ -23,16 +23,22 @@
 | 物理寸法 | RandR が返す画面の画素数とミリ寸法。mm / in の換算に使う | `ScreenMetrics`（core） |
 | 表示文字列 | 長さを単位に従って綴った文字列。表示とクリップボードで同じものを使う | `LengthText`（core） |
 | 目盛 | 線の上の位置と、小・中・主の種類 | `TickMark` / `TickKind`（core） |
-| インク色 | 枠の窓に描くものすべてに使う 1 色。`#RRGGBB` で読み書きする | `InkColor`（core） |
+| 色 | 不透明な RGB の値型。インク色にもモーダルの配色にもこれ 1 つ。`#RRGGBB` で読み書きする | `Rgb`（core） |
+| インク色 | 枠の窓に描くものすべてに使う 1 色。設定の一部 | `RulerSettings::ink`（core） |
+| 直接入力 | `#RRGGBB` を打ち込む欄の編集状態。16 進の文字だけを受ける | `HexEntry`（core） |
 | アンカー | 左上と右下の鉤括弧。掴んで伸縮する | `Anchor`（core） |
 | 当たり判定 | クリックを受ける物理画素の矩形と、そこを掴んだときの意味（移動・伸縮・ギア・コピー） | `HitRegion` / `HitTarget`（core） |
 | 透明 | 描いたもの以外のアルファが 0 であること。合成器が無ければ不透明に落ちる | `Transparency`（application） |
 | 合成器 | `_NET_WM_CM_S0` を所有し、ARGB の窓を画面に合成するプログラム（Weston・xcompmgr 等） | adapters-x11 / ui-x11 |
-| モーダルの見え | 設定モーダルの背景と文字の配色。ダーク・ライト・システムに従うの閉じた集合。枠の窓には効かない | `ModalTheme`（core） |
+| モーダルの見え | 設定モーダルの背景と文字の配色。ダーク・ライトの閉じた集合（「システムに従う」は検出方法が決まってから）。枠の窓には効かない | `ModalTheme`（core） |
+| 配色 | 見えごとの背景・文字・入力欄・枠線・選択の印 | `ModalPalette`（core） |
+| 部品 | 設定モーダルで押せるもの。色見本・入力欄・単位・見え・最前面 | `SettingsControl` / `SettingsLayout`（core） |
 | 重なり順 | 常に最前面か、通常の重なり順かの閉じた集合 | `WindowLayer`（core） |
 | 設定 | インク色・モーダルの見え・単位・重なり順の組。保存される値の正本 | `RulerSettings`（core） |
 | 物差しの状態の所有者 | 枠・単位・設定を 1 つ持ち、意図で次の状態へ置き換える | `RulerController`（application） |
-| 表示フレーム | 最新の状態から生成する、描くための値の組 | `RulerFrame`（application） |
+| 表示フレーム | 最新の状態から生成する、描くための値の組 | `RulerFrame` / `SettingsFrame`（application） |
+| モーダルの編集状態 | モーダルが開いている間の入力欄と、直前の拒否 | `ModalSession`（application） |
+| 版 | `Cargo.toml` の版を合成ルートが 1 か所で包んだもの | `ProductVersion`（application） |
 | 画素の列 | cairo の `ImageSurface` に描いた ARGB の並び。X へは転送するだけ | ui-x11 |
 
 ## 使ってはいけない語

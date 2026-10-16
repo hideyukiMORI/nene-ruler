@@ -3,10 +3,12 @@
 use nene_ruler_application::transparency::Transparency;
 use x11rb::connection::Connection;
 use x11rb::protocol::xfixes::ConnectionExt as _;
-use x11rb::protocol::xproto::{ConnectionExt as _, Screen};
+use x11rb::protocol::xproto::{ConnectionExt as _, KeyButMask, KeyPressEvent, Screen};
 use x11rb::rust_connection::RustConnection;
 
 use crate::atoms::Atoms;
+use crate::key_input::KeyInput;
+use crate::key_map::KeyMap;
 use crate::ui_failure::UiFailure;
 use crate::window_visual::WindowVisual;
 
@@ -22,6 +24,7 @@ pub struct Display {
     atoms: Atoms,
     visual: WindowVisual,
     transparency: Transparency,
+    key_map: KeyMap,
 }
 
 impl Display {
@@ -55,13 +58,33 @@ impl Display {
                 Transparency::Opaque,
             ),
         };
+        let key_map = Self::key_map(&connection)?;
         Ok(Self {
             connection,
             screen_index,
             atoms,
             visual,
             transparency,
+            key_map,
         })
+    }
+
+    /// キーボード配列を読む。
+    fn key_map(connection: &RustConnection) -> Result<KeyMap, UiFailure> {
+        let setup = connection.setup();
+        let first = setup.min_keycode;
+        let count = setup.max_keycode.saturating_sub(first).saturating_add(1);
+        let mapping = connection.get_keyboard_mapping(first, count)?.reply()?;
+        Ok(KeyMap::from_mapping(first, &mapping))
+    }
+
+    /// 押された鍵を、この製品が反応する鍵に読み替える。
+    #[must_use]
+    pub fn key_input(&self, key: &KeyPressEvent) -> KeyInput {
+        let shifted = key.state.contains(KeyButMask::SHIFT);
+        self.key_map
+            .keysym(key.detail, shifted)
+            .map_or(KeyInput::Other, KeyInput::from_keysym)
     }
 
     /// 接続。
