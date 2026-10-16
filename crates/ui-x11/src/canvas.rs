@@ -8,6 +8,7 @@ use nene_ruler_application::ruler_frame::RulerFrame;
 use nene_ruler_application::transparency::Transparency;
 use nene_ruler_core::axis::Axis;
 use nene_ruler_core::edge::Edge;
+use nene_ruler_core::frame_layout::FrameLayout;
 use nene_ruler_core::pixel_point::PixelPoint;
 use nene_ruler_core::pixel_rect::PixelRect;
 use nene_ruler_core::rgb::Rgb;
@@ -47,6 +48,7 @@ impl Canvas {
             draw_tick_labels(context, frame)?;
             draw_label(context, frame, Axis::Horizontal)?;
             draw_label(context, frame, Axis::Vertical)?;
+            draw_notices(context, frame)?;
             draw_gear(context, frame.layout().gear())
         })
     }
@@ -206,6 +208,19 @@ fn draw_label(context: &Context, frame: &RulerFrame, axis: Axis) -> Result<(), U
     Ok(())
 }
 
+/// 枠の中の通知（FR-014）。下辺の目盛の上に、下から上へ。
+fn draw_notices(context: &Context, frame: &RulerFrame) -> Result<(), UiFailure> {
+    context.select_font_face(FONT_FAMILY, FontSlant::Normal, FontWeight::Normal);
+    context.set_font_size(f64::from(FrameLayout::notice_px()));
+    for (index, notice) in frame.notices().list().into_iter().enumerate() {
+        let index = u16::try_from(index).map_err(|_error| UiFailure::GeometryOutOfRange)?;
+        let baseline = frame.layout().notice_baseline(index);
+        context.move_to(f64::from(baseline.x()), f64::from(baseline.y()));
+        context.show_text(notice.describe())?;
+    }
+    Ok(())
+}
+
 /// 数字の中央を横切る 1 px の線。縦軸の数字は縦に走る。
 fn strike_through(context: &Context, hit: PixelRect, axis: Axis) -> Result<(), UiFailure> {
     let line = match axis {
@@ -331,6 +346,25 @@ mod tests {
         let board = FakeClipboard(Ok(()));
         let controller = controller_with(transparency, &board);
         Canvas::render(&controller.frame(), Format::ARgb32).unwrap()
+    }
+
+    #[test]
+    fn notices_are_drawn_only_when_something_is_degraded() {
+        let board = FakeClipboard(Ok(()));
+        let opaque = controller_with(Transparency::Opaque, &board);
+        let frame = opaque.frame();
+        let baseline = frame.layout().notice_baseline(0);
+        let mut canvas = Canvas::render(&frame, Format::ARgb32).unwrap();
+        // 不透明の背景（白）の上に、通知の文字のインクが混ざる。
+        let row: Vec<[u8; 4]> = (baseline.x()..baseline.x() + 120)
+            .filter_map(|x| canvas.pixel(x, baseline.y() - 3).unwrap())
+            .collect();
+        assert!(row.iter().any(|p| *p != [0xFF, 0xFF, 0xFF, 0xFF]));
+        let mut clean = self::canvas(Transparency::Composited);
+        let clean_row: Vec<[u8; 4]> = (baseline.x()..baseline.x() + 120)
+            .filter_map(|x| clean.pixel(x, baseline.y() - 3).unwrap())
+            .collect();
+        assert!(clean_row.iter().all(|p| p[3] == 0));
     }
 
     #[test]

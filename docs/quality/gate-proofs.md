@@ -1,6 +1,6 @@
 # ゲート発火の証明 — NeNe Ruler
 
-> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）。以下は実行した結果のみ。
+> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）/ Issue #12（第 13 節）。以下は実行した結果のみ。
 > 関連: QLT-007 / QLT-011 / QLT-013 / ADR 0003
 
 ## 1. 環境と範囲
@@ -307,3 +307,27 @@ make screenshot
 
 🔴 **記録しておくこと:** 窓が動いてポインタが中身（入力 shape の外）に乗ると、WM 無しの Xvfb では鍵が根へ行き、動かなくなる。
 これは焦点が `PointerRoot` の環境の性質で、WM があればクリックで焦点が枠の窓に付く。WSLg での焦点の挙動は施主の目視（Issue #10 のやらないこと）。
+
+## 13. Issue #12 — 通知（2026-10-16）
+
+同じコンテナ。Issue #10 の枝の上に積んだ。
+
+### 13.1 ゲート
+
+| target | 結果 |
+| --- | --- |
+| `make lint` | 0 件 |
+| `make test` | core 45・application 16・adapters-x11 11・ui-x11 24・xtask 69、すべて成功 |
+| `make conformance` | 違反なし（123 ファイル） |
+| `make deny` / `make fmt-check` / `make doc-check` | ok・差分なし・警告なし |
+| `make coverage` | core ＋ application: regions 97.92%・functions 95.08%・lines 96.80% |
+
+### 13.2 Xvfb での表示
+
+| 条件 | 結果 | PNG |
+| --- | --- | --- |
+| 合成器なしで起動 | 白い背景の枠の左下、下辺の目盛の上に `no compositor: drawn opaque` | [notice-opaque](screenshots/2026-10-16-xvfb-notice-opaque.png) |
+| 同じ状態でギア → `mm` | 単位のボタンの右に `no screen size`（Xvfb の `RandR` はミリ寸法 0） | [notice-modal](screenshots/2026-10-16-xvfb-notice-modal.png) |
+| 合成器ありで再起動（保存された `mm` を読み戻す） | 透明な枠の左下に `no screen size: px only` の 1 行。不透明の行は出ない | [notice-px-only](screenshots/2026-10-16-xvfb-notice-px-only.png) |
+
+見つかった不備: モーダルの通知の初版 `px only: no screen size` は窓の右端で切れた。`no screen size` に短くした。

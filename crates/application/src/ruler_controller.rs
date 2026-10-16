@@ -11,6 +11,7 @@ use nene_ruler_core::screen_metrics_failure::ScreenMetricsFailure;
 use nene_ruler_core::unit::Unit;
 
 use crate::copy_mark::CopyMark;
+use crate::frame_notices::FrameNotices;
 use crate::frame_style::FrameStyle;
 use crate::frame_texts::FrameTexts;
 use crate::modal_session::ModalSession;
@@ -19,6 +20,7 @@ use crate::product_version::ProductVersion;
 use crate::ruler_frame::RulerFrame;
 use crate::ruler_intent::RulerIntent;
 use crate::settings_frame::SettingsFrame;
+use crate::settings_notices::SettingsNotices;
 use crate::settings_store_failure::SettingsStoreFailure;
 use crate::transparency::Transparency;
 
@@ -105,7 +107,11 @@ impl<'p> RulerController<'p> {
                 self.settings.layer(),
                 self.transparency,
                 self.copy_mark,
-            ),
+            )
+            .with_notices(FrameNotices::new(
+                self.transparency == Transparency::Opaque,
+                self.metrics.is_err() && self.settings.unit() != Unit::Px,
+            )),
         )
     }
 
@@ -117,7 +123,7 @@ impl<'p> RulerController<'p> {
                 self.settings,
                 session.clone(),
                 self.version,
-                self.store_failure,
+                SettingsNotices::new(self.store_failure, self.metrics.err()),
             )
         })
     }
@@ -546,5 +552,32 @@ mod tests {
         let mark = controller.frame().copy_mark().unwrap();
         assert!(!mark.succeeded());
         assert_eq!(mark.failure(), Some(ClipboardFailure::Rejected));
+    }
+
+    #[test]
+    fn notices_follow_transparency_and_metrics() {
+        use crate::frame_notice::FrameNotice;
+        static NO_CLIPBOARD: NoClipboard = NoClipboard;
+        let screen = FixedScreen(Err(ScreenMetricsFailure::Unavailable));
+        let store = MemoryStore::empty();
+        let mut controller = RulerController::new(
+            Ports::new(&screen, &store, &NO_CLIPBOARD),
+            Transparency::Opaque,
+            ProductVersion::new("0.1.0"),
+        );
+        assert_eq!(controller.frame().notices().list(), [FrameNotice::Opaque]);
+        controller.apply(RulerIntent::ChooseUnit(Unit::Mm));
+        assert_eq!(
+            controller.frame().notices().list(),
+            [FrameNotice::Opaque, FrameNotice::NoScreenMetrics]
+        );
+        controller.apply(RulerIntent::OpenSettings);
+        assert_eq!(
+            controller.settings_frame().unwrap().metrics_failure(),
+            Some(ScreenMetricsFailure::Unavailable)
+        );
+        let (real_screen, fresh_store) = (self::screen(), MemoryStore::empty());
+        let fine = self::controller(&real_screen, &fresh_store);
+        assert!(fine.frame().notices().list().is_empty());
     }
 }
