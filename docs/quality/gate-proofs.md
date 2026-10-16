@@ -1,6 +1,6 @@
 # ゲート発火の証明 — NeNe Ruler
 
-> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）。以下は実行した結果のみ。
+> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）。以下は実行した結果のみ。
 > 関連: QLT-007 / QLT-011 / QLT-013 / ADR 0003
 
 ## 1. 環境と範囲
@@ -218,3 +218,31 @@ make screenshot
 
 - WSLg（WM あり）での transient の扱い・最前面の切替（`_NET_WM_STATE` のメッセージ）・モーダルの位置
 - mm / in の表示。Xvfb の `RandR` はミリ寸法を 0 で返すので px に降格した。単位の換算は `RulerController` の単体テストで見ている
+
+## 10. Issue #6 — 設定の保存（2026-10-16）
+
+同じコンテナ。Issue #4 の枝の上に積んだ。`HOME` を一時ディレクトリに向け、`XDG_CONFIG_HOME` を空にして実行した。
+
+### 10.1 ゲート
+
+| target | 結果 |
+| --- | --- |
+| `make lint` | 0 件 |
+| `make test` | core 43・application 12・adapters-x11 8・ui-x11 20・xtask 69、すべて成功 |
+| `make conformance` | 違反なし（110 ファイル） |
+| `make deny` / `make fmt-check` / `make doc-check` | ok・差分なし・警告なし |
+| `make coverage` | core ＋ application: regions 98.13%・functions 95.61%・lines 97.14% |
+
+### 10.2 Xvfb での再起動
+
+| 手順 | 結果 | PNG |
+| --- | --- | --- |
+| 起動 → ギア → 青の色見本 → `mm` → Esc → Esc | `~/.config/nene-ruler/settings.v1.txt` が生まれ、中身は `version = 1` / `ink = #1E88E5` / `modal_theme = dark` / `unit = mm` / `layer = always_on_top` の 5 行。一時ファイルは残らない | |
+| 再起動 | 枠が青で出る。単位は mm で保存されているが、Xvfb の `RandR` はミリ寸法が 0 なので表示は px に降格（FR-008） | [restored](screenshots/2026-10-16-xvfb-settings-restored.png) |
+| ファイルを `version = 9` の 1 行にして再起動 → ギア | 既定の赤で出る。モーダルの脚注の上に `settings: unknown file version; using defaults`（FR-014） | [unknown-version](screenshots/2026-10-16-xvfb-settings-unknown-version.png) |
+| 橙の色見本を押す | 保存が成功し、通知が消える。ファイルは `ink = #FB8C00` / `unit = px` で書き直される | |
+
+### 10.3 まだ証明していないこと（Issue #6）
+
+- 書けない失敗（権限・ディスク）の通知。単体テスト（ファイルの代わりにディレクトリ）でしか見ていない
+- WSLg（`XDG_CONFIG_HOME` が設定された環境）での置き場

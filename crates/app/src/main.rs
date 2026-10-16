@@ -8,9 +8,12 @@ use std::fmt;
 use std::process::ExitCode;
 
 use nene_ruler_adapters_x11::adapter_failure::AdapterFailure;
+use nene_ruler_adapters_x11::file_settings_store::FileSettingsStore;
 use nene_ruler_adapters_x11::randr_screen_metrics::RandrScreenMetrics;
+use nene_ruler_application::ports::Ports;
 use nene_ruler_application::product_version::ProductVersion;
 use nene_ruler_application::ruler_controller::RulerController;
+use nene_ruler_application::settings_store_failure::SettingsStoreFailure;
 use nene_ruler_ui_x11::display::Display;
 use nene_ruler_ui_x11::event_loop;
 use nene_ruler_ui_x11::ui_failure::UiFailure;
@@ -23,6 +26,8 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 enum StartupFailure {
     /// 物理寸法のアダプタが X に繋げなかった。
     Metrics(AdapterFailure),
+    /// 設定の置き場が決まらなかった。
+    Store(SettingsStoreFailure),
     /// 画面側が失敗した。
     Ui(UiFailure),
 }
@@ -31,6 +36,7 @@ impl fmt::Display for StartupFailure {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Metrics(error) => write!(formatter, "RandR adapter: {error}"),
+            Self::Store(failure) => formatter.write_str(failure.describe()),
             Self::Ui(error) => write!(formatter, "{error}"),
         }
     }
@@ -39,9 +45,10 @@ impl fmt::Display for StartupFailure {
 /// 依存を結んで走らせる。
 fn run() -> Result<(), StartupFailure> {
     let metrics = RandrScreenMetrics::connect().map_err(StartupFailure::Metrics)?;
+    let store = FileSettingsStore::in_xdg_config().map_err(StartupFailure::Store)?;
     let display = Display::connect().map_err(StartupFailure::Ui)?;
     let mut controller = RulerController::new(
-        &metrics,
+        Ports::new(&metrics, &store),
         display.transparency(),
         ProductVersion::new(VERSION),
     );

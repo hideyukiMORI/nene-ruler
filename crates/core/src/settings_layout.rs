@@ -45,6 +45,8 @@ const LAYER_ROW_PX: u16 = 272;
 const HEADING_GAP_PX: u16 = 8;
 /// 題のベースライン。
 const TITLE_BASELINE_PX: u16 = 28;
+/// 通知（設定の読み書きの失敗）のベースライン。
+const NOTICE_BASELINE_PX: u16 = 304;
 /// 脚注のベースライン。
 const FOOTER_BASELINE_PX: u16 = 322;
 
@@ -86,6 +88,12 @@ impl SettingsLayout {
                 "Always on top",
             ),
         ]
+    }
+
+    /// 通知の行のベースライン。設定の読み書きの失敗をここに出す（FR-014）。
+    #[must_use]
+    pub const fn notice_baseline() -> PixelPoint {
+        PixelPoint::new(MARGIN_PX, NOTICE_BASELINE_PX)
     }
 
     /// 脚注（版とコピーライト）のベースライン。文字は application が版から作る。
@@ -213,6 +221,8 @@ mod tests {
         }
         assert_eq!(hits.len(), 8 + 1 + 3 + 2 + 1);
         assert!(SettingsLayout::footer_baseline().y() < window.height());
+        assert!(SettingsLayout::notice_baseline().y() > SettingsLayout::layer_toggle().bottom());
+        assert!(SettingsLayout::notice_baseline().y() < SettingsLayout::footer_baseline().y());
     }
 
     #[test]
