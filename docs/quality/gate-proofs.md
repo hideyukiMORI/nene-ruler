@@ -455,3 +455,23 @@ X サーバは押されていない鍵の離しを捨てるので、F4 の離し
 | その後 26 秒待って線を 2 回クリック | 枠は残る（モーダル宛の `SC_CLOSE` が遅れて届いても巻き添えにならない） |
 
 `WSLg` では定規が最前面にならないので、他の窓の陰に入るとクリックはその窓に行き、焦点も来ない（ADR 0008 の 5・最前面の通知のとおり）。
+
+## 18. Issue #23 — モーダルの最前面の通知が右端で切れる（2026-10-17）
+
+施主の WSL。Issue #20 の枝の上に積んだ。モーダルの通知の文言を `not supported by this window manager` から `not supported here` に縮めた（枠の通知は幅に余裕があるので変えない）。
+
+### 18.1 ゲート
+
+| target | 結果 |
+| --- | --- |
+| `make lint` | 0 件 |
+| `make test` | core 47・application 16・adapters-x11 11・xtask は成功。ui-x11 は 33 件中 32 成功。失敗は第 17.1 節と同じ既存の `a_successful_copy_inverts_the_number`（Issue #21） |
+| `make conformance` | 違反なし |
+| `make fmt-check` | 差分なし |
+
+新しいテスト `the_layer_notice_ends_inside_the_right_margin` は、最前面に対応しない環境でモーダルを描き、通知の行の赤いインクの右端が「窓の幅 − 余白」より左にあることを見る。
+旧い文言に戻すと落ち、新しい文言で通ることを確かめた（テストが不備を捕まえる証明）。
+
+### 18.2 WSLg
+
+モーダルを開き、Windows 側の画面キャプチャで `not supported here` が「Always on top」の右に、窓の右端より内側で出ることを確かめた。

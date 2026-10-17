@@ -57,7 +57,7 @@ pub fn render_settings(frame: &SettingsFrame, format: Format) -> Result<Canvas, 
             write_at(
                 context,
                 SettingsLayout::layer_notice_baseline(),
-                "not supported by this window manager",
+                "not supported here",
                 FOOTER_FONT_PX,
             )?;
         }
@@ -341,11 +341,23 @@ mod tests {
     }
 
     fn canvas_with(store: &NoStore, intents: &[RulerIntent]) -> Canvas {
+        canvas_in(
+            store,
+            nene_ruler_application::layering::Layering::Supported,
+            intents,
+        )
+    }
+
+    fn canvas_in(
+        store: &NoStore,
+        layering: nene_ruler_application::layering::Layering,
+        intents: &[RulerIntent],
+    ) -> Canvas {
         let mut controller = RulerController::new(
             Ports::new(&NoScreen, store, &NoClipboard),
             nene_ruler_application::environment::Environment::new(
                 Transparency::Composited,
-                nene_ruler_application::layering::Layering::Supported,
+                layering,
             ),
             ProductVersion::new("0.1.0"),
         );
@@ -358,6 +370,32 @@ mod tests {
 
     fn canvas(intents: &[RulerIntent]) -> Canvas {
         canvas_with(&NoStore(Ok(None)), intents)
+    }
+
+    #[test]
+    fn the_layer_notice_ends_inside_the_right_margin() {
+        // WSLg で `…man` と右端で切れた（Issue #23）。字の右端を見る。
+        let mut canvas = canvas_in(
+            &NoStore(Ok(None)),
+            nene_ruler_application::layering::Layering::Unsupported,
+            &[],
+        );
+        let notice = SettingsLayout::layer_notice_baseline();
+        let window = SettingsLayout::window();
+        let margin = SettingsLayout::layer_toggle().x();
+        let rightmost = (notice.y() - 10..=notice.y() + 3)
+            .flat_map(|y| (notice.x()..window.width()).map(move |x| (x, y)))
+            .filter(|&(x, y)| {
+                canvas
+                    .pixel(x, y)
+                    .unwrap()
+                    .is_some_and(|p| p[2] > 0x80 && p[2] > p[1])
+            })
+            .map(|(x, _)| x)
+            .max()
+            .unwrap_or(0);
+        assert!(rightmost > notice.x());
+        assert!(rightmost < window.width() - margin);
     }
 
     #[test]
