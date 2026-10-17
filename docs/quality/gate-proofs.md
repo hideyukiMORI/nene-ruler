@@ -1,6 +1,6 @@
 # ゲート発火の証明 — NeNe Ruler
 
-> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）/ Issue #12（第 13 節）/ WSLg の実機（第 14 節・2026-10-17）/ Issue #14（第 15 節）/ Issue #15（第 16 節）/ Issue #20（第 17 節）/ Issue #23（第 18 節）/ Issue #26（第 19 節）/ Issue #28（第 20 節）/ Issue #30（第 21 節）/ Issue #32（第 22 節）/ Issue #34（第 23 節）/ Issue #36（第 24 節）/ Issue #38（第 25 節）/ Issue #40（第 26 節）/ Issue #42（第 27 節）/ Issue #44（第 28 節）/ Issue #46（第 29 節）/ Issue #48（第 30 節）/ Issue #50（第 31 節）/ Issue #52（第 32 節）/ Issue #54（第 33 節）/ Issue #56（第 34 節）。以下は実行した結果のみ。
+> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）/ Issue #12（第 13 節）/ WSLg の実機（第 14 節・2026-10-17）/ Issue #14（第 15 節）/ Issue #15（第 16 節）/ Issue #20（第 17 節）/ Issue #23（第 18 節）/ Issue #26（第 19 節）/ Issue #28（第 20 節）/ Issue #30（第 21 節）/ Issue #32（第 22 節）/ Issue #34（第 23 節）/ Issue #36（第 24 節）/ Issue #38（第 25 節）/ Issue #40（第 26 節）/ Issue #42（第 27 節）/ Issue #44（第 28 節）/ Issue #46（第 29 節）/ Issue #48（第 30 節）/ Issue #50（第 31 節）/ Issue #52（第 32 節）/ Issue #54（第 33 節）/ Issue #56（第 34 節）/ Issue #58（第 35 節）。以下は実行した結果のみ。
 > 関連: QLT-007 / QLT-011 / QLT-013 / ADR 0003
 
 ## 1. 環境と範囲
@@ -777,3 +777,15 @@ Xvfb で `xdotool windowsize` を 10 × 10 にすると、1x（`Xft.dpi: 96`）�
 | `make conformance` | 違反なし |
 
 Xvfb（2x）で 16 × 16 まで縮めて撮り、鉤括弧が横の腕だけになって `16×16` に重ならないことを確かめた。
+
+## 35. Issue #58 — アプリのアイコン（2026-10-17）
+
+施主の WSL。Issue #56 の枝の上に積んだ。決定は [ADR 0020](../adr/0020-app-icon-drawn-in-app.md)。
+
+| target | 結果 |
+| --- | --- |
+| `make lint` | 0 件 |
+| `make test` | ui-x11 は 41 件中 40（既存の #21）。アイコンの画素と `_NET_WM_ICON` の並びのテストを足した |
+| `make conformance` | 違反なし（144 ファイル） |
+
+Xvfb: 枠の窓とモーダルの窓の `xprop _NET_WM_ICON` に 16 / 24 / 32 / 48 / 64 / 128 の 6 つが出た。`xprop -f _NET_WM_ICON 32c` の値を画像に戻し、明るい地と暗い地に並べて、デザインのカンバスの案 A と同じ絵であることを確かめた。

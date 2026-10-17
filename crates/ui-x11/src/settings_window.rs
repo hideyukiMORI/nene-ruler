@@ -19,6 +19,7 @@ use x11rb::rust_connection::RustConnection;
 use x11rb::wrapper::ConnectionExt as _;
 
 use crate::alt_f4_gesture::AltF4Gesture;
+use crate::app_icon;
 use crate::display::Display;
 use crate::drag::Drag;
 use crate::field_focus::FieldFocus;
@@ -351,6 +352,7 @@ impl<'d> SettingsWindow<'d> {
         let atoms = self.display.atoms();
         let window = self.window.window();
         undecorated::declare_undecorated(self.display, window)?;
+        app_icon::declare(self.display, window)?;
         connection.change_property32(
             PropMode::REPLACE,
             window,
