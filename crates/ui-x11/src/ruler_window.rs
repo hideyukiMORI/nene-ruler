@@ -4,14 +4,16 @@ use nene_ruler_application::ruler_controller::RulerController;
 use nene_ruler_application::ruler_frame::RulerFrame;
 use nene_ruler_application::ruler_intent::RulerIntent;
 use nene_ruler_core::anchor::Anchor;
+use nene_ruler_core::frame_layout::FrameLayout;
 use nene_ruler_core::hit_region::{self, HitRegion};
 use nene_ruler_core::hit_target::HitTarget;
-use nene_ruler_core::length::Length;
 use nene_ruler_core::nudge::Nudge;
 use nene_ruler_core::pixel_point::PixelPoint;
 use nene_ruler_core::pixel_rect::PixelRect;
+use nene_ruler_core::ui_scale::UiScale;
 use nene_ruler_core::window_layer::WindowLayer;
 use x11rb::connection::Connection;
+use x11rb::properties::WmSizeHints;
 use x11rb::protocol::Event;
 use x11rb::protocol::shape;
 use x11rb::protocol::xfixes::{self, ConnectionExt as _};
@@ -119,7 +121,7 @@ impl<'d> RulerWindow<'d> {
             shapes: PointerShapes::load(display)?,
             shown: x11rb::NONE,
         };
-        opened.declare_hints(frame.layer())?;
+        opened.declare_hints(frame.layer(), frame.layout().scale())?;
         opened.set_input_shape(&frame.hit_regions())?;
         connection.map_window(opened.window.window())?;
         opened.present(frame)?;
@@ -155,17 +157,14 @@ impl<'d> RulerWindow<'d> {
                 self.present(&controller.frame())?;
             }
         } else if let Event::ConfigureNotify(configure) = event {
-            controller.apply(RulerIntent::WindowResized {
-                width_px: configure.width,
-                height_px: configure.height,
-            });
-            let frame = controller.frame();
-            self.set_input_shape(&frame.hit_regions())?;
-            self.present(&frame)?;
+            self.resized(controller, (configure.width, configure.height))?;
         } else if let Event::ButtonPress(press) = event {
             return self.pressed(controller, press);
         } else if let Event::MotionNotify(motion) = event {
-            self.dragged((motion.root_x, motion.root_y))?;
+            self.dragged(
+                (motion.root_x, motion.root_y),
+                controller.frame().layout().scale(),
+            )?;
             self.shape_pointer(controller, (motion.event_x, motion.event_y))?;
             self.moved_off_the_mark(controller, Some((motion.event_x, motion.event_y)))?;
         } else if let Event::LeaveNotify(_) = event {
@@ -254,6 +253,42 @@ impl<'d> RulerWindow<'d> {
         Ok(Flow::Continue)
     }
 
+    /// 窓の大きさが変わった。枠を合わせ、当たり判定と絵を描き直す。
+    fn resized(
+        &self,
+        controller: &mut RulerController<'_>,
+        (width, height): (u16, u16),
+    ) -> Result<(), UiFailure> {
+        controller.apply(RulerIntent::WindowResized {
+            width_px: width,
+            height_px: height,
+        });
+        let frame = controller.frame();
+        self.keep_room_for(&frame, (width, height))?;
+        self.set_input_shape(&frame.hit_regions())?;
+        self.present(&frame)
+    }
+
+    /// WM が窓を描く絵より小さくしたら、描く大きさへ戻す。WM がヒントを無視しても切れない（Issue #52）。
+    fn keep_room_for(
+        &self,
+        frame: &RulerFrame,
+        (width, height): (u16, u16),
+    ) -> Result<(), UiFailure> {
+        let wanted = frame.layout().window();
+        if width >= wanted.width() && height >= wanted.height() {
+            return Ok(());
+        }
+        self.display.connection().configure_window(
+            self.window.window(),
+            &ConfigureWindowAux::new()
+                .width(u32::from(wanted.width().max(width)))
+                .height(u32::from(wanted.height().max(height))),
+        )?;
+        self.display.connection().flush()?;
+        Ok(())
+    }
+
     /// ポインタの下の当たり判定に合わせて窓のカーソルを差し替える。変わったときだけ X へ送る（Issue #36）。
     fn shape_pointer(
         &mut self,
@@ -312,11 +347,11 @@ impl<'d> RulerWindow<'d> {
     }
 
     /// 自前のドラッグ中なら窓の幾何を更新する。
-    fn dragged(&self, root: (i16, i16)) -> Result<(), UiFailure> {
+    fn dragged(&self, root: (i16, i16), scale: UiScale) -> Result<(), UiFailure> {
         let Some(drag) = self.drag else {
             return Ok(());
         };
-        let minimum = u32::from(Length::MIN_PX);
+        let minimum = u32::from(FrameLayout::smallest_window(scale));
         let geometry = drag.geometry_at(root, minimum);
         self.display.connection().configure_window(
             self.window.window(),
@@ -331,11 +366,16 @@ impl<'d> RulerWindow<'d> {
     }
 
     /// 装飾なし・最前面・閉じる要求・題を WM へ伝える（FR-001 / FR-013 / FR-015）。
-    fn declare_hints(&self, layer: WindowLayer) -> Result<(), UiFailure> {
+    fn declare_hints(&self, layer: WindowLayer, scale: UiScale) -> Result<(), UiFailure> {
         let connection = self.display.connection();
         let atoms = self.display.atoms();
         let window = self.window.window();
         undecorated::declare_undecorated(self.display, window)?;
+        // 枠が最小のときの窓より小さく縮めさせない。描く絵が窓の外で切れる（Issue #52）。
+        let smallest = i32::from(FrameLayout::smallest_window(scale));
+        let mut size_hints = WmSizeHints::new();
+        size_hints.min_size = Some((smallest, smallest));
+        size_hints.set_normal_hints(connection, window)?;
         let states: &[u32] = match layer {
             WindowLayer::AlwaysOnTop => &[atoms.net_wm_state_above],
             WindowLayer::Normal => &[],
