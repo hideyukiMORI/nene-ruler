@@ -105,7 +105,7 @@ impl<'d> RulerWindow<'d> {
             &attributes,
         )?;
         let gc = GcontextWrapper::create_gc(connection, window.window(), &CreateGCAux::new())?;
-        let wm_moves = Self::wm_supports_moveresize(display, root)?;
+        let wm_moves = display.wm_supports(display.atoms().net_wm_moveresize);
 
         let opened = Self {
             display,
@@ -171,12 +171,15 @@ impl<'d> RulerWindow<'d> {
         } else if let Event::KeyPress(key) = event {
             match self.display.key_input(key) {
                 KeyInput::Escape => return Ok(Flow::Quit),
+                // WSLg は Alt+F4 を WM_DELETE_WINDOW に変えないので、自分で読む（ADR 0008）。
+                KeyInput::F4 if key.state.contains(KeyButMask::MOD1) => return Ok(Flow::Quit),
                 KeyInput::Arrow(direction) => {
                     self.nudge(Nudge::new(direction, key.state.contains(KeyButMask::SHIFT)))?;
                 }
                 KeyInput::Return
                 | KeyInput::Backspace
                 | KeyInput::Character(_)
+                | KeyInput::F4
                 | KeyInput::Other => {}
             }
         } else if let Event::ClientMessage(message) = event {
@@ -358,6 +361,18 @@ impl<'d> RulerWindow<'d> {
             AtomEnum::ATOM,
             &[atoms.wm_delete_window],
         )?;
+        // Weston の XWM は飾りなしの窓に影を描く。_KDE_NET_WM_WINDOW_TYPE_OVERRIDE が先頭にあれば描かない。
+        // 他の WM は知らない種類を飛ばして NORMAL を読む（ADR 0008）。
+        connection.change_property32(
+            PropMode::REPLACE,
+            window,
+            atoms.net_wm_window_type,
+            AtomEnum::ATOM,
+            &[
+                atoms.kde_net_wm_window_type_override,
+                atoms.net_wm_window_type_normal,
+            ],
+        )?;
         connection.change_property8(
             PropMode::REPLACE,
             window,
@@ -427,18 +442,6 @@ impl<'d> RulerWindow<'d> {
         )?;
         connection.flush()?;
         Ok(())
-    }
-
-    /// WM が `_NET_SUPPORTED` に `_NET_WM_MOVERESIZE` を挙げているか。
-    fn wm_supports_moveresize(display: &Display, root: Window) -> Result<bool, UiFailure> {
-        let atoms = display.atoms();
-        let reply = display
-            .connection()
-            .get_property(false, root, atoms.net_supported, AtomEnum::ATOM, 0, 1024)?
-            .reply()?;
-        Ok(reply
-            .value32()
-            .is_some_and(|mut supported| supported.any(|atom| atom == atoms.net_wm_moveresize)))
     }
 }
 

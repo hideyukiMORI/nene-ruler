@@ -11,9 +11,11 @@ use nene_ruler_core::screen_metrics_failure::ScreenMetricsFailure;
 use nene_ruler_core::unit::Unit;
 
 use crate::copy_mark::CopyMark;
+use crate::environment::Environment;
 use crate::frame_notices::FrameNotices;
 use crate::frame_style::FrameStyle;
 use crate::frame_texts::FrameTexts;
+use crate::layering::Layering;
 use crate::modal_session::ModalSession;
 use crate::ports::Ports;
 use crate::product_version::ProductVersion;
@@ -23,6 +25,7 @@ use crate::settings_frame::SettingsFrame;
 use crate::settings_notices::SettingsNotices;
 use crate::settings_store_failure::SettingsStoreFailure;
 use crate::transparency::Transparency;
+use nene_ruler_core::window_layer::WindowLayer;
 
 /// 枠・設定・モーダルの編集状態・物理寸法・透明を 1 つ持ち、意図で次の状態へ置き換える。
 ///
@@ -36,7 +39,7 @@ pub struct RulerController<'p> {
     metrics: Result<ScreenMetrics, ScreenMetricsFailure>,
     store_failure: Option<SettingsStoreFailure>,
     copy_mark: Option<CopyMark>,
-    transparency: Transparency,
+    environment: Environment,
     version: ProductVersion,
 }
 
@@ -44,7 +47,7 @@ impl<'p> RulerController<'p> {
     /// 初期の枠で始める。物理寸法と保存された設定はここで一度だけ取り込む（ARC-004 の表）。
     /// 設定が読めなければ既定値で始め、理由を持っておく（ARC-009: 黙って落とさない）。
     #[must_use]
-    pub fn new(ports: Ports<'p>, transparency: Transparency, version: ProductVersion) -> Self {
+    pub fn new(ports: Ports<'p>, environment: Environment, version: ProductVersion) -> Self {
         let (settings, store_failure) = match ports.store().load() {
             Ok(Some(saved)) => (saved, None),
             Ok(None) => (RulerSettings::INITIAL, None),
@@ -58,7 +61,7 @@ impl<'p> RulerController<'p> {
             metrics: ports.metrics().screen_metrics(),
             store_failure,
             copy_mark: None,
-            transparency,
+            environment,
             version,
         }
     }
@@ -105,12 +108,14 @@ impl<'p> RulerController<'p> {
             FrameStyle::new(
                 self.settings.ink(),
                 self.settings.layer(),
-                self.transparency,
+                self.environment.transparency(),
                 self.copy_mark,
             )
             .with_notices(FrameNotices::new(
-                self.transparency == Transparency::Opaque,
+                self.environment.transparency() == Transparency::Opaque,
                 self.metrics.is_err() && self.settings.unit() != Unit::Px,
+                self.settings.layer() == WindowLayer::AlwaysOnTop
+                    && self.environment.layering() == Layering::Unsupported,
             )),
         )
     }
@@ -123,7 +128,11 @@ impl<'p> RulerController<'p> {
                 self.settings,
                 session.clone(),
                 self.version,
-                SettingsNotices::new(self.store_failure, self.metrics.err()),
+                SettingsNotices::new(
+                    self.store_failure,
+                    self.metrics.err(),
+                    self.environment.layering(),
+                ),
             )
         })
     }
@@ -213,8 +222,6 @@ mod tests {
     use nene_ruler_core::modal_theme::ModalTheme;
     use nene_ruler_core::rgb::Rgb;
     use nene_ruler_core::rgb_failure::RgbFailure;
-    use nene_ruler_core::window_layer::WindowLayer;
-
     struct FixedScreen(Result<ScreenMetrics, ScreenMetricsFailure>);
 
     impl ScreenMetricsPort for FixedScreen {
@@ -279,7 +286,7 @@ mod tests {
         static NO_CLIPBOARD: NoClipboard = NoClipboard;
         RulerController::new(
             Ports::new(screen, store, &NO_CLIPBOARD),
-            Transparency::Composited,
+            Environment::new(Transparency::Composited, Layering::Supported),
             ProductVersion::new("0.1.0"),
         )
     }
@@ -522,7 +529,7 @@ mod tests {
         let (screen, store, board) = (screen(), MemoryStore::empty(), clipboard());
         let mut controller = RulerController::new(
             Ports::new(&screen, &store, &board),
-            Transparency::Composited,
+            Environment::new(Transparency::Composited, Layering::Supported),
             ProductVersion::new("0.1.0"),
         );
         controller.apply(RulerIntent::ChooseUnit(Unit::Mm));
@@ -545,7 +552,7 @@ mod tests {
         };
         let mut controller = RulerController::new(
             Ports::new(&screen, &store, &board),
-            Transparency::Composited,
+            Environment::new(Transparency::Composited, Layering::Supported),
             ProductVersion::new("0.1.0"),
         );
         controller.apply(RulerIntent::CopyText(Axis::Horizontal));
@@ -562,15 +569,25 @@ mod tests {
         let store = MemoryStore::empty();
         let mut controller = RulerController::new(
             Ports::new(&screen, &store, &NO_CLIPBOARD),
-            Transparency::Opaque,
+            Environment::new(Transparency::Opaque, Layering::Unsupported),
             ProductVersion::new("0.1.0"),
         );
-        assert_eq!(controller.frame().notices().list(), [FrameNotice::Opaque]);
+        assert_eq!(
+            controller.frame().notices().list(),
+            [FrameNotice::Opaque, FrameNotice::NoAlwaysOnTop]
+        );
+        controller.apply(RulerIntent::ChooseLayer(WindowLayer::Normal));
         controller.apply(RulerIntent::ChooseUnit(Unit::Mm));
         assert_eq!(
             controller.frame().notices().list(),
             [FrameNotice::Opaque, FrameNotice::NoScreenMetrics]
         );
+        controller.apply(RulerIntent::OpenSettings);
+        assert_eq!(
+            controller.settings_frame().unwrap().layering(),
+            Layering::Unsupported
+        );
+        controller.apply(RulerIntent::CloseSettings);
         controller.apply(RulerIntent::OpenSettings);
         assert_eq!(
             controller.settings_frame().unwrap().metrics_failure(),

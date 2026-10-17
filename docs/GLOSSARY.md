@@ -35,6 +35,9 @@
 | アンカー | 左上と右下の鉤括弧。掴んで伸縮する | `Anchor`（core） |
 | 当たり判定 | クリックを受ける物理画素の矩形と、そこを掴んだときの意味（移動・伸縮・ギア・コピー） | `HitRegion` / `HitTarget`（core） |
 | 透明 | 描いたもの以外のアルファが 0 であること。合成器が無ければ不透明に落ちる | `Transparency`（application） |
+| 最前面の対応 | WM が `_NET_WM_STATE_ABOVE` を挙げているか。起動時に一度取り込む | `Layering`（application）・ADR 0008 |
+| 環境 | 透明と最前面の対応の組。合成ルートが起動時に渡す | `Environment`（application） |
+| 見えないが触れる | アルファ 1/255 の画素。WSLg は描いた画素だけを当たりにするので、当たり判定の帯をこれで下塗りする | `canvas` の `TOUCHABLE_ALPHA`（ui-x11）・ADR 0008 |
 | 合成器 | `_NET_WM_CM_S0` を所有し、ARGB の窓を画面に合成するプログラム（Weston・xcompmgr 等） | adapters-x11 / ui-x11 |
 | モーダルの見え | 設定モーダルの背景と文字の配色。ダーク・ライトの閉じた集合（「システムに従う」は検出方法が決まってから）。枠の窓には効かない | `ModalTheme`（core） |
 | 配色 | 見えごとの背景・文字・入力欄・枠線・選択の印 | `ModalPalette`（core） |

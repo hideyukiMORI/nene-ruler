@@ -159,6 +159,15 @@ impl SettingsLayout {
         )
     }
 
+    /// 「Always on top」の右に出す通知（WM が最前面に対応しない）のベースライン。
+    #[must_use]
+    pub const fn layer_notice_baseline() -> PixelPoint {
+        PixelPoint::new(
+            MARGIN_PX + SWATCH_PX + BUTTON_GAP_PX + 104,
+            LAYER_ROW_PX + 17,
+        )
+    }
+
     /// 見えのボタン。
     #[must_use]
     pub const fn theme_button(theme: ModalTheme) -> PixelRect {
@@ -229,6 +238,11 @@ mod tests {
             assert!(hit.rect().bottom() <= window.bottom(), "{hit:?}");
         }
         assert_eq!(hits.len(), 8 + 1 + 3 + 2 + 1);
+    }
+
+    #[test]
+    fn notices_sit_inside_the_window_and_clear_of_the_controls() {
+        let window = SettingsLayout::window();
         assert!(SettingsLayout::footer_baseline().y() < window.height());
         assert!(SettingsLayout::notice_baseline().y() > SettingsLayout::layer_toggle().bottom());
         assert!(
@@ -236,6 +250,7 @@ mod tests {
                 > SettingsLayout::unit_button(Unit::In).right()
         );
         assert!(SettingsLayout::unit_notice_baseline().x() < window.width());
+        assert!(SettingsLayout::layer_notice_baseline().x() < window.width());
         assert!(SettingsLayout::notice_baseline().y() < SettingsLayout::footer_baseline().y());
     }
 

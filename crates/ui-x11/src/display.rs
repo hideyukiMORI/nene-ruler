@@ -1,9 +1,13 @@
 //! X への接続と、窓を作る前に決まること（画面・atom・visual・透明）。
 
+use nene_ruler_application::environment::Environment;
+use nene_ruler_application::layering::Layering;
 use nene_ruler_application::transparency::Transparency;
 use x11rb::connection::Connection;
 use x11rb::protocol::xfixes::ConnectionExt as _;
-use x11rb::protocol::xproto::{ConnectionExt as _, KeyButMask, KeyPressEvent, Screen};
+use x11rb::protocol::xproto::{
+    Atom, AtomEnum, ConnectionExt as _, KeyButMask, KeyPressEvent, Screen,
+};
 use x11rb::rust_connection::RustConnection;
 
 use crate::atoms::Atoms;
@@ -25,6 +29,7 @@ pub struct Display {
     visual: WindowVisual,
     transparency: Transparency,
     key_map: KeyMap,
+    wm_supported: Vec<Atom>,
 }
 
 impl Display {
@@ -59,6 +64,7 @@ impl Display {
             ),
         };
         let key_map = Self::key_map(&connection)?;
+        let wm_supported = Self::wm_supported(&connection, screen.root, atoms)?;
         Ok(Self {
             connection,
             screen_index,
@@ -66,7 +72,37 @@ impl Display {
             visual,
             transparency,
             key_map,
+            wm_supported,
         })
+    }
+
+    /// WM が `_NET_SUPPORTED` に挙げている atom。WM が無ければ空。
+    fn wm_supported(
+        connection: &RustConnection,
+        root: x11rb::protocol::xproto::Window,
+        atoms: Atoms,
+    ) -> Result<Vec<Atom>, UiFailure> {
+        let reply = connection
+            .get_property(false, root, atoms.net_supported, AtomEnum::ATOM, 0, 1024)?
+            .reply()?;
+        Ok(reply.value32().map(Iterator::collect).unwrap_or_default())
+    }
+
+    /// WM がその atom を `_NET_SUPPORTED` に挙げているか。
+    #[must_use]
+    pub fn wm_supports(&self, atom: Atom) -> bool {
+        self.wm_supported.contains(&atom)
+    }
+
+    /// 透明と最前面の対応。application が起動時に一度取り込む（ARC-004）。
+    #[must_use]
+    pub fn environment(&self) -> Environment {
+        let layering = if self.wm_supports(self.atoms.net_wm_state_above) {
+            Layering::Supported
+        } else {
+            Layering::Unsupported
+        };
+        Environment::new(self.transparency, layering)
     }
 
     /// キーボード配列を読む。

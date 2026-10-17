@@ -41,6 +41,7 @@ impl Canvas {
     pub fn render(frame: &RulerFrame, format: Format) -> Result<Self, UiFailure> {
         Self::paint(frame.layout().window(), format, |context| {
             paint_background(context, frame)?;
+            underlay_hit_regions(context, frame)?;
             set_ink(context, frame.ink());
             for rect in frame.layout().ink_rects() {
                 fill_rect(context, rect)?;
@@ -49,7 +50,7 @@ impl Canvas {
             draw_label(context, frame, Axis::Horizontal)?;
             draw_label(context, frame, Axis::Vertical)?;
             draw_notices(context, frame)?;
-            draw_gear(context, frame.layout().gear())
+            draw_gear(context, frame.layout().gear(), frame.ink())
         })
     }
 
@@ -142,6 +143,31 @@ fn paint_background(context: &Context, frame: &RulerFrame) -> Result<(), UiFailu
     }
 }
 
+/// 目に見えないが当たり判定には乗るアルファ。WSLg は描いた画素だけを当たりにする（ADR 0008）。
+const TOUCHABLE_ALPHA: f64 = 1.0_f64 / 255.0_f64;
+
+/// 当たり判定の矩形をアルファ 1/255 のインクで下塗りする。透明なときだけ（不透明なら背景がある）。
+fn underlay_hit_regions(context: &Context, frame: &RulerFrame) -> Result<(), UiFailure> {
+    if frame.transparency() == Transparency::Opaque {
+        return Ok(());
+    }
+    set_touchable(context, frame.ink());
+    for region in frame.hit_regions() {
+        fill_rect(context, region.rect())?;
+    }
+    Ok(())
+}
+
+/// 描く色を、見えないが触れるインク色にする（`Operator::Source` で置けば透明の代わりになる）。
+fn set_touchable(context: &Context, ink: Rgb) {
+    context.set_source_rgba(
+        f64::from(ink.red()) / 255.0_f64,
+        f64::from(ink.green()) / 255.0_f64,
+        f64::from(ink.blue()) / 255.0_f64,
+        TOUCHABLE_ALPHA,
+    );
+}
+
 /// 描く色を不透明のインク色にする。
 pub(crate) fn set_ink(context: &Context, ink: Rgb) {
     context.set_source_rgb(
@@ -197,7 +223,9 @@ fn draw_label(context: &Context, frame: &RulerFrame, axis: Axis) -> Result<(), U
         context.rotate(-FRAC_PI_2);
     }
     if mark.is_some_and(CopyMark::succeeded) {
-        context.set_operator(Operator::Clear);
+        // 字画は透明にせず「見えないが触れる」色で置く（ADR 0008）。
+        context.set_operator(Operator::Source);
+        set_touchable(context, frame.ink());
     }
     context.move_to(centred, 0.0_f64);
     context.show_text(text)?;
@@ -235,8 +263,8 @@ pub(crate) fn translate_to(context: &Context, point: PixelPoint) {
     context.translate(f64::from(point.x()), f64::from(point.y()));
 }
 
-/// ギア。丸をインク色で塗り、歯車の形を透明に抜き、軸だけインクで戻す（FR-009）。
-fn draw_gear(context: &Context, bounds: PixelRect) -> Result<(), UiFailure> {
+/// ギア。丸をインク色で塗り、歯車の形を「見えないが触れる」色で抜き、軸だけインクで戻す（FR-009 / ADR 0008）。
+fn draw_gear(context: &Context, bounds: PixelRect, ink: Rgb) -> Result<(), UiFailure> {
     let radius = f64::from(bounds.width()) / 2.0_f64;
     let centre_x = f64::from(bounds.x()) + radius;
     let centre_y = f64::from(bounds.y()) + radius;
@@ -245,10 +273,12 @@ fn draw_gear(context: &Context, bounds: PixelRect) -> Result<(), UiFailure> {
     context.fill()?;
 
     context.save()?;
-    context.set_operator(Operator::Clear);
+    context.set_operator(Operator::Source);
+    set_touchable(context, ink);
     gear_path(context, centre_x, centre_y, radius);
     context.fill()?;
     context.restore()?;
+    set_ink(context, ink);
 
     context.new_path();
     context.arc(centre_x, centre_y, radius * 0.2_f64, 0.0_f64, 2.0_f64 * PI);
@@ -337,7 +367,10 @@ mod tests {
     ) -> RulerController<'_> {
         RulerController::new(
             nene_ruler_application::ports::Ports::new(&NoScreen, &NoStore, clipboard),
-            transparency,
+            nene_ruler_application::environment::Environment::new(
+                transparency,
+                nene_ruler_application::layering::Layering::Supported,
+            ),
             nene_ruler_application::product_version::ProductVersion::new("0.1.0"),
         )
     }
@@ -388,6 +421,7 @@ mod tests {
             .collect();
         assert!(inside.iter().any(|p| p[3] == 0xFF));
         assert!(inside.iter().any(|p| p[3] < 0xFF));
+        assert!(inside.iter().all(|p| p[3] >= 1));
     }
 
     #[test]
@@ -421,7 +455,31 @@ mod tests {
         let mut canvas = canvas(Transparency::Composited);
         assert_eq!((canvas.width(), canvas.height()), (424, 264));
         assert_eq!(canvas.pixel(200, 120).unwrap(), Some([0, 0, 0, 0]));
-        assert_eq!(canvas.pixel(0, 0).unwrap(), Some([0, 0, 0, 0]));
+        // 窓の角は上辺の帯・左辺の帯・左上の鉤括弧の当たり判定が重なる所。
+        // 「見えないが触れる」アルファ 1/255 が重なって 3 になるが、目には見えない。
+        let corner = canvas.pixel(0, 0).unwrap().unwrap();
+        assert!((1..=4).contains(&corner[3]), "{corner:?}");
+    }
+
+    #[test]
+    fn every_hit_region_is_touchable_and_the_interior_is_not() {
+        let mut canvas = canvas(Transparency::Composited);
+        let board = FakeClipboard(Ok(()));
+        let frame = controller_with(Transparency::Composited, &board).frame();
+        for region in frame.hit_regions() {
+            let rect = region.rect();
+            for (x, y) in [
+                (rect.x(), rect.y()),
+                (rect.right(), rect.bottom()),
+                (rect.x() + rect.width() / 2, rect.y() + rect.height() / 2),
+            ] {
+                assert!(
+                    canvas.pixel(x, y).unwrap().is_some_and(|p| p[3] >= 1),
+                    "{region:?}"
+                );
+            }
+        }
+        assert_eq!(canvas.pixel(100, 60).unwrap(), Some([0, 0, 0, 0]));
     }
 
     #[test]
@@ -442,7 +500,8 @@ mod tests {
         let mut canvas = canvas(Transparency::Composited);
         let ink = [0x35, 0x39, 0xE5, 0xFF];
         assert_eq!(canvas.pixel(409, 256).unwrap(), Some(ink));
-        assert_eq!(canvas.pixel(418, 256).unwrap(), Some([0, 0, 0, 0]));
+        // 歯車の抜きは透明ではなく「見えないが触れる」アルファ 1（ADR 0008）。
+        assert_eq!(canvas.pixel(418, 256).unwrap().map(|p| p[3]), Some(1));
         assert_eq!(canvas.pixel(415, 255).unwrap(), Some(ink));
         assert_eq!(canvas.pixel(430, 256).unwrap(), None);
     }

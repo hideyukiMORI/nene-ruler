@@ -52,6 +52,15 @@ pub fn render_settings(frame: &SettingsFrame, format: Format) -> Result<Canvas, 
         }
         draw_theme_buttons(context, &palette, frame.settings().modal_theme())?;
         draw_layer_toggle(context, &palette, frame.settings().layer())?;
+        if frame.layering() == nene_ruler_application::layering::Layering::Unsupported {
+            set_ink(context, Rgb::INITIAL_INK);
+            write_at(
+                context,
+                SettingsLayout::layer_notice_baseline(),
+                "not supported by this window manager",
+                FOOTER_FONT_PX,
+            )?;
+        }
         if let Some(failure) = frame.store_failure() {
             set_ink(context, Rgb::INITIAL_INK);
             write_at(
@@ -334,7 +343,10 @@ mod tests {
     fn canvas_with(store: &NoStore, intents: &[RulerIntent]) -> Canvas {
         let mut controller = RulerController::new(
             Ports::new(&NoScreen, store, &NoClipboard),
-            Transparency::Composited,
+            nene_ruler_application::environment::Environment::new(
+                Transparency::Composited,
+                nene_ruler_application::layering::Layering::Supported,
+            ),
             ProductVersion::new("0.1.0"),
         );
         controller.apply(RulerIntent::OpenSettings);

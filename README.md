@@ -7,14 +7,14 @@ A tiny frameless screen ruler for X11. Rust, `x11rb` + `cairo`, no UI toolkit.
 > Settings are saved to `~/.config/nene-ruler/settings.v1.txt`; clicking a number copies it to the clipboard.
 > Arrow keys nudge the frame by 1 px (10 px with Shift). Degradations (no compositor, no screen size) are written inside the frame.
 > HiDPI scaling and "follow the system theme" are not there yet.
-> Verified on Xvfb (`make screenshot`); not yet on a real desktop. Nothing to download.
+> Verified on Xvfb (`make screenshot`) and once on WSLg (see `docs/quality/wslg-2026-10-17.md`). Nothing to download.
 
 ## What it will be
 
 - A transparent rectangle floating over the screen: four lines with tick marks, the width and height written on them, in px / mm / in.
 - Everything except the lines, the numbers, the two bracket-shaped anchors and the gear is transparent and lets clicks through.
 - Drag a line to move, drag an anchor to resize, click a number to copy it. One ink colour, chosen in the settings window.
-- Always on top if you want. Settings are saved with a version (`settings.v1.txt`, plain `key = value`).
+- Always on top if the window manager supports it (WSLg does not). Settings are saved with a version (`settings.v1.txt`, plain `key = value`).
 - Runs on Xorg and XWayland (WSLg included). Measures physical pixels; converts to mm through RandR.
 
 The requirements are in [SPECIFICATION.md](SPECIFICATION.md) (Japanese).

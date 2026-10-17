@@ -23,3 +23,4 @@ ADR は「なぜそう決めたか」「何を却下したか」を書く。
 | [0005](0005-transparent-frame-with-input-shape.md) | 枠は透明な 2 次元の窓。描いたものだけが見え、描いたものだけが触れる | 受理 |
 | [0006](0006-settings-file-v1.md) | 設定は版付きの `key = value` テキストで保存し、読めない版は既定値へ落とさない | 受理 |
 | [0007](0007-clipboard-owner-thread-in-adapters.md) | CLIPBOARD は adapters-x11 が専用の接続と 1 本のスレッドで所有する | 受理 |
+| [0008](0008-wslg-layered-window-hit-and-shadow.md) | WSLg では描いた画素が当たり判定になる。帯はアルファ 1 で描き、影は窓の種類で消し、Alt+F4 は自分で読む | 受理 |
