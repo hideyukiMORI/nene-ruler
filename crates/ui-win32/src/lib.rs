@@ -7,11 +7,25 @@
 #[cfg(windows)]
 pub mod frame_painter;
 #[cfg(windows)]
-pub mod frame_session;
-#[cfg(windows)]
 pub mod frame_window;
 #[cfg(windows)]
 pub mod layered_bitmap;
+#[cfg(windows)]
+pub mod modal_focus;
+#[cfg(windows)]
+pub mod modal_key;
+#[cfg(windows)]
+pub mod modal_reply;
+#[cfg(windows)]
+pub mod modal_window;
 pub mod non_client_hit;
 #[cfg(windows)]
+pub mod pen;
+#[cfg(windows)]
+pub mod settings_painter;
+#[cfg(windows)]
+pub mod text_align;
+#[cfg(windows)]
 pub mod win32_failure;
+#[cfg(windows)]
+pub mod windows_app;
