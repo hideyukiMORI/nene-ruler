@@ -2,10 +2,11 @@
 
 A tiny frameless screen ruler for X11. Rust, `x11rb` + `cairo`, no UI toolkit.
 
-> **Status (2026-10-16):** Issues #2, #4, #6, #8 and #10. `cargo run` opens a transparent frame with ticks,
+> **Status (2026-10-16):** Issues #2, #4, #6, #8, #10 and #12. `cargo run` opens a transparent frame with ticks,
 > moves when you drag a line and resizes when you drag an anchor; the gear opens a settings window for ink colour, unit and always-on-top.
 > Settings are saved to `~/.config/nene-ruler/settings.v1.txt`; clicking a number copies it to the clipboard.
-> Arrow keys nudge the frame by 1 px (10 px with Shift). HiDPI scaling and "follow the system theme" are not there yet.
+> Arrow keys nudge the frame by 1 px (10 px with Shift). Degradations (no compositor, no screen size) are written inside the frame.
+> HiDPI scaling and "follow the system theme" are not there yet.
 > Verified on Xvfb (`make screenshot`); not yet on a real desktop. Nothing to download.
 
 ## What it will be

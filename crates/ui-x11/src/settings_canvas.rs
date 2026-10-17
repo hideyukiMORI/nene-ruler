@@ -41,6 +41,15 @@ pub fn render_settings(frame: &SettingsFrame, format: Format) -> Result<Canvas, 
         draw_presets(context, &palette, frame.settings().ink())?;
         draw_hex_field(context, &palette, frame)?;
         draw_unit_buttons(context, &palette, frame.settings().unit())?;
+        if frame.metrics_failure().is_some() {
+            set_ink(context, Rgb::INITIAL_INK);
+            write_at(
+                context,
+                SettingsLayout::unit_notice_baseline(),
+                "no screen size",
+                FOOTER_FONT_PX,
+            )?;
+        }
         draw_theme_buttons(context, &palette, frame.settings().modal_theme())?;
         draw_layer_toggle(context, &palette, frame.settings().layer())?;
         if let Some(failure) = frame.store_failure() {
@@ -337,6 +346,16 @@ mod tests {
 
     fn canvas(intents: &[RulerIntent]) -> Canvas {
         canvas_with(&NoStore(Ok(None)), intents)
+    }
+
+    #[test]
+    fn missing_screen_size_is_noted_beside_the_unit_buttons() {
+        let mut canvas = canvas(&[]);
+        let notice = SettingsLayout::unit_notice_baseline();
+        let row: Vec<[u8; 4]> = (notice.x()..notice.x() + 60)
+            .filter_map(|x| canvas.pixel(x, notice.y() - 3).unwrap())
+            .collect();
+        assert!(row.iter().any(|p| p[2] > p[1] && p[2] > 0x80));
     }
 
     #[test]

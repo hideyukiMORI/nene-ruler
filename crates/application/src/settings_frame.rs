@@ -8,6 +8,7 @@ use nene_ruler_core::ruler_settings::RulerSettings;
 
 use crate::modal_session::ModalSession;
 use crate::product_version::ProductVersion;
+use crate::settings_notices::SettingsNotices;
 use crate::settings_store_failure::SettingsStoreFailure;
 
 /// 脚注のコピーライト。版の前に付く。
@@ -19,7 +20,7 @@ pub struct SettingsFrame {
     settings: RulerSettings,
     session: ModalSession,
     footer: String,
-    store_failure: Option<SettingsStoreFailure>,
+    notices: SettingsNotices,
 }
 
 impl SettingsFrame {
@@ -29,13 +30,13 @@ impl SettingsFrame {
         settings: RulerSettings,
         session: ModalSession,
         version: ProductVersion,
-        store_failure: Option<SettingsStoreFailure>,
+        notices: SettingsNotices,
     ) -> Self {
         Self {
             settings,
             session,
             footer: format!("NeNe Ruler {} {COPYRIGHT}", version.text()),
-            store_failure,
+            notices,
         }
     }
 
@@ -66,6 +67,14 @@ impl SettingsFrame {
     /// 設定の読み書きが失敗していれば、その理由（FR-014）。
     #[must_use]
     pub const fn store_failure(&self) -> Option<SettingsStoreFailure> {
-        self.store_failure
+        self.notices.store_failure()
+    }
+
+    /// 物理寸法が取れていなければ、その理由。mm / in が効かないことを示す（FR-014）。
+    #[must_use]
+    pub const fn metrics_failure(
+        &self,
+    ) -> Option<nene_ruler_core::screen_metrics_failure::ScreenMetricsFailure> {
+        self.notices.metrics_failure()
     }
 }

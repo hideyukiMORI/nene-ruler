@@ -150,6 +150,15 @@ impl SettingsLayout {
         )
     }
 
+    /// 単位のボタンの右に出す通知（物理寸法が無く mm / in が効かない）のベースライン。
+    #[must_use]
+    pub const fn unit_notice_baseline() -> PixelPoint {
+        PixelPoint::new(
+            MARGIN_PX + 3 * (UNIT_BUTTON_PX + BUTTON_GAP_PX),
+            UNIT_ROW_PX + 16,
+        )
+    }
+
     /// 見えのボタン。
     #[must_use]
     pub const fn theme_button(theme: ModalTheme) -> PixelRect {
@@ -222,6 +231,11 @@ mod tests {
         assert_eq!(hits.len(), 8 + 1 + 3 + 2 + 1);
         assert!(SettingsLayout::footer_baseline().y() < window.height());
         assert!(SettingsLayout::notice_baseline().y() > SettingsLayout::layer_toggle().bottom());
+        assert!(
+            SettingsLayout::unit_notice_baseline().x()
+                > SettingsLayout::unit_button(Unit::In).right()
+        );
+        assert!(SettingsLayout::unit_notice_baseline().x() < window.width());
         assert!(SettingsLayout::notice_baseline().y() < SettingsLayout::footer_baseline().y());
     }
 

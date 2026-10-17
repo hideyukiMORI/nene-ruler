@@ -11,6 +11,7 @@ use nene_ruler_core::rgb::Rgb;
 use nene_ruler_core::window_layer::WindowLayer;
 
 use crate::copy_mark::CopyMark;
+use crate::frame_notices::FrameNotices;
 use crate::frame_style::FrameStyle;
 use crate::frame_texts::FrameTexts;
 use crate::transparency::Transparency;
@@ -68,6 +69,12 @@ impl RulerFrame {
     #[must_use]
     pub const fn copy_mark(&self) -> Option<CopyMark> {
         self.style.copy_mark()
+    }
+
+    /// 枠に出す通知（FR-014）。
+    #[must_use]
+    pub const fn notices(&self) -> FrameNotices {
+        self.style.notices()
     }
 
     /// 当たり判定。文字数は表示文字列から取る。

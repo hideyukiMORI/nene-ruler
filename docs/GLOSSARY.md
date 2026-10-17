@@ -12,6 +12,7 @@
 | ポートの束 | 合成ルートが中核へ渡すポートの組。引数を増やさずにポートを足す | `Ports`（application） |
 | コピーの印 | 数字をコピーした結果。成功は反転、失敗は取り消し線。ポインタが離れるまで | `CopyMark`（application）・ADR 0007 |
 | 矢印の一歩 | 矢印で枠を動かす向きと歩幅（1 px、Shift で 10 px） | `Nudge` / `NudgeDirection`（core） |
+| 通知 | 利用者に見せるべき降格。枠には不透明への降格と物理寸法の欠如、モーダルには設定の失敗と物理寸法の欠如 | `FrameNotice` / `FrameNotices` / `SettingsNotices`（application） |
 | 選択の答え | `SelectionRequest` の target ごとに何を書くかを決める純関数 | `SelectionAnswer`（adapters-x11） |
 | 設定ファイル | 版 1 の `key = value` テキスト。直列化の型は core の型と分ける | `SettingsFileV1`（adapters-x11）・ADR 0006 |
 | 合成ルート | 依存を結ぶ唯一の場所。端末と終了コードを持つ | `crates/app`（`main`） |

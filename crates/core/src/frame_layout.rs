@@ -42,6 +42,9 @@ const LABEL_PX: u16 = 11;
 const LABEL_ADVANCE_PX: u16 = 7;
 /// 目盛の先端から文字までの隙間。
 const TEXT_GAP_PX: u16 = 2;
+/// 通知の文字の高さと行の間隔。
+const NOTICE_PX: u16 = 9;
+const NOTICE_LINE_PX: u16 = 12;
 
 /// 枠の大きさから決まる、窓の中の全ての置き場。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -231,6 +234,25 @@ impl FrameLayout {
         }
     }
 
+    /// 枠の中に出す通知（FR-014）の `index` 行目のベースライン。下辺の目盛の上に、下から上へ積む。
+    #[must_use]
+    pub fn notice_baseline(self, index: u16) -> PixelPoint {
+        let frame = self.frame();
+        let inside = LINE_PX + TickKind::Major.length_px() + TEXT_GAP_PX;
+        PixelPoint::new(
+            frame.x() + ANCHOR_ARM_PX + TEXT_GAP_PX,
+            frame
+                .bottom()
+                .saturating_sub(inside + index * NOTICE_LINE_PX),
+        )
+    }
+
+    /// 通知の文字の高さ。
+    #[must_use]
+    pub const fn notice_px() -> u16 {
+        NOTICE_PX
+    }
+
     /// 幅・高さの数字の当たり判定。文字数から見積もる。
     #[must_use]
     pub fn label_hit(self, axis: Axis, chars: u16) -> PixelRect {
@@ -391,6 +413,15 @@ mod tests {
             layout().label_hit(Axis::Vertical, 6),
             PixelRect::new(30, 103, 13, 42)
         );
+    }
+
+    #[test]
+    fn notices_stack_upward_above_the_bottom_ticks() {
+        let first = layout().notice_baseline(0);
+        let second = layout().notice_baseline(1);
+        assert_eq!(first, PixelPoint::new(18, 228));
+        assert_eq!(second.y(), first.y() - 12);
+        assert!(first.y() < layout().line(Edge::Bottom).y() - TickKind::Major.length_px());
     }
 
     #[test]
