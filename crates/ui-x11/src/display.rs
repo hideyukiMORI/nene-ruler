@@ -1,7 +1,6 @@
 //! X への接続と、窓を作る前に決まること（画面・atom・visual・透明）。
 
 use nene_ruler_application::environment::Environment;
-use nene_ruler_application::layering::Layering;
 use nene_ruler_application::transparency::Transparency;
 use nene_ruler_core::ui_scale::UiScale;
 use x11rb::connection::Connection;
@@ -116,15 +115,10 @@ impl Display {
         self.wm_supported.contains(&atom)
     }
 
-    /// 透明・最前面の対応・`Xft.dpi`。application が起動時に一度取り込む（ARC-004）。
+    /// 透明と `Xft.dpi`。application が起動時に一度取り込む（ARC-004）。
     #[must_use]
     pub fn environment(&self) -> Environment {
-        let layering = if self.wm_supports(self.atoms.net_wm_state_above) {
-            Layering::Supported
-        } else {
-            Layering::Unsupported
-        };
-        Environment::new(self.transparency, layering).with_xft_dpi(self.xft_dpi)
+        Environment::new(self.transparency).with_xft_dpi(self.xft_dpi)
     }
 
     /// キーボード配列を読む。

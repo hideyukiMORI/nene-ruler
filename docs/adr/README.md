@@ -21,9 +21,10 @@ ADR は「なぜそう決めたか」「何を却下したか」を書く。
 | [0003](0003-rust-foundation-and-measured-limits.md) | Rust の検査基盤と実測できた限界を固定する | 受理 |
 | [0004](0004-diff-scoped-verification-and-result-reuse.md) | 差分に必要な検証と成功結果の再利用 | 受理 |
 | [0005](0005-transparent-frame-with-input-shape.md) | 枠は透明な 2 次元の窓。描いたものだけが見え、描いたものだけが触れる | 受理 |
-| [0006](0006-settings-file-v1.md) | 設定は版付きの `key = value` テキストで保存し、読めない版は既定値へ落とさない | 受理 |
+| [0006](0006-settings-file-v1.md) | 設定は版付きの `key = value` テキストで保存し、読めない版は既定値へ落とさない | 受理（`unit` の鍵は置換 → 0012） |
 | [0007](0007-clipboard-owner-thread-in-adapters.md) | CLIPBOARD は adapters-x11 が専用の接続と 1 本のスレッドで所有する | 受理 |
-| [0008](0008-wslg-layered-window-hit-and-shadow.md) | WSLg では描いた画素が当たり判定になる。帯はアルファ 1 で描き、影は窓の種類で消し、Alt+F4 は自分で読む | 受理（文脈 3 と決定 4 は置換 → 0009） |
+| [0008](0008-wslg-layered-window-hit-and-shadow.md) | WSLg では描いた画素が当たり判定になる。帯はアルファ 1 で描き、影は窓の種類で消し、Alt+F4 は自分で読む | 受理（文脈 3 と決定 4 は置換 → 0009、決定 5 は置換 → 0012） |
 | [0009](0009-alt-f4-on-the-f4-release.md) | Alt+F4 は、この窓が Alt の押下を受けていれば F4 の離しでも閉じる | 受理 |
 | [0010](0010-coverage-floor-in-regions.md) | カバレッジの下限は region で測る | 受理 |
 | [0011](0011-integer-ui-scale.md) | UI の倍率は 1x / 2x の整数で、飾りにだけ掛ける | 受理 |
+| [0012](0012-px-only-and-no-layer-notice.md) | 長さは px だけで綴り、最前面が効かないことは示さない | 受理 |

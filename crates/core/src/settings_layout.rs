@@ -12,7 +12,6 @@ use crate::rgb::Rgb;
 use crate::settings_control::SettingsControl;
 use crate::settings_hit::SettingsHit;
 use crate::ui_scale::UiScale;
-use crate::unit::Unit;
 use crate::window_layer::WindowLayer;
 
 /// 左右と上の余白。
@@ -20,7 +19,7 @@ const MARGIN_PX: u16 = 16;
 /// 窓の幅。
 const WIDTH_PX: u16 = 320;
 /// 窓の高さ。
-const HEIGHT_PX: u16 = 336;
+const HEIGHT_PX: u16 = 280;
 /// 色見本の一辺。
 const SWATCH_PX: u16 = 24;
 /// 色見本と色見本の隙間。
@@ -29,8 +28,6 @@ const SWATCH_GAP_PX: u16 = 8;
 const BUTTON_HEIGHT_PX: u16 = 24;
 /// ボタンとボタンの隙間。
 const BUTTON_GAP_PX: u16 = 8;
-/// 単位のボタンの幅。
-const UNIT_BUTTON_PX: u16 = 56;
 /// 見えのボタンの幅。
 const THEME_BUTTON_PX: u16 = 72;
 /// 入力欄の大きさ。
@@ -39,17 +36,16 @@ const FIELD_HEIGHT_PX: u16 = 26;
 /// 各段の上端。見出しのベースラインはその 8 px 上。
 const INK_ROW_PX: u16 = 72;
 const FIELD_ROW_PX: u16 = 108;
-const UNIT_ROW_PX: u16 = 168;
-const THEME_ROW_PX: u16 = 224;
-const LAYER_ROW_PX: u16 = 272;
+const THEME_ROW_PX: u16 = 168;
+const LAYER_ROW_PX: u16 = 216;
 /// 見出しと段の間。
 const HEADING_GAP_PX: u16 = 8;
 /// 題のベースライン。
 const TITLE_BASELINE_PX: u16 = 28;
 /// 通知（設定の読み書きの失敗）のベースライン。
-const NOTICE_BASELINE_PX: u16 = 304;
+const NOTICE_BASELINE_PX: u16 = 248;
 /// 脚注のベースライン。
-const FOOTER_BASELINE_PX: u16 = 322;
+const FOOTER_BASELINE_PX: u16 = 266;
 
 /// 設定モーダルの置き場。大きさは倍率だけで決まる。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -104,10 +100,9 @@ impl SettingsLayout {
 
     /// 各段の見出し。
     #[must_use]
-    pub const fn headings(self) -> [ModalLabel; 4] {
+    pub const fn headings(self) -> [ModalLabel; 3] {
         [
             ModalLabel::new(self.point(MARGIN_PX, INK_ROW_PX - HEADING_GAP_PX), "Ink"),
-            ModalLabel::new(self.point(MARGIN_PX, UNIT_ROW_PX - HEADING_GAP_PX), "Unit"),
             ModalLabel::new(
                 self.point(MARGIN_PX, THEME_ROW_PX - HEADING_GAP_PX),
                 "Settings window",
@@ -168,40 +163,6 @@ impl SettingsLayout {
         )
     }
 
-    /// 単位のボタン。
-    #[must_use]
-    pub const fn unit_button(self, unit: Unit) -> PixelRect {
-        let index: u16 = match unit {
-            Unit::Px => 0,
-            Unit::Mm => 1,
-            Unit::In => 2,
-        };
-        self.scaled(PixelRect::new(
-            MARGIN_PX + index * (UNIT_BUTTON_PX + BUTTON_GAP_PX),
-            UNIT_ROW_PX,
-            UNIT_BUTTON_PX,
-            BUTTON_HEIGHT_PX,
-        ))
-    }
-
-    /// 単位のボタンの右に出す通知（物理寸法が無く mm / in が効かない）のベースライン。
-    #[must_use]
-    pub const fn unit_notice_baseline(self) -> PixelPoint {
-        self.point(
-            MARGIN_PX + 3 * (UNIT_BUTTON_PX + BUTTON_GAP_PX),
-            UNIT_ROW_PX + 16,
-        )
-    }
-
-    /// 「Always on top」の右に出す通知（WM が最前面に対応しない）のベースライン。
-    #[must_use]
-    pub const fn layer_notice_baseline(self) -> PixelPoint {
-        self.point(
-            MARGIN_PX + SWATCH_PX + BUTTON_GAP_PX + 104,
-            LAYER_ROW_PX + 17,
-        )
-    }
-
     /// 見えのボタン。
     #[must_use]
     pub const fn theme_button(self, theme: ModalTheme) -> PixelRect {
@@ -243,12 +204,6 @@ impl SettingsLayout {
             self.hex_field(),
             SettingsControl::HexField,
         ));
-        for unit in [Unit::Px, Unit::Mm, Unit::In] {
-            hits.push(SettingsHit::new(
-                self.unit_button(unit),
-                SettingsControl::Unit(unit),
-            ));
-        }
         for theme in ModalTheme::ALL {
             hits.push(SettingsHit::new(
                 self.theme_button(theme),
@@ -278,7 +233,7 @@ mod tests {
             assert!(hit.rect().right() <= window.right(), "{hit:?}");
             assert!(hit.rect().bottom() <= window.bottom(), "{hit:?}");
         }
-        assert_eq!(hits.len(), 8 + 1 + 3 + 2 + 1);
+        assert_eq!(hits.len(), 8 + 1 + 2 + 1);
     }
 
     #[test]
@@ -286,9 +241,6 @@ mod tests {
         let window = SINGLE.window();
         assert!(SINGLE.footer_baseline().y() < window.height());
         assert!(SINGLE.notice_baseline().y() > SINGLE.layer_toggle().bottom());
-        assert!(SINGLE.unit_notice_baseline().x() > SINGLE.unit_button(Unit::In).right());
-        assert!(SINGLE.unit_notice_baseline().x() < window.width());
-        assert!(SINGLE.layer_notice_baseline().x() < window.width());
         assert!(SINGLE.notice_baseline().y() < SINGLE.footer_baseline().y());
     }
 
@@ -311,25 +263,20 @@ mod tests {
             Some(SettingsControl::HexField)
         );
         assert_eq!(
-            control_at(&hits, PixelPoint::new(90, 170)),
-            Some(SettingsControl::Unit(Unit::Mm))
-        );
-        assert_eq!(
-            control_at(&hits, PixelPoint::new(100, 230)),
+            control_at(&hits, PixelPoint::new(100, 174)),
             Some(SettingsControl::Theme(ModalTheme::Light))
         );
         assert_eq!(
-            control_at(&hits, PixelPoint::new(20, 280)),
+            control_at(&hits, PixelPoint::new(20, 224)),
             Some(SettingsControl::Layer(WindowLayer::Normal))
         );
-        assert_eq!(control_at(&hits, PixelPoint::new(300, 300)), None);
+        assert_eq!(control_at(&hits, PixelPoint::new(300, 250)), None);
     }
 
     #[test]
     fn headings_sit_above_their_rows() {
-        let [ink, unit, theme, layer] = SINGLE.headings();
+        let [ink, theme, layer] = SINGLE.headings();
         assert!(ink.baseline().y() < SINGLE.preset(0).y());
-        assert!(unit.baseline().y() < SINGLE.unit_button(Unit::Px).y());
         assert!(theme.baseline().y() < SINGLE.theme_button(ModalTheme::Dark).y());
         assert_eq!(layer.text(), "Always on top");
         assert_eq!(SINGLE.title().text(), "NeNe Ruler");
@@ -338,20 +285,20 @@ mod tests {
     #[test]
     fn double_is_exactly_twice_the_single() {
         let double = SettingsLayout::new(UiScale::Double);
-        assert_eq!(double.window(), PixelRect::new(0, 0, 640, 672));
+        assert_eq!(double.window(), PixelRect::new(0, 0, 640, 560));
         assert_eq!(double.preset(7), PixelRect::new(480, 144, 48, 48));
         assert_eq!(
-            double.layer_notice_baseline(),
+            double.notice_baseline(),
             PixelPoint::new(
-                2 * SINGLE.layer_notice_baseline().x(),
-                2 * SINGLE.layer_notice_baseline().y()
+                2 * SINGLE.notice_baseline().x(),
+                2 * SINGLE.notice_baseline().y()
             )
         );
         let hits = double.hits(WindowLayer::AlwaysOnTop);
         assert_eq!(
-            control_at(&hits, PixelPoint::new(180, 340)),
-            Some(SettingsControl::Unit(Unit::Mm))
+            control_at(&hits, PixelPoint::new(200, 348)),
+            Some(SettingsControl::Theme(ModalTheme::Light))
         );
-        assert_eq!(control_at(&hits, PixelPoint::new(90, 170)), None);
+        assert_eq!(control_at(&hits, PixelPoint::new(88, 174)), None);
     }
 }

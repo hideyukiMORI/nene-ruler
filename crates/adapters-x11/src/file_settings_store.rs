@@ -75,7 +75,6 @@ impl SettingsStorePort for FileSettingsStore {
 mod tests {
     use super::*;
     use nene_ruler_core::rgb::Rgb;
-    use nene_ruler_core::unit::Unit;
 
     /// テストごとに別の一時ディレクトリ。プロセス ID とテスト名で分ける。
     fn scratch(name: &str) -> PathBuf {
@@ -95,9 +94,7 @@ mod tests {
     fn saves_then_loads_the_same_settings_and_leaves_no_temporary() {
         let directory = scratch("roundtrip");
         let store = FileSettingsStore::at(directory.join("deep").join("settings.v1.txt"));
-        let settings = RulerSettings::INITIAL
-            .with_ink(Rgb::new(1, 2, 3))
-            .with_unit(Unit::In);
+        let settings = RulerSettings::INITIAL.with_ink(Rgb::new(1, 2, 3));
         store.save(settings).unwrap();
         assert_eq!(store.load(), Ok(Some(settings)));
         assert!(!directory.join("deep").join(TEMPORARY_NAME).exists());

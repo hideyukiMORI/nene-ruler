@@ -1,4 +1,4 @@
-//! `RandR` から画面の物理寸法を読む（FR-008 / FR-016 の元）。
+//! `RandR` から画面の画素数と横のミリ寸法を読む（FR-005 / FR-016 の元）。
 
 use nene_ruler_application::screen_metrics_port::ScreenMetricsPort;
 use nene_ruler_core::screen_metrics::ScreenMetrics;
@@ -11,7 +11,7 @@ use x11rb::protocol::randr::{self, ConnectionExt as _, GetOutputInfoReply};
 use x11rb::protocol::xproto::Window;
 use x11rb::rust_connection::RustConnection;
 
-/// 主出力（無ければ最初に繋がっている出力）の画素数とミリ寸法を、ポートを通して返す。
+/// 主出力（無ければ最初に繋がっている出力）の画素数と横のミリ寸法を、ポートを通して返す。
 #[derive(Debug)]
 pub struct RandrScreenMetrics {
     connection: RustConnection,
@@ -59,7 +59,7 @@ impl RandrScreenMetrics {
         Ok(Err(ScreenMetricsFailure::Unavailable))
     }
 
-    /// 出力が繋がっていて CRTC を持つなら、その画素数と出力のミリ寸法を組にする。
+    /// 出力が繋がっていて CRTC を持つなら、その画素数と出力の横のミリ寸法を組にする。
     fn metrics_of(
         &self,
         info: &GetOutputInfoReply,
@@ -76,7 +76,6 @@ impl RandrScreenMetrics {
             u32::from(crtc.width),
             u32::from(crtc.height),
             info.mm_width,
-            info.mm_height,
         )))
     }
 }

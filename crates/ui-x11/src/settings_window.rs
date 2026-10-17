@@ -203,7 +203,6 @@ impl<'d> SettingsWindow<'d> {
             }
             // 入力欄は常に鍵を受けるので、押しても状態は変わらない。
             SettingsControl::HexField => return SettingsFlow::Continue,
-            SettingsControl::Unit(unit) => RulerIntent::ChooseUnit(unit),
             SettingsControl::Theme(theme) => RulerIntent::ChooseModalTheme(theme),
             SettingsControl::Layer(layer) => RulerIntent::ChooseLayer(layer),
         };

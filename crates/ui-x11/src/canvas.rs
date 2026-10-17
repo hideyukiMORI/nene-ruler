@@ -334,7 +334,6 @@ mod tests {
     use nene_ruler_application::screen_metrics_port::ScreenMetricsPort;
     use nene_ruler_core::screen_metrics::ScreenMetrics;
     use nene_ruler_core::screen_metrics_failure::ScreenMetricsFailure;
-    use nene_ruler_core::tick_kind::TickKind;
 
     struct NoScreen;
 
@@ -382,10 +381,7 @@ mod tests {
     ) -> RulerController<'_> {
         RulerController::new(
             nene_ruler_application::ports::Ports::new(&NoScreen, &NoStore, clipboard),
-            nene_ruler_application::environment::Environment::new(
-                transparency,
-                nene_ruler_application::layering::Layering::Supported,
-            ),
+            nene_ruler_application::environment::Environment::new(transparency),
             nene_ruler_application::product_version::ProductVersion::new("0.1.0"),
         )
     }
@@ -401,11 +397,8 @@ mod tests {
         let board = FakeClipboard(Ok(()));
         let controller = RulerController::new(
             nene_ruler_application::ports::Ports::new(&NoScreen, &NoStore, &board),
-            nene_ruler_application::environment::Environment::new(
-                Transparency::Composited,
-                nene_ruler_application::layering::Layering::Supported,
-            )
-            .with_xft_dpi(Some(192)),
+            nene_ruler_application::environment::Environment::new(Transparency::Composited)
+                .with_xft_dpi(Some(192)),
             nene_ruler_application::product_version::ProductVersion::new("0.1.0"),
         );
         let frame = controller.frame();
@@ -419,37 +412,6 @@ mod tests {
         assert_eq!(alpha(&mut canvas, 8), Some(0xFF));
         assert!(alpha(&mut canvas, 7).is_some_and(|a| a < 0xFF));
         assert!(alpha(&mut canvas, 9).is_some_and(|a| a < 0xFF));
-    }
-
-    #[test]
-    fn at_double_the_layer_notice_ends_before_the_right_ticks() {
-        let board = FakeClipboard(Ok(()));
-        let controller = RulerController::new(
-            nene_ruler_application::ports::Ports::new(&NoScreen, &NoStore, &board),
-            nene_ruler_application::environment::Environment::new(
-                Transparency::Composited,
-                nene_ruler_application::layering::Layering::Unsupported,
-            )
-            .with_xft_dpi(Some(192)),
-            nene_ruler_application::product_version::ProductVersion::new("0.1.0"),
-        );
-        let frame = controller.frame();
-        let layout = frame.layout();
-        let baseline = layout.notice_baseline(0);
-        // 右辺の中目盛（2x で 14 px）が始まる列より左を、目盛の無い行（5 px おきの行以外）だけ見る。
-        let ticks_from = layout.frame().right() - 14;
-        let top = layout.frame().y();
-        let mut canvas = Canvas::render(&frame, Format::ARgb32).unwrap();
-        let rows = baseline.y() - layout.notice_px()..=baseline.y() + 3;
-        let rightmost = rows
-            .filter(|y| !(y - top).is_multiple_of(TickKind::SPACING_PX))
-            .flat_map(|y| (baseline.x()..ticks_from).map(move |x| (x, y)))
-            .filter(|&(x, y)| canvas.pixel(x, y).unwrap().is_some_and(|p| p[3] > 0x80))
-            .map(|(x, _)| x)
-            .max()
-            .unwrap();
-        assert!(rightmost > baseline.x());
-        assert!(rightmost < ticks_from - 1, "{rightmost} vs {ticks_from}");
     }
 
     #[test]

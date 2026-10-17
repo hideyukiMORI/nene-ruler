@@ -10,24 +10,20 @@ use nene_ruler_core::screen_metrics::ScreenMetrics;
 use nene_ruler_core::screen_metrics_failure::ScreenMetricsFailure;
 use nene_ruler_core::settings_layout::SettingsLayout;
 use nene_ruler_core::ui_scale::UiScale;
-use nene_ruler_core::unit::Unit;
 
 use crate::copy_mark::CopyMark;
 use crate::environment::Environment;
 use crate::frame_notices::FrameNotices;
 use crate::frame_style::FrameStyle;
 use crate::frame_texts::FrameTexts;
-use crate::layering::Layering;
 use crate::modal_session::ModalSession;
 use crate::ports::Ports;
 use crate::product_version::ProductVersion;
 use crate::ruler_frame::RulerFrame;
 use crate::ruler_intent::RulerIntent;
 use crate::settings_frame::SettingsFrame;
-use crate::settings_notices::SettingsNotices;
 use crate::settings_store_failure::SettingsStoreFailure;
 use crate::transparency::Transparency;
-use nene_ruler_core::window_layer::WindowLayer;
 
 /// 枠・設定・モーダルの編集状態・物理寸法・透明を 1 つ持ち、意図で次の状態へ置き換える。
 ///
@@ -84,7 +80,6 @@ impl<'p> RulerController<'p> {
                 self.change(self.settings.with_ink(ink));
                 self.modal = Some(ModalSession::open(ink));
             }
-            RulerIntent::ChooseUnit(unit) => self.change(self.settings.with_unit(unit)),
             RulerIntent::ChooseModalTheme(theme) => {
                 self.change(self.settings.with_modal_theme(theme));
             }
@@ -118,9 +113,6 @@ impl<'p> RulerController<'p> {
             )
             .with_notices(FrameNotices::new(
                 self.environment.transparency() == Transparency::Opaque,
-                self.metrics.is_err() && self.settings.unit() != Unit::Px,
-                self.settings.layer() == WindowLayer::AlwaysOnTop
-                    && self.environment.layering() == Layering::Unsupported,
             )),
         )
     }
@@ -133,19 +125,9 @@ impl<'p> RulerController<'p> {
                 SettingsLayout::new(self.scale),
                 (self.settings, session.clone()),
                 self.version,
-                SettingsNotices::new(
-                    self.store_failure,
-                    self.metrics.err(),
-                    self.environment.layering(),
-                ),
+                self.store_failure,
             )
         })
-    }
-
-    /// 物理寸法が取れなかった理由。利用者に示すため（FR-014）。
-    #[must_use]
-    pub fn metrics_failure(&self) -> Option<ScreenMetricsFailure> {
-        self.metrics.err()
     }
 
     /// 設定の読み書きが失敗していれば、その理由（FR-014）。
@@ -205,18 +187,9 @@ impl<'p> RulerController<'p> {
         Length::clamped(px, max)
     }
 
-    /// 軸の長さを単位に従って綴る。物理寸法が無ければ px に落ちる（FR-008）。
+    /// 軸の長さを綴る。単位は物理画素だけ（ADR 0012）。
     fn text(&self, axis: Axis) -> LengthText {
-        let length = self.size.along(axis);
-        match (self.settings.unit(), self.metrics) {
-            (Unit::Px, _) | (Unit::Mm | Unit::In, Err(_)) => LengthText::in_pixels(length),
-            (Unit::Mm, Ok(metrics)) => {
-                LengthText::in_millimetres(length, metrics.millimetres_per_pixel(axis))
-            }
-            (Unit::In, Ok(metrics)) => {
-                LengthText::in_inches(length, metrics.millimetres_per_pixel(axis))
-            }
-        }
+        LengthText::in_pixels(self.size.along(axis))
     }
 }
 
@@ -233,6 +206,7 @@ mod tests {
     use nene_ruler_core::modal_theme::ModalTheme;
     use nene_ruler_core::rgb::Rgb;
     use nene_ruler_core::rgb_failure::RgbFailure;
+    use nene_ruler_core::window_layer::WindowLayer;
     struct FixedScreen(Result<ScreenMetrics, ScreenMetricsFailure>);
 
     impl ScreenMetricsPort for FixedScreen {
@@ -290,14 +264,14 @@ mod tests {
     }
 
     fn screen() -> FixedScreen {
-        FixedScreen(ScreenMetrics::new(1920, 1080, 480, 270))
+        FixedScreen(ScreenMetrics::new(1920, 1080, 480))
     }
 
     fn controller<'p>(screen: &'p FixedScreen, store: &'p MemoryStore) -> RulerController<'p> {
         static NO_CLIPBOARD: NoClipboard = NoClipboard;
         RulerController::new(
             Ports::new(screen, store, &NO_CLIPBOARD),
-            Environment::new(Transparency::Composited, Layering::Supported),
+            Environment::new(Transparency::Composited),
             ProductVersion::new("0.1.0"),
         )
     }
@@ -321,7 +295,6 @@ mod tests {
         assert_eq!(frame.ink(), Rgb::INITIAL_INK);
         assert_eq!(frame.layer(), WindowLayer::AlwaysOnTop);
         assert_eq!(frame.transparency(), Transparency::Composited);
-        assert_eq!(controller.metrics_failure(), None);
         assert_eq!(controller.store_failure(), None);
         assert!(controller.settings_frame().is_none());
         assert_eq!(*store.saved.borrow(), None);
@@ -349,14 +322,10 @@ mod tests {
     }
 
     #[test]
-    fn without_metrics_the_limit_is_the_absolute_maximum_and_units_fall_back() {
+    fn without_metrics_the_limit_is_the_absolute_maximum() {
         let screen = FixedScreen(Err(ScreenMetricsFailure::Unavailable));
         let store = MemoryStore::empty();
         let mut controller = controller(&screen, &store);
-        assert_eq!(
-            controller.metrics_failure(),
-            Some(ScreenMetricsFailure::Unavailable)
-        );
         controller.apply(RulerIntent::WindowResized {
             width_px: 20_000,
             height_px: 264,
@@ -365,27 +334,23 @@ mod tests {
             controller.frame().layout().size().width().px(),
             Length::MAX_PX
         );
-        controller.apply(RulerIntent::ChooseUnit(Unit::Mm));
-        assert!(
-            controller
-                .frame()
-                .text(Axis::Vertical)
-                .as_str()
-                .ends_with("px")
-        );
     }
 
     #[test]
-    fn units_convert_through_the_metrics() {
-        let (screen, store) = (screen(), MemoryStore::empty());
+    fn a_screen_without_millimetres_still_limits_by_its_pixels() {
+        // 施主の WSLg の主画面 rdp-0 は RandR で 0 mm。画素数の上限は効かせる。
+        let screen = FixedScreen(ScreenMetrics::new(3840, 2160, 0));
+        let store = MemoryStore::empty();
         let mut controller = controller(&screen, &store);
-        controller.apply(RulerIntent::ChooseUnit(Unit::Mm));
+        controller.apply(RulerIntent::WindowResized {
+            width_px: 9_000,
+            height_px: 264,
+        });
+        assert_eq!(controller.frame().layout().size().width().px(), 3840);
         assert_eq!(
             controller.frame().text(Axis::Horizontal).as_str(),
-            "100.0 mm"
+            "3840 px"
         );
-        controller.apply(RulerIntent::ChooseUnit(Unit::In));
-        assert_eq!(controller.frame().text(Axis::Vertical).as_str(), "2.36 in");
     }
 
     #[test]
@@ -471,9 +436,7 @@ mod tests {
 
     #[test]
     fn saved_settings_are_loaded_and_every_change_is_saved() {
-        let saved = RulerSettings::INITIAL
-            .with_ink(Rgb::new(9, 8, 7))
-            .with_unit(Unit::In);
+        let saved = RulerSettings::INITIAL.with_ink(Rgb::new(9, 8, 7));
         let screen = screen();
         let store = MemoryStore {
             loaded: Ok(Some(saved)),
@@ -482,10 +445,6 @@ mod tests {
         };
         let mut controller = controller(&screen, &store);
         assert_eq!(controller.frame().ink(), Rgb::new(9, 8, 7));
-        assert_eq!(
-            controller.frame().text(Axis::Horizontal).as_str(),
-            "3.94 in"
-        );
         controller.apply(RulerIntent::ChooseLayer(WindowLayer::Normal));
         assert_eq!(
             *store.saved.borrow(),
@@ -514,7 +473,7 @@ mod tests {
             Some(SettingsStoreFailure::UnknownVersion)
         );
         // 保存が成功すれば、読めなかった理由は役目を終える。
-        controller.apply(RulerIntent::ChooseUnit(Unit::Mm));
+        controller.apply(RulerIntent::ChooseModalTheme(ModalTheme::Light));
         assert_eq!(controller.store_failure(), None);
     }
 
@@ -540,12 +499,11 @@ mod tests {
         let (screen, store, board) = (screen(), MemoryStore::empty(), clipboard());
         let mut controller = RulerController::new(
             Ports::new(&screen, &store, &board),
-            Environment::new(Transparency::Composited, Layering::Supported),
+            Environment::new(Transparency::Composited),
             ProductVersion::new("0.1.0"),
         );
-        controller.apply(RulerIntent::ChooseUnit(Unit::Mm));
         controller.apply(RulerIntent::CopyText(Axis::Vertical));
-        assert_eq!(board.copied.borrow().as_deref(), Some("60.0 mm"));
+        assert_eq!(board.copied.borrow().as_deref(), Some("240 px"));
         let mark = controller.frame().copy_mark().unwrap();
         assert_eq!(mark.axis(), Axis::Vertical);
         assert!(mark.succeeded());
@@ -563,7 +521,7 @@ mod tests {
         };
         let mut controller = RulerController::new(
             Ports::new(&screen, &store, &board),
-            Environment::new(Transparency::Composited, Layering::Supported),
+            Environment::new(Transparency::Composited),
             ProductVersion::new("0.1.0"),
         );
         controller.apply(RulerIntent::CopyText(Axis::Horizontal));
@@ -579,7 +537,7 @@ mod tests {
         let (screen, store) = (screen(), MemoryStore::empty());
         let mut controller = RulerController::new(
             Ports::new(&screen, &store, &NO_CLIPBOARD),
-            Environment::new(Transparency::Composited, Layering::Supported).with_xft_dpi(Some(192)),
+            Environment::new(Transparency::Composited).with_xft_dpi(Some(192)),
             ProductVersion::new("0.1.0"),
         );
         let layout = controller.frame().layout();
@@ -609,47 +567,28 @@ mod tests {
             controller(&screen, &store).frame().layout().scale(),
             UiScale::Single
         );
-        let dense = FixedScreen(ScreenMetrics::new(3840, 2160, 600, 340));
+        let dense = FixedScreen(ScreenMetrics::new(3840, 2160, 600));
         let controller = RulerController::new(
             Ports::new(&dense, &store, &NO_CLIPBOARD),
-            Environment::new(Transparency::Composited, Layering::Supported),
+            Environment::new(Transparency::Composited),
             ProductVersion::new("0.1.0"),
         );
         assert_eq!(controller.frame().layout().scale(), UiScale::Double);
     }
 
     #[test]
-    fn notices_follow_transparency_and_metrics() {
+    fn only_the_opaque_fallback_is_noticed() {
         use crate::frame_notice::FrameNotice;
         static NO_CLIPBOARD: NoClipboard = NoClipboard;
+        // 最前面が効かない・物理寸法が無いことは示さない（ADR 0012）。
         let screen = FixedScreen(Err(ScreenMetricsFailure::Unavailable));
         let store = MemoryStore::empty();
-        let mut controller = RulerController::new(
+        let controller = RulerController::new(
             Ports::new(&screen, &store, &NO_CLIPBOARD),
-            Environment::new(Transparency::Opaque, Layering::Unsupported),
+            Environment::new(Transparency::Opaque),
             ProductVersion::new("0.1.0"),
         );
-        assert_eq!(
-            controller.frame().notices().list(),
-            [FrameNotice::Opaque, FrameNotice::NoAlwaysOnTop]
-        );
-        controller.apply(RulerIntent::ChooseLayer(WindowLayer::Normal));
-        controller.apply(RulerIntent::ChooseUnit(Unit::Mm));
-        assert_eq!(
-            controller.frame().notices().list(),
-            [FrameNotice::Opaque, FrameNotice::NoScreenMetrics]
-        );
-        controller.apply(RulerIntent::OpenSettings);
-        assert_eq!(
-            controller.settings_frame().unwrap().layering(),
-            Layering::Unsupported
-        );
-        controller.apply(RulerIntent::CloseSettings);
-        controller.apply(RulerIntent::OpenSettings);
-        assert_eq!(
-            controller.settings_frame().unwrap().metrics_failure(),
-            Some(ScreenMetricsFailure::Unavailable)
-        );
+        assert_eq!(controller.frame().notices().list(), [FrameNotice::Opaque]);
         let (real_screen, fresh_store) = (self::screen(), MemoryStore::empty());
         let fine = self::controller(&real_screen, &fresh_store);
         assert!(fine.frame().notices().list().is_empty());

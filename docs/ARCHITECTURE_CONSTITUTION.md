@@ -88,8 +88,7 @@ lint 違反ではなく**名前解決エラー**になる。宣言そのもの�
 | 状態 | 意味 | 所有者 | 変更経路 |
 | --- | --- | --- | --- |
 | 枠（幅・高さ） | 物差しが測っている物理画素。左上が原点 | application | 利用者の伸縮の意図と WM からの `ConfigureNotify` |
-| 単位 | px / mm / in | application | 利用者の切替意図 |
-| 物理寸法 | 画面の画素数とミリ寸法 | application | `ScreenMetricsPort` の結果を一度取り込む |
+| 画面の大きさ | 画面の画素数と横のミリ寸法（上限と dpi の元） | application | `ScreenMetricsPort` の結果を一度取り込む |
 | インク色と設定 | 検証済みの設定値 | application | 設定変更意図と保存ポートの結果 |
 | 透明 | 合成器があり透明に描けるか | application | 起動時に合成器の有無を一度取り込む |
 
