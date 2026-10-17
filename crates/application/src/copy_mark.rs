@@ -1,27 +1,27 @@
 //! コピーの結果の印。どの数字を、成功か失敗か。
 
-use nene_ruler_core::axis::Axis;
+use nene_ruler_core::length_label::LengthLabel;
 
 use crate::clipboard_failure::ClipboardFailure;
 
 /// ポインタが数字から離れるまで描く印（ADR 0007 の 5）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CopyMark {
-    axis: Axis,
+    label: LengthLabel,
     outcome: Result<(), ClipboardFailure>,
 }
 
 impl CopyMark {
-    /// 軸と結果から作る。
+    /// 数字の種類と結果から作る。
     #[must_use]
-    pub const fn new(axis: Axis, outcome: Result<(), ClipboardFailure>) -> Self {
-        Self { axis, outcome }
+    pub const fn new(label: LengthLabel, outcome: Result<(), ClipboardFailure>) -> Self {
+        Self { label, outcome }
     }
 
     /// どの数字か。
     #[must_use]
-    pub const fn axis(self) -> Axis {
-        self.axis
+    pub const fn label(self) -> LengthLabel {
+        self.label
     }
 
     /// 成功したか。

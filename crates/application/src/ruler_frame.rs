@@ -2,9 +2,9 @@
 
 use alloc::vec::Vec;
 
-use nene_ruler_core::axis::Axis;
 use nene_ruler_core::frame_layout::FrameLayout;
 use nene_ruler_core::hit_region::HitRegion;
+use nene_ruler_core::length_label::LengthLabel;
 
 use nene_ruler_core::length_text::LengthText;
 use nene_ruler_core::rgb::Rgb;
@@ -43,8 +43,8 @@ impl RulerFrame {
 
     /// 軸ごとの表示文字列。表示とコピーで同じもの（FR-007）。
     #[must_use]
-    pub const fn text(&self, axis: Axis) -> &LengthText {
-        self.texts.along(axis)
+    pub const fn text(&self, label: LengthLabel) -> &LengthText {
+        self.texts.text(label)
     }
 
     /// インク色。
@@ -80,9 +80,6 @@ impl RulerFrame {
     /// 当たり判定。文字数は表示文字列から取る。
     #[must_use]
     pub fn hit_regions(&self) -> Vec<HitRegion> {
-        self.layout.hit_regions(
-            self.text(Axis::Horizontal).chars(),
-            self.text(Axis::Vertical).chars(),
-        )
+        self.layout.hit_regions(|label| self.text(label).chars())
     }
 }

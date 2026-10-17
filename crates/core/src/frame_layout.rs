@@ -11,11 +11,12 @@ use alloc::string::ToString as _;
 use alloc::vec::Vec;
 
 use crate::anchor::Anchor;
-use crate::axis::Axis;
 use crate::edge::Edge;
+use crate::frame_detail::FrameDetail;
 use crate::frame_size::FrameSize;
 use crate::hit_region::HitRegion;
 use crate::hit_target::HitTarget;
+use crate::length_label::LengthLabel;
 use crate::pixel_point::PixelPoint;
 use crate::pixel_rect::PixelRect;
 use crate::tick_kind::TickKind;
@@ -56,13 +57,66 @@ const TICK_DIGIT_PX: u16 = 6;
 pub struct FrameLayout {
     size: FrameSize,
     scale: UiScale,
+    detail: FrameDetail,
 }
 
 impl FrameLayout {
     /// 枠の大きさと UI の倍率から作る。
     #[must_use]
     pub const fn new(size: FrameSize, scale: UiScale) -> Self {
-        Self { size, scale }
+        Self {
+            size,
+            scale,
+            detail: FrameDetail::Full,
+        }
+    }
+
+    /// 幅と高さの数字が、目盛と目盛の数字を避けた内側に収まるかで描き方を決める（ADR 0017）。
+    /// `chars` は数字の種類ごとの文字数（当たり判定と同じ見積り）。
+    #[must_use]
+    pub fn fitted<F: Fn(LengthLabel) -> u16>(self, chars: F) -> Self {
+        let full = Self {
+            detail: FrameDetail::Full,
+            ..self
+        };
+        let detail = if full.labels_fit(&chars) {
+            FrameDetail::Full
+        } else {
+            FrameDetail::Compact
+        };
+        Self { detail, ..self }
+    }
+
+    /// 描き方。
+    #[must_use]
+    pub const fn detail(self) -> FrameDetail {
+        self.detail
+    }
+
+    /// いまの描き方で出す数字。
+    #[must_use]
+    pub const fn labels(self) -> &'static [LengthLabel] {
+        match self.detail {
+            FrameDetail::Full => &[LengthLabel::Width, LengthLabel::Height],
+            FrameDetail::Compact => &[LengthLabel::Size],
+        }
+    }
+
+    /// 全部描いたとき、幅と高さの数字が、左辺の数字・右辺と下辺の主目盛を避けた内側に収まり、互いに重ならないか。
+    fn labels_fit(self, chars: &impl Fn(LengthLabel) -> u16) -> bool {
+        let frame = self.frame();
+        let left = frame.x() + self.left_inset();
+        let reach = self.px(TickKind::Major.length_px());
+        let right = frame.right().saturating_sub(reach);
+        let bottom = frame.bottom().saturating_sub(reach);
+        let width = self.label_hit(LengthLabel::Width, chars(LengthLabel::Width));
+        let height = self.label_hit(LengthLabel::Height, chars(LengthLabel::Height));
+        width.x() >= left
+            && width.right() < right
+            && width.bottom() < bottom
+            && height.y() > width.bottom()
+            && height.right() < right
+            && height.bottom() < bottom
     }
 
     /// UI の倍率。字の大きさを決めるのに UI が読む。
@@ -138,23 +192,26 @@ impl FrameLayout {
     /// 1 辺の目盛の矩形。線から内側へ伸びる。
     pub fn ticks(self, edge: Edge) -> impl Iterator<Item = PixelRect> {
         let frame = self.frame();
-        TickMark::along(self.size.along(edge.axis())).map(move |mark| {
-            let reach = self.px(mark.kind().length_px());
-            match edge {
-                Edge::Top => {
-                    PixelRect::new(frame.x() + mark.offset(), frame.y() + LINE_PX, 1, reach)
+        let drawn = self.detail == FrameDetail::Full;
+        TickMark::along(self.size.along(edge.axis()))
+            .filter(move |_| drawn)
+            .map(move |mark| {
+                let reach = self.px(mark.kind().length_px());
+                match edge {
+                    Edge::Top => {
+                        PixelRect::new(frame.x() + mark.offset(), frame.y() + LINE_PX, 1, reach)
+                    }
+                    Edge::Bottom => {
+                        PixelRect::new(frame.x() + mark.offset(), frame.bottom() - reach, 1, reach)
+                    }
+                    Edge::Left => {
+                        PixelRect::new(frame.x() + LINE_PX, frame.y() + mark.offset(), reach, 1)
+                    }
+                    Edge::Right => {
+                        PixelRect::new(frame.right() - reach, frame.y() + mark.offset(), reach, 1)
+                    }
                 }
-                Edge::Bottom => {
-                    PixelRect::new(frame.x() + mark.offset(), frame.bottom() - reach, 1, reach)
-                }
-                Edge::Left => {
-                    PixelRect::new(frame.x() + LINE_PX, frame.y() + mark.offset(), reach, 1)
-                }
-                Edge::Right => {
-                    PixelRect::new(frame.right() - reach, frame.y() + mark.offset(), reach, 1)
-                }
-            }
-        })
+            })
     }
 
     /// 上辺と左辺の主目盛に添える数字。下辺と右辺には添えない（SPECIFICATION 第 2 節）。
@@ -163,8 +220,9 @@ impl FrameLayout {
         let inside = LINE_PX + self.px(TickKind::Major.length_px() + TEXT_GAP_PX);
         let gap = self.px(TEXT_GAP_PX);
         let label_px = TICK_LABEL_PX;
+        let drawn = self.detail == FrameDetail::Full;
         TickMark::along(self.size.along(edge.axis()))
-            .filter(move |mark| mark.kind() == TickKind::Major)
+            .filter(move |mark| drawn && mark.kind() == TickKind::Major)
             .filter_map(move |mark| {
                 let baseline = match edge {
                     Edge::Top => PixelPoint::new(
@@ -260,22 +318,27 @@ impl FrameLayout {
             + self.px(TEXT_GAP_PX)
     }
 
-    /// 幅・高さの数字の置き場。横軸は上辺の目盛の数字の下の中央、縦軸は左辺の目盛の数字の右の中央に 90 度回して置く。
+    /// 数字の置き場。幅は上辺の目盛の数字の下の中央、高さは左辺の目盛の数字の右の中央に 90 度回して、
+    /// 両方（詰めた表示）は枠の中央に置く。
     /// 返す点は、文字の中央のベースライン。
     #[must_use]
-    pub fn label_baseline(self, axis: Axis) -> PixelPoint {
+    pub fn label_baseline(self, label: LengthLabel) -> PixelPoint {
         let frame = self.frame();
-        match axis {
-            Axis::Horizontal => {
+        match label {
+            LengthLabel::Width => {
                 let inside = LINE_PX
                     + TICK_LABEL_PX
                     + LABEL_PX
                     + self.px(TickKind::Major.length_px() + TEXT_GAP_PX + TEXT_GAP_PX);
                 PixelPoint::new(frame.x() + frame.width() / 2, frame.y() + inside)
             }
-            Axis::Vertical => PixelPoint::new(
+            LengthLabel::Height => PixelPoint::new(
                 frame.x() + self.left_inset() + LABEL_PX,
                 frame.y() + frame.height() / 2,
+            ),
+            LengthLabel::Size => PixelPoint::new(
+                frame.x() + frame.width() / 2,
+                frame.y() + frame.height() / 2 + LABEL_PX / 2,
             ),
         }
     }
@@ -299,23 +362,22 @@ impl FrameLayout {
         self.px(NOTICE_PX)
     }
 
-    /// 幅・高さの数字の当たり判定。文字数から見積もる。
+    /// 数字の当たり判定。文字数から見積もる。
     #[must_use]
-    pub fn label_hit(self, axis: Axis, chars: u16) -> PixelRect {
-        let baseline = self.label_baseline(axis);
+    pub fn label_hit(self, label: LengthLabel, chars: u16) -> PixelRect {
+        let baseline = self.label_baseline(label);
         let span = chars * LABEL_ADVANCE_PX;
         let half = span / 2;
-        let label = LABEL_PX;
         let depth = LABEL_PX + self.px(TEXT_GAP_PX);
-        match axis {
-            Axis::Horizontal => PixelRect::new(
+        match label {
+            LengthLabel::Width | LengthLabel::Size => PixelRect::new(
                 baseline.x().saturating_sub(half),
-                baseline.y().saturating_sub(label),
+                baseline.y().saturating_sub(LABEL_PX),
                 span,
                 depth,
             ),
-            Axis::Vertical => PixelRect::new(
-                baseline.x().saturating_sub(label),
+            LengthLabel::Height => PixelRect::new(
+                baseline.x().saturating_sub(LABEL_PX),
                 baseline.y().saturating_sub(half),
                 depth,
                 span,
@@ -338,7 +400,7 @@ impl FrameLayout {
 
     /// 当たり判定を優先順に。鉤括弧 → ギア → 数字 → 線の帯。
     #[must_use]
-    pub fn hit_regions(self, width_chars: u16, height_chars: u16) -> Vec<HitRegion> {
+    pub fn hit_regions<F: Fn(LengthLabel) -> u16>(self, chars: F) -> Vec<HitRegion> {
         let mut regions = Vec::new();
         for anchor in [Anchor::TopLeft, Anchor::BottomRight] {
             regions.push(HitRegion::new(
@@ -347,14 +409,12 @@ impl FrameLayout {
             ));
         }
         regions.push(HitRegion::new(self.gear(), HitTarget::Gear));
-        regions.push(HitRegion::new(
-            self.label_hit(Axis::Horizontal, width_chars),
-            HitTarget::Copy(Axis::Horizontal),
-        ));
-        regions.push(HitRegion::new(
-            self.label_hit(Axis::Vertical, height_chars),
-            HitTarget::Copy(Axis::Vertical),
-        ));
+        for label in self.labels() {
+            regions.push(HitRegion::new(
+                self.label_hit(*label, chars(*label)),
+                HitTarget::Copy(*label),
+            ));
+        }
         for edge in Edge::ALL {
             regions.push(HitRegion::new(self.line_band(edge), HitTarget::Move));
         }
@@ -372,6 +432,7 @@ mod tests {
     use super::*;
     use crate::hit_region::target_at;
     use crate::length::Length;
+    use crate::length_text::LengthText;
 
     fn layout() -> FrameLayout {
         FrameLayout::new(FrameSize::INITIAL, UiScale::Single)
@@ -456,20 +517,20 @@ mod tests {
     #[test]
     fn labels_sit_inside_past_the_tick_numbers() {
         assert_eq!(
-            layout().label_baseline(Axis::Horizontal),
+            layout().label_baseline(LengthLabel::Width),
             PixelPoint::new(204, 41)
         );
         assert_eq!(
-            layout().label_baseline(Axis::Vertical),
+            layout().label_baseline(LengthLabel::Height),
             PixelPoint::new(50, 124)
         );
         assert_eq!(layout().left_numbers_width(), 18);
         assert_eq!(
-            layout().label_hit(Axis::Horizontal, 6),
+            layout().label_hit(LengthLabel::Width, 6),
             PixelRect::new(183, 30, 42, 13)
         );
         assert_eq!(
-            layout().label_hit(Axis::Vertical, 6),
+            layout().label_hit(LengthLabel::Height, 6),
             PixelRect::new(39, 103, 13, 42)
         );
     }
@@ -485,7 +546,7 @@ mod tests {
 
     #[test]
     fn hit_regions_follow_the_priority() {
-        let regions = layout().hit_regions(6, 6);
+        let regions = layout().hit_regions(|_label| 6);
         assert_eq!(
             target_at(&regions, PixelPoint::new(2, 2)),
             Some(HitTarget::Resize(Anchor::TopLeft))
@@ -500,11 +561,11 @@ mod tests {
         );
         assert_eq!(
             target_at(&regions, PixelPoint::new(204, 36)),
-            Some(HitTarget::Copy(Axis::Horizontal))
+            Some(HitTarget::Copy(LengthLabel::Width))
         );
         assert_eq!(
             target_at(&regions, PixelPoint::new(45, 124)),
-            Some(HitTarget::Copy(Axis::Vertical))
+            Some(HitTarget::Copy(LengthLabel::Height))
         );
         assert_eq!(
             target_at(&regions, PixelPoint::new(200, 7)),
@@ -542,7 +603,7 @@ mod tests {
         {
             let size = FrameSize::new(Length::INITIAL_WIDTH, Length::new(height).unwrap());
             let layout = FrameLayout::new(size, scale);
-            let label = layout.label_hit(Axis::Vertical, 7);
+            let label = layout.label_hit(LengthLabel::Height, 7);
             let notice = {
                 let base = layout.notice_baseline(0);
                 let line = layout.notice_px();
@@ -619,11 +680,11 @@ mod tests {
         assert_eq!(first, Some(PixelPoint::new(62, 46)));
         // 幅と高さの数字も字は 11 px のまま（ADR 0015）。y = 8 + 1 + 9 + 11 + 2 × (12 + 2 + 2)。
         assert_eq!(
-            double.label_baseline(Axis::Horizontal),
+            double.label_baseline(LengthLabel::Width),
             PixelPoint::new(208, 61)
         );
         assert_eq!(
-            double.label_hit(Axis::Horizontal, 6),
+            double.label_hit(LengthLabel::Width, 6),
             PixelRect::new(187, 50, 42, 15)
         );
         let gear = double.gear();
@@ -645,5 +706,58 @@ mod tests {
         // 高さ 252: 250 のベースラインは y = 4 + 250 + 4 で下の線（255）を越える。
         assert_eq!(numbers(400, 252, Edge::Left).last(), Some(&200));
         assert_eq!(numbers(400, 260, Edge::Left).last(), Some(&250));
+    }
+
+    /// 文字数の見積りを、表示する文字列（`LengthText`）の長さで作る。
+    fn chars_for(width: u16, height: u16) -> impl Fn(LengthLabel) -> u16 {
+        let (width, height) = (Length::new(width).unwrap(), Length::new(height).unwrap());
+        move |label| match label {
+            LengthLabel::Width => LengthText::in_pixels(width).chars(),
+            LengthLabel::Height => LengthText::in_pixels(height).chars(),
+            LengthLabel::Size => LengthText::size(width, height).chars(),
+        }
+    }
+
+    fn fitted(width: u16, height: u16) -> FrameLayout {
+        let size = FrameSize::new(Length::new(width).unwrap(), Length::new(height).unwrap());
+        FrameLayout::new(size, UiScale::Single).fitted(chars_for(width, height))
+    }
+
+    #[test]
+    fn small_frames_switch_to_the_compact_detail() {
+        assert_eq!(fitted(400, 240).detail(), FrameDetail::Full);
+        assert_eq!(fitted(100, 240).detail(), FrameDetail::Compact);
+        assert_eq!(fitted(400, 60).detail(), FrameDetail::Compact);
+        assert_eq!(fitted(40, 40).detail(), FrameDetail::Compact);
+        // 境目: 幅を 1 px ずつ縮めると、どこかで一度だけ詰めた表示に変わり、戻らない。
+        let changes = (60..=400_u16)
+            .map(|width| fitted(width, 240).detail())
+            .collect::<Vec<_>>()
+            .windows(2)
+            .filter(|pair| pair.first() != pair.last())
+            .count();
+        assert_eq!(changes, 1);
+    }
+
+    #[test]
+    fn the_compact_detail_draws_only_lines_anchors_and_the_size() {
+        let compact = fitted(100, 40);
+        assert_eq!(compact.labels(), &[LengthLabel::Size]);
+        for edge in Edge::ALL {
+            assert_eq!(compact.ticks(edge).count(), 0);
+            assert_eq!(compact.tick_labels(edge).count(), 0);
+        }
+        assert_eq!(compact.ink_rects().len(), 4 + 4);
+        let regions = compact.hit_regions(chars_for(100, 40));
+        let centre = PixelPoint::new(4 + 50, 4 + 20);
+        assert_eq!(
+            target_at(&regions, centre),
+            Some(HitTarget::Copy(LengthLabel::Size))
+        );
+        assert!(
+            regions
+                .iter()
+                .all(|region| region.target() != HitTarget::Copy(LengthLabel::Width))
+        );
     }
 }
