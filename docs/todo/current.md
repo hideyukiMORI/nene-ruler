@@ -24,14 +24,18 @@
 | 縦書きの高さの数字と通知を、左辺の主目盛の数字の右へ寄せる | ✅ Issue #15。PR #16 の枝の上 |
 | HiDPI の倍率 1x / 2x（`Xft.dpi` → RandR の dpi）を枠の飾りとモーダルに掛ける | ✅ Issue #28・ADR 0011・Xvfb で実測（gate-proofs 第 20 節）。施主の WSLg は `Xft.dpi` が無く主画面が 0 mm なので 1x |
 | mm / in と最前面の通知を外し、長さは常に px（施主決定 2026-10-17） | ✅ Issue #30・ADR 0012 |
+| Windows 版の土台: 設定ファイルの切り出し・adapters-windows・ui-win32（Direct2D の枠の窓）・unsafe の例外（CNF-014） | ✅ Issue #60・ADR 0021。施主の Windows で枠が描けた。操作は施主の確認待ち |
 | CI の必須 check（`make ci`）と commit-msg フック | 配線済み。最初の PR で実行証拠を得るまで planned |
 | ruleset（main の保護・squash-only） | 未設定。施主が GitHub で設定したら gate-proofs に記録する |
 
 ## 次に行うこと
 
-PR #3 → #5 → #7 → #9 → #11 → #13 → #16 → #17 → #22 → #24 → #27 → #29 → #31 → #33 → #35 → #37 → #39 → #41 → #43 → #45 → #47 → #49 → #51 → #53 → #55 → #57 → Issue #58 の PR の順に squash merge する（引き継ぎ書 第 4 節の載せ替え）。
+PR #3〜#59 は 2026-10-18 に main へ squash merge した。Windows 版を作ってから、Windows と Linux の配布物を揃えて v0.1.0 を出す（施主決定 2026-10-18）。
 
-引き継ぎ書 第 3 節の施主判断 5 件は 2026-10-17 にすべて決まった（Issue #26 / #28）。「システムに従う」は置かない。
+1. Issue #60: Windows 版の土台と枠の窓（ADR 0021）
+2. Windows の設定モーダル・アイコン・最前面の切り替え
+3. 配布物（Windows: MSI とポータブル zip、Linux: .deb と zip、sha256）とタグで動くリリースの仕組み
+4. v0.1.0 のタグとリリース
 
 ## 残る穴
 

@@ -1,6 +1,6 @@
 # ゲート発火の証明 — NeNe Ruler
 
-> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）/ Issue #12（第 13 節）/ WSLg の実機（第 14 節・2026-10-17）/ Issue #14（第 15 節）/ Issue #15（第 16 節）/ Issue #20（第 17 節）/ Issue #23（第 18 節）/ Issue #26（第 19 節）/ Issue #28（第 20 節）/ Issue #30（第 21 節）/ Issue #32（第 22 節）/ Issue #34（第 23 節）/ Issue #36（第 24 節）/ Issue #38（第 25 節）/ Issue #40（第 26 節）/ Issue #42（第 27 節）/ Issue #44（第 28 節）/ Issue #46（第 29 節）/ Issue #48（第 30 節）/ Issue #50（第 31 節）/ Issue #52（第 32 節）/ Issue #54（第 33 節）/ Issue #56（第 34 節）/ Issue #58（第 35 節）。以下は実行した結果のみ。
+> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）/ Issue #12（第 13 節）/ WSLg の実機（第 14 節・2026-10-17）/ Issue #14（第 15 節）/ Issue #15（第 16 節）/ Issue #20（第 17 節）/ Issue #23（第 18 節）/ Issue #26（第 19 節）/ Issue #28（第 20 節）/ Issue #30（第 21 節）/ Issue #32（第 22 節）/ Issue #34（第 23 節）/ Issue #36（第 24 節）/ Issue #38（第 25 節）/ Issue #40（第 26 節）/ Issue #42（第 27 節）/ Issue #44（第 28 節）/ Issue #46（第 29 節）/ Issue #48（第 30 節）/ Issue #50（第 31 節）/ Issue #52（第 32 節）/ Issue #54（第 33 節）/ Issue #56（第 34 節）/ Issue #58（第 35 節）/ Issue #60（第 36 節）。以下は実行した結果のみ。
 > 関連: QLT-007 / QLT-011 / QLT-013 / ADR 0003
 
 ## 1. 環境と範囲
@@ -55,6 +55,7 @@ CNF-009 は active の規則ごとに `| ID |` で始まる行がここにある
 | CNF-011 | `rustfmt.toml`・`= "allow"`・`continue-on-error` | 同上 | 反例は CNF-011 |
 | CNF-012 | core の `std::time`・app の `std::env::var` | 同上 | 反例は CNF-012。adapters と `std::env::args` は通る |
 | CNF-013 | ui → adapters・core の外部 crate・xtask の依存 | 同上 ＋ 実ファイル | 反例は CNF-013。`Range` / `Case` の 2 つ目の宣言を CNF-003 が実ファイルで検出し、モジュールを分けた |
+| CNF-014 | Windows のクレートの lint の表の 1 項目を緩める・消す | xtask の正例・反例（第 36 節） | 反例は CNF-014 を 2 件（rust と clippy の表）。正例（unsafe_code だけ deny）と他のクレートは通る |
 
 ## 3. `make prove` の実出力（26 件）
 
@@ -789,3 +790,29 @@ Xvfb（2x）で 16 × 16 まで縮めて撮り、鉤括弧が横の腕だけに�
 | `make conformance` | 違反なし（144 ファイル） |
 
 Xvfb: 枠の窓とモーダルの窓の `xprop _NET_WM_ICON` に 16 / 24 / 32 / 48 / 64 / 128 の 6 つが出た。`xprop -f _NET_WM_ICON 32c` の値を画像に戻し、明るい地と暗い地に並べて、デザインのカンバスの案 A と同じ絵であることを確かめた。
+
+## 36. Issue #60 — Windows 版の土台と枠の窓（2026-10-18）
+
+施主の WSL。main（`baa859a`）から切った。決定は [ADR 0021](../adr/0021-windows-port-direct2d-and-confined-unsafe.md)。
+WSL に `rustup target add x86_64-pc-windows-gnu`（1.98.0）と `gcc-mingw-w64-x86-64` を入れ、Windows の exe を WSL で作った。
+
+### 36.1 ゲート
+
+| target | 結果 |
+| --- | --- |
+| `make lint` | 0 件 |
+| `make lint-windows` | 0 件（Windows のターゲットの clippy。最初は `semicolon_inside_block`・`undocumented_unsafe_blocks`・`too_many_arguments`・`excessive_nesting` が出たので直した） |
+| `make test` | core 64・application 21・settings-file 9・adapters-x11 3・ui-win32 1・xtask 75 は成功。ui-x11 は 41 件中 40（既存の #21） |
+| `make conformance` | 違反なし（163 ファイル）。CNF-014 の証明行が無い状態では CNF-009 が止めた |
+| `make deny` | 最初は `unicode-ident` の `Unicode-3.0`（windows の手続きマクロの下）で licenses が落ちた。許可に足して ok |
+| `make build-windows` | `nene-ruler.exe` 1.6 MB。mingw のリンカが `corrupt .drectve at end of def file` の警告を 1 つ出す（windows-link の取り込み表・動作に関係しない） |
+
+xtask の新しいテスト: `cnf012_allows_the_windows_adapters_and_the_settings_file`・`cnf013_reads_target_specific_dependencies`・`cnf013_keeps_the_settings_file_free_of_external_crates`・`cnf014_accepts_a_faithful_copy_with_unsafe_denied`・`cnf014_catches_a_loosened_or_missing_lint`・`cnf014_ignores_other_crates`。
+
+### 36.2 施主の Windows での起動（画面のキャプチャ）
+
+exe を `C:\Users\Public` に置き、PowerShell の `Start-Process` で起動して 2 秒後に主モニタの中央を撮り、`Stop-Process` で閉じた。
+
+- 透明な枠が出て、下のターミナルが透けた。線・目盛・目盛の数字・`400 px`・縦書きの `240 px`・鉤括弧・ギアが Direct2D で描けた
+- 最初は幅が `384 px` だった。作成直後の `WM_NCCALCSIZE`（wparam = 0）に答えておらず、`WS_THICKFRAME` の左右 8 px ずつが差し引かれていた。常に 0 を返すように直して `400 px` になった
+- 移動・伸縮・コピー・矢印・Esc / Alt+F4 は、施主の手で確かめる（未）
