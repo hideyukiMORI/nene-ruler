@@ -17,7 +17,7 @@ use crate::ui_failure::UiFailure;
 
 /// 数字のフォント。toy text API なので家族名だけ（ADR 0002）。
 pub(crate) const FONT_FAMILY: &str = "sans-serif";
-/// 幅・高さの数字の大きさ（1x）。
+/// 幅・高さの数字の大きさ。倍率に関わらずこの大きさ（ADR 0015）。
 const LABEL_FONT_PX: f64 = 11.0;
 /// 主目盛の数字の大きさ。倍率に関わらずこの大きさ（ADR 0013）。
 const TICK_FONT_PX: f64 = 9.0;
@@ -220,7 +220,8 @@ fn draw_label(context: &Context, frame: &RulerFrame, axis: Axis) -> Result<(), U
         fill_rect(context, hit)?;
     }
     context.select_font_face(FONT_FAMILY, FontSlant::Normal, FontWeight::Normal);
-    context.set_font_size(font_px(LABEL_FONT_PX, frame.layout().scale()));
+    // 幅と高さの数字は倍率を掛けない（ADR 0015）。
+    context.set_font_size(LABEL_FONT_PX);
     let extents = context.text_extents(text)?;
     let centred = -(extents.width() / 2.0_f64 + extents.x_bearing());
     context.save()?;

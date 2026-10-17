@@ -39,7 +39,7 @@ const GEAR_GAP_PX: u16 = 4;
 const BEYOND_PX: u16 = GEAR_GAP_PX + GEAR_DIAMETER_PX;
 /// 主目盛の数字の高さ。倍率を掛けない（施主指示 2026-10-17・ADR 0013）。
 const TICK_LABEL_PX: u16 = 9;
-/// 幅・高さの数字の高さ。
+/// 幅・高さの数字の高さ。倍率を掛けない（施主指示 2026-10-17・ADR 0015）。
 const LABEL_PX: u16 = 11;
 /// 幅・高さの数字の 1 文字あたりの幅の見積り（当たり判定だけに使う）。
 const LABEL_ADVANCE_PX: u16 = 7;
@@ -263,11 +263,12 @@ impl FrameLayout {
             Axis::Horizontal => {
                 let inside = LINE_PX
                     + TICK_LABEL_PX
-                    + self.px(TickKind::Major.length_px() + TEXT_GAP_PX + TEXT_GAP_PX + LABEL_PX);
+                    + LABEL_PX
+                    + self.px(TickKind::Major.length_px() + TEXT_GAP_PX + TEXT_GAP_PX);
                 PixelPoint::new(frame.x() + frame.width() / 2, frame.y() + inside)
             }
             Axis::Vertical => PixelPoint::new(
-                frame.x() + self.left_inset() + self.px(LABEL_PX),
+                frame.x() + self.left_inset() + LABEL_PX,
                 frame.y() + frame.height() / 2,
             ),
         }
@@ -296,10 +297,10 @@ impl FrameLayout {
     #[must_use]
     pub fn label_hit(self, axis: Axis, chars: u16) -> PixelRect {
         let baseline = self.label_baseline(axis);
-        let span = chars * self.px(LABEL_ADVANCE_PX);
+        let span = chars * LABEL_ADVANCE_PX;
         let half = span / 2;
-        let label = self.px(LABEL_PX);
-        let depth = self.px(LABEL_PX + TEXT_GAP_PX);
+        let label = LABEL_PX;
+        let depth = LABEL_PX + self.px(TEXT_GAP_PX);
         match axis {
             Axis::Horizontal => PixelRect::new(
                 baseline.x().saturating_sub(half),
@@ -605,6 +606,15 @@ mod tests {
             .map(TickLabel::baseline);
         // 目盛の長さと隙間は 2x、字の高さ 9 px はそのまま: y = 8 + 1 + 2 × (12 + 2) + 9。
         assert_eq!(first, Some(PixelPoint::new(62, 46)));
+        // 幅と高さの数字も字は 11 px のまま（ADR 0015）。y = 8 + 1 + 9 + 11 + 2 × (12 + 2 + 2)。
+        assert_eq!(
+            double.label_baseline(Axis::Horizontal),
+            PixelPoint::new(208, 61)
+        );
+        assert_eq!(
+            double.label_hit(Axis::Horizontal, 6),
+            PixelRect::new(187, 50, 42, 15)
+        );
         let gear = double.gear();
         assert_eq!(gear.right(), double.window().right());
     }
