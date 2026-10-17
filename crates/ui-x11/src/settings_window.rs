@@ -21,6 +21,7 @@ use x11rb::wrapper::ConnectionExt as _;
 use crate::alt_f4_gesture::AltF4Gesture;
 use crate::display::Display;
 use crate::drag::Drag;
+use crate::field_focus::FieldFocus;
 use crate::key_input::KeyInput;
 use crate::settings_canvas::render_settings;
 use crate::settings_flow::SettingsFlow;
@@ -43,6 +44,7 @@ pub struct SettingsWindow<'d> {
     alt_f4: AltF4Gesture,
     wm_moves: bool,
     drag: Option<Drag>,
+    focus: FieldFocus,
 }
 
 impl<'d> SettingsWindow<'d> {
@@ -76,6 +78,7 @@ impl<'d> SettingsWindow<'d> {
                     | EventMask::BUTTON_PRESS
                     | EventMask::BUTTON_RELEASE
                     | EventMask::POINTER_MOTION
+                    | EventMask::FOCUS_CHANGE
                     | EventMask::KEY_PRESS
                     | EventMask::KEY_RELEASE,
             );
@@ -101,6 +104,7 @@ impl<'d> SettingsWindow<'d> {
             alt_f4: AltF4Gesture::IDLE,
             wm_moves: display.wm_supports(display.atoms().net_wm_moveresize),
             drag: None,
+            focus: FieldFocus::Unfocused,
         };
         opened.declare_hints(owner)?;
         connection.map_window(opened.window.window())?;
@@ -126,7 +130,7 @@ impl<'d> SettingsWindow<'d> {
     ///
     /// X の要求か cairo が失敗した。
     pub fn present(&self, frame: &SettingsFrame) -> Result<(), UiFailure> {
-        let mut canvas = render_settings(frame, self.display.visual().format())?;
+        let mut canvas = render_settings(frame, self.display.visual().format(), self.focus)?;
         Transfer::new(
             (self.window.window(), self.gc.gcontext()),
             canvas.width(),
@@ -155,6 +159,10 @@ impl<'d> SettingsWindow<'d> {
             self.dragged((motion.root_x, motion.root_y))?;
         } else if let Event::ButtonRelease(_) = event {
             self.drag = None;
+        } else if let Event::FocusIn(_) = event {
+            self.refocused(controller, FieldFocus::Focused)?;
+        } else if let Event::FocusOut(_) = event {
+            self.refocused(controller, FieldFocus::Unfocused)?;
         } else if let Event::KeyPress(key) = event {
             let input = self.display.key_input(key);
             if self
@@ -184,6 +192,19 @@ impl<'d> SettingsWindow<'d> {
         Ok(SettingsFlow::Continue)
     }
 
+    /// 焦点が出入りした。入力欄の棒と縁だけが変わるので、モーダルだけ描き直す（Issue #40）。
+    fn refocused(
+        &mut self,
+        controller: &RulerController<'_>,
+        focus: FieldFocus,
+    ) -> Result<(), UiFailure> {
+        if self.focus == focus {
+            return Ok(());
+        }
+        self.focus = focus;
+        self.expose(controller)
+    }
+
     /// 露出で描き直す。
     fn expose(&self, controller: &RulerController<'_>) -> Result<(), UiFailure> {
         match controller.settings_frame() {
@@ -201,6 +222,13 @@ impl<'d> SettingsWindow<'d> {
         if press.detail != BUTTON_LEFT {
             return Ok(SettingsFlow::Continue);
         }
+        // どこを押しても、打った鍵が入力欄に入るよう焦点を取り直す（Issue #40）。
+        self.display.connection().set_input_focus(
+            InputFocus::PARENT,
+            self.window.window(),
+            press.time,
+        )?;
+        self.display.connection().flush()?;
         let Some(point) = PixelPoint::from_event(press.event_x, press.event_y) else {
             return Ok(SettingsFlow::Continue);
         };

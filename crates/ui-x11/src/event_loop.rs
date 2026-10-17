@@ -83,11 +83,12 @@ fn open_settings<'d>(
 
 /// イベントの宛先の窓。X のイベントは開いた集合なので `if let` の連なりで書く（規約 第 4 節）。
 fn window_of(event: &Event) -> Option<Window> {
-    if let Event::Expose(expose) = event {
-        Some(expose.window)
-    } else if let Event::ConfigureNotify(configure) = event {
-        Some(configure.window)
-    } else if let Event::ButtonPress(press) = event {
+    input_window_of(event).or_else(|| window_event_of(event))
+}
+
+/// ポインタ・鍵・焦点のイベントの宛先。
+fn input_window_of(event: &Event) -> Option<Window> {
+    if let Event::ButtonPress(press) = event {
         Some(press.event)
     } else if let Event::ButtonRelease(release) = event {
         Some(release.event)
@@ -99,6 +100,21 @@ fn window_of(event: &Event) -> Option<Window> {
         Some(key.event)
     } else if let Event::KeyRelease(key) = event {
         Some(key.event)
+    } else if let Event::FocusIn(focus) = event {
+        Some(focus.event)
+    } else if let Event::FocusOut(focus) = event {
+        Some(focus.event)
+    } else {
+        None
+    }
+}
+
+/// 窓そのもののイベント（露出・大きさ・WM からの要求）の宛先。
+fn window_event_of(event: &Event) -> Option<Window> {
+    if let Event::Expose(expose) = event {
+        Some(expose.window)
+    } else if let Event::ConfigureNotify(configure) = event {
+        Some(configure.window)
     } else if let Event::ClientMessage(message) = event {
         Some(message.window)
     } else {

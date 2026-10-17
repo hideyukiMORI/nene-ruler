@@ -10,6 +10,7 @@ pub mod canvas;
 pub mod display;
 pub mod drag;
 pub mod event_loop;
+pub mod field_focus;
 mod flow;
 pub mod key_input;
 pub mod key_map;
