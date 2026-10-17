@@ -6,6 +6,7 @@
 //!
 //! 値はすべて SPECIFICATION 第 2 節の「決め打ちしない」初期値である。
 
+use alloc::string::ToString as _;
 use alloc::vec::Vec;
 
 use crate::anchor::Anchor;
@@ -45,6 +46,8 @@ const TEXT_GAP_PX: u16 = 2;
 /// 通知の文字の高さと行の間隔。
 const NOTICE_PX: u16 = 9;
 const NOTICE_LINE_PX: u16 = 12;
+/// 主目盛の数字の 1 桁あたりの幅の見積り（9 px の字）。左辺の数字を避けるのに使う。
+const TICK_DIGIT_PX: u16 = 6;
 
 /// 枠の大きさから決まる、窓の中の全ての置き場。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -217,20 +220,41 @@ impl FrameLayout {
         )
     }
 
-    /// 幅・高さの数字の置き場。横軸は上辺の中央の下、縦軸は左辺の中央の右に 90 度回して置く。
+    /// 左辺の主目盛の数字が占める幅（最も桁の多い数字）。縦軸の数字と通知はこの右に置く。
+    #[must_use]
+    pub fn left_numbers_width(self) -> u16 {
+        let digits = u16::try_from(self.size.height().px().to_string().len()).unwrap_or(5);
+        digits * TICK_DIGIT_PX
+    }
+
+    /// 左辺の目盛と数字の右端から、枠の左端までの距離。
+    fn left_inset(self) -> u16 {
+        LINE_PX
+            + TickKind::Major.length_px()
+            + TEXT_GAP_PX
+            + self.left_numbers_width()
+            + TEXT_GAP_PX
+    }
+
+    /// 幅・高さの数字の置き場。横軸は上辺の目盛の数字の下の中央、縦軸は左辺の目盛の数字の右の中央に 90 度回して置く。
     /// 返す点は、文字の中央のベースライン。
     #[must_use]
     pub fn label_baseline(self, axis: Axis) -> PixelPoint {
         let frame = self.frame();
-        let inside = LINE_PX
-            + TickKind::Major.length_px()
-            + TEXT_GAP_PX
-            + TICK_LABEL_PX
-            + TEXT_GAP_PX
-            + LABEL_PX;
         match axis {
-            Axis::Horizontal => PixelPoint::new(frame.x() + frame.width() / 2, frame.y() + inside),
-            Axis::Vertical => PixelPoint::new(frame.x() + inside, frame.y() + frame.height() / 2),
+            Axis::Horizontal => {
+                let inside = LINE_PX
+                    + TickKind::Major.length_px()
+                    + TEXT_GAP_PX
+                    + TICK_LABEL_PX
+                    + TEXT_GAP_PX
+                    + LABEL_PX;
+                PixelPoint::new(frame.x() + frame.width() / 2, frame.y() + inside)
+            }
+            Axis::Vertical => PixelPoint::new(
+                frame.x() + self.left_inset() + LABEL_PX,
+                frame.y() + frame.height() / 2,
+            ),
         }
     }
 
@@ -240,7 +264,7 @@ impl FrameLayout {
         let frame = self.frame();
         let inside = LINE_PX + TickKind::Major.length_px() + TEXT_GAP_PX;
         PixelPoint::new(
-            frame.x() + ANCHOR_ARM_PX + TEXT_GAP_PX,
+            frame.x() + self.left_inset(),
             frame
                 .bottom()
                 .saturating_sub(inside + index * NOTICE_LINE_PX),
@@ -318,6 +342,7 @@ impl FrameLayout {
 mod tests {
     use super::*;
     use crate::hit_region::target_at;
+    use crate::length::Length;
 
     fn layout() -> FrameLayout {
         FrameLayout::new(FrameSize::INITIAL)
@@ -403,15 +428,16 @@ mod tests {
         );
         assert_eq!(
             layout().label_baseline(Axis::Vertical),
-            PixelPoint::new(41, 124)
+            PixelPoint::new(50, 124)
         );
+        assert_eq!(layout().left_numbers_width(), 18);
         assert_eq!(
             layout().label_hit(Axis::Horizontal, 6),
             PixelRect::new(183, 30, 42, 13)
         );
         assert_eq!(
             layout().label_hit(Axis::Vertical, 6),
-            PixelRect::new(30, 103, 13, 42)
+            PixelRect::new(39, 103, 13, 42)
         );
     }
 
@@ -419,7 +445,7 @@ mod tests {
     fn notices_stack_upward_above_the_bottom_ticks() {
         let first = layout().notice_baseline(0);
         let second = layout().notice_baseline(1);
-        assert_eq!(first, PixelPoint::new(18, 228));
+        assert_eq!(first, PixelPoint::new(39, 228));
         assert_eq!(second.y(), first.y() - 12);
         assert!(first.y() < layout().line(Edge::Bottom).y() - TickKind::Major.length_px());
     }
@@ -444,7 +470,7 @@ mod tests {
             Some(HitTarget::Copy(Axis::Horizontal))
         );
         assert_eq!(
-            target_at(&regions, PixelPoint::new(36, 124)),
+            target_at(&regions, PixelPoint::new(45, 124)),
             Some(HitTarget::Copy(Axis::Vertical))
         );
         assert_eq!(
@@ -452,6 +478,44 @@ mod tests {
             Some(HitTarget::Move)
         );
         assert_eq!(target_at(&regions, PixelPoint::new(200, 120)), None);
+    }
+
+    /// 左辺の主目盛の数字が占める矩形の見積り。
+    fn left_number_rects(layout: FrameLayout) -> Vec<PixelRect> {
+        layout
+            .tick_labels(Edge::Left)
+            .map(|label| {
+                let base = label.baseline();
+                PixelRect::new(base.x(), base.y() - 9, layout.left_numbers_width(), 9)
+            })
+            .collect()
+    }
+
+    fn intersects(a: PixelRect, b: PixelRect) -> bool {
+        a.x() <= b.right() && b.x() <= a.right() && a.y() <= b.bottom() && b.y() <= a.bottom()
+    }
+
+    #[test]
+    fn vertical_label_and_notices_clear_the_left_tick_numbers() {
+        for height in [240_u16, 270, 1_200] {
+            let size = FrameSize::new(Length::INITIAL_WIDTH, Length::new(height).unwrap());
+            let layout = FrameLayout::new(size);
+            let label = layout.label_hit(Axis::Vertical, 7);
+            let notice = {
+                let base = layout.notice_baseline(0);
+                PixelRect::new(base.x(), base.y() - 9, 120, 9)
+            };
+            for number in left_number_rects(layout) {
+                assert!(
+                    !intersects(label, number),
+                    "height {height}: {label:?} vs {number:?}"
+                );
+                assert!(
+                    !intersects(notice, number),
+                    "height {height}: {notice:?} vs {number:?}"
+                );
+            }
+        }
     }
 
     #[test]
