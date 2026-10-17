@@ -70,6 +70,12 @@ impl SettingsFrame {
         self.notices.store_failure()
     }
 
+    /// 最前面が効くか（ADR 0008）。
+    #[must_use]
+    pub const fn layering(&self) -> crate::layering::Layering {
+        self.notices.layering()
+    }
+
     /// 物理寸法が取れていなければ、その理由。mm / in が効かないことを示す（FR-014）。
     #[must_use]
     pub const fn metrics_failure(

@@ -12,8 +12,8 @@ use x11rb::connection::Connection;
 use x11rb::protocol::Event;
 use x11rb::protocol::xproto::{
     AtomEnum, ButtonPressEvent, ColormapAlloc, ColormapWrapper, ConnectionExt as _, CreateGCAux,
-    CreateWindowAux, EventMask, GcontextWrapper, InputFocus, PropMode, Window, WindowClass,
-    WindowWrapper,
+    CreateWindowAux, EventMask, GcontextWrapper, InputFocus, KeyButMask, PropMode, Window,
+    WindowClass, WindowWrapper,
 };
 use x11rb::rust_connection::RustConnection;
 use x11rb::wrapper::ConnectionExt as _;
@@ -140,7 +140,8 @@ impl<'d> SettingsWindow<'d> {
         } else if let Event::ButtonPress(press) = event {
             return Ok(Self::pressed(controller, press));
         } else if let Event::KeyPress(key) = event {
-            return Ok(Self::typed(controller, self.display.key_input(key)));
+            let alt = key.state.contains(KeyButMask::MOD1);
+            return Ok(Self::typed(controller, self.display.key_input(key), alt));
         } else if let Event::ClientMessage(message) = event {
             let atoms = self.display.atoms();
             if message.type_ == atoms.wm_protocols
@@ -191,13 +192,14 @@ impl<'d> SettingsWindow<'d> {
     }
 
     /// 鍵を入力欄の意図にする。Esc は閉じる。
-    fn typed(controller: &mut RulerController<'_>, input: KeyInput) -> SettingsFlow {
+    fn typed(controller: &mut RulerController<'_>, input: KeyInput, alt: bool) -> SettingsFlow {
         let intent = match input {
             KeyInput::Escape => return SettingsFlow::Close,
             KeyInput::Return => RulerIntent::HexSubmit,
             KeyInput::Backspace => RulerIntent::HexBackspace,
             KeyInput::Character(character) => RulerIntent::HexTyped(character),
-            KeyInput::Arrow(_) | KeyInput::Other => return SettingsFlow::Continue,
+            KeyInput::F4 if alt => return SettingsFlow::Close,
+            KeyInput::F4 | KeyInput::Arrow(_) | KeyInput::Other => return SettingsFlow::Continue,
         };
         controller.apply(intent);
         SettingsFlow::Changed

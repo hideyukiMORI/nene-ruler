@@ -1,6 +1,6 @@
 # ゲート発火の証明 — NeNe Ruler
 
-> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）/ Issue #12（第 13 節）。以下は実行した結果のみ。
+> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）/ Issue #12（第 13 節）/ WSLg の実機（第 14 節・2026-10-17）/ Issue #14（第 15 節）。以下は実行した結果のみ。
 > 関連: QLT-007 / QLT-011 / QLT-013 / ADR 0003
 
 ## 1. 環境と範囲
@@ -331,3 +331,59 @@ make screenshot
 | 合成器ありで再起動（保存された `mm` を読み戻す） | 透明な枠の左下に `no screen size: px only` の 1 行。不透明の行は出ない | [notice-px-only](screenshots/2026-10-16-xvfb-notice-px-only.png) |
 
 見つかった不備: モーダルの通知の初版 `px only: no screen size` は窓の右端で切れた。`no screen size` に短くした。
+
+## 14. WSLg の実機（2026-10-17・施主の目視と計測）
+
+枝 `feat/12-frame-notices`（`5630008`）。Win11 ＋ WSLg（Ubuntu 22.04）。入力は Windows 側の本物の入力、見た目は Windows 側の画面キャプチャ、当たり判定は Windows の `WindowFromPoint`。
+全文は [wslg-2026-10-17.md](wslg-2026-10-17.md)。
+
+### 14.1 Xvfb の記録が実機で成り立ったもの
+
+透明・素通し・線での移動（WM 経由の `_NET_WM_MOVERESIZE`）・両方の鉤括弧での伸縮・ギアのモーダル（`WM_TRANSIENT_FOR`・WSLg がタイトルバーを付ける）・色見本と直接入力と拒否・保存と読み戻し・数字のコピー（X の CLIPBOARD と **Windows の Get-Clipboard の両方**）・矢印の 5 通り・Esc（枠とモーダル）。
+
+### 14.2 実機で崩れたもの（Issue #14 / #15）
+
+| 項目 | 実測 | 原因 | 対応 |
+| --- | --- | --- | --- |
+| 当たり判定の帯 | Windows 側は X の入力 shape に従わず、**描いた画素（アルファ > 0）だけが当たる**。線は 1 px、ギアの穴は素通し、数字は字画の上だけ | WSLg の RDP の窓が `WS_EX_LAYERED` で、アルファ 0 はクリックが抜ける | 当たり判定の矩形をアルファ 1/255 で描く（ADR 0008） |
+| 影 | 飾りなしなのに外周に影（右下 20 px）。外周 5 px の当たり帯も影 | Weston の XWM が飾りなしの窓に影を描き、RDP で送る。`_NET_WM_WINDOW_TYPE` に `_KDE_NET_WM_WINDOW_TYPE_OVERRIDE` があれば描かない（施主が 300×200 の窓で実験） | map の前に付ける（ADR 0008） |
+| Alt+F4 | 閉じない。`Alt_L` ＋ `F4` の素の `KeyPress` として届く | WSLg の XWM は `WM_DELETE_WINDOW` に変えない | アプリが Alt+F4 を読んで閉じる（ADR 0008） |
+| 最前面 | `_NET_WM_STATE` が空、Windows 側 topmost=False | WSLg の `_NET_SUPPORTED` に `_NET_WM_STATE_ABOVE` が無い | 環境の制約。できないことを通知する（Issue #14） |
+| 縦書きの `270 px` | 左辺の主目盛の数字 `150` と重なる | 数字の置き場が目盛の数字の幅を見込んでいない | Issue #15 |
+| 通知 `no screen size: px only` | 左辺の主目盛の数字 `250` と重なる | 同上 | Issue #15 |
+
+### 14.3 未解明
+
+- Alt+F4 を送った後の 2 回目の起動で、X 側では描けているのに Windows 側に絵が出ず、プロセスが無言で終わった。3 回目は正常。再現していない
+- `_KDE_NET_WM_WINDOW_TYPE_OVERRIDE` を付けた枠で、MOVERESIZE・焦点・Alt+Tab・タスクバーがどう変わるかは未確認（Weston のソースでは影と飾りだけのはず）
+- 線を掴んでから 200 ms で動かし始めると動かず、600 ms 置くと動いた（WM 経由の MOVERESIZE の開始待ち）。人の操作では問題にならない速さだが、記録しておく
+
+## 15. Issue #14 — WSLg への適合（2026-10-17）
+
+同じコンテナ。Issue #12 の枝の上に積んだ。施主の WSLg での再目視は未（第 14.2 節の 4 件）。
+
+### 15.1 ゲート
+
+| target | 結果 |
+| --- | --- |
+| `make lint` | 0 件 |
+| `make test` | core 46・application 16・adapters-x11 11・ui-x11 26・xtask 69、すべて成功 |
+| `make conformance` | 違反なし（127 ファイル） |
+| `make deny` / `make fmt-check` / `make doc-check` | ok・差分なし・警告なし |
+| `make coverage` | core ＋ application: regions 97.93%・functions 95.20%・lines 96.83% |
+
+画素の単体テストで、当たり判定の矩形の角と中央はアルファ ≥ 1、中身（100, 60）はアルファ 0、歯車の抜きはアルファ 1、反転した数字の箱の中はアルファ ≥ 1 を確かめた。
+窓の角 (0, 0) は上辺の帯・左辺の帯・左上の鉤括弧の当たり判定が重なるのでアルファ 3 になる（1/255 が 3 回。目には見えない）。
+
+### 15.2 Xvfb
+
+| 手順 | 結果 |
+| --- | --- |
+| `xprop _NET_WM_WINDOW_TYPE` | `_KDE_NET_WM_WINDOW_TYPE_OVERRIDE, _NET_WM_WINDOW_TYPE_NORMAL` |
+| 中身の素通し（`getmouselocation`） | 根の窓（`543`）。アルファ 1 の帯は X の入力 shape の外なので、X では素通しのまま |
+| 帯の上 | 枠の窓 |
+| 枠で `alt+F4` | プロセスが終了（`/proc` から消え、終了コード 0） |
+| モーダルで `alt+F4` | モーダルだけ消え、枠は残る（`State: S`）。続けて Esc で終了（終了コード 0） |
+
+🔴 **記録しておくこと（検証の手順の欠陥）:** `( … & )` で起動したプロセスは親の shell が先に消えると zombie になり、`pgrep` / `kill -0` が「生きている」と答える。
+本節から `$!` を取って `/proc/<pid>/status` の `State` と `wait` の終了コードで判定するようにした。第 9〜12 節の「終了した」の判定は `xdotool search` で窓が消えたことで見ており、影響は無い。

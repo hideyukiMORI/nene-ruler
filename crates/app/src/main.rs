@@ -54,7 +54,7 @@ fn run() -> Result<(), StartupFailure> {
     let display = Display::connect().map_err(StartupFailure::Ui)?;
     let mut controller = RulerController::new(
         Ports::new(&metrics, &store, &clipboard),
-        display.transparency(),
+        display.environment(),
         ProductVersion::new(VERSION),
     );
     event_loop::run(&display, &mut controller).map_err(StartupFailure::Ui)

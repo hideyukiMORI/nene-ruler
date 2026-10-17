@@ -7,6 +7,8 @@ pub enum FrameNotice {
     Opaque,
     /// 物理寸法が取れず、mm / in を選んでも px で出している（FR-008）。
     NoScreenMetrics,
+    /// 最前面を選んでいるが、WM が対応していない（FR-013 / ADR 0008）。
+    NoAlwaysOnTop,
 }
 
 impl FrameNotice {
@@ -16,6 +18,7 @@ impl FrameNotice {
         match self {
             Self::Opaque => "no compositor: drawn opaque",
             Self::NoScreenMetrics => "no screen size: px only",
+            Self::NoAlwaysOnTop => "always on top: not supported by this window manager",
         }
     }
 }

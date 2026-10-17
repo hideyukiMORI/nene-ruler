@@ -28,6 +28,12 @@ pub struct Atoms {
     pub utf8_string: Atom,
     /// `_NET_WM_CM_S0`。合成器の選択（画面 0）。
     pub net_wm_cm_s0: Atom,
+    /// `_NET_WM_WINDOW_TYPE`。
+    pub net_wm_window_type: Atom,
+    /// `_NET_WM_WINDOW_TYPE_NORMAL`。
+    pub net_wm_window_type_normal: Atom,
+    /// `_KDE_NET_WM_WINDOW_TYPE_OVERRIDE`。Weston の XWM が影を描かない唯一の印（ADR 0008）。
+    pub kde_net_wm_window_type_override: Atom,
 }
 
 /// 1 つの atom を intern する。
@@ -53,6 +59,12 @@ impl Atoms {
             net_wm_name: intern(connection, b"_NET_WM_NAME")?,
             utf8_string: intern(connection, b"UTF8_STRING")?,
             net_wm_cm_s0: intern(connection, b"_NET_WM_CM_S0")?,
+            net_wm_window_type: intern(connection, b"_NET_WM_WINDOW_TYPE")?,
+            net_wm_window_type_normal: intern(connection, b"_NET_WM_WINDOW_TYPE_NORMAL")?,
+            kde_net_wm_window_type_override: intern(
+                connection,
+                b"_KDE_NET_WM_WINDOW_TYPE_OVERRIDE",
+            )?,
         })
     }
 }

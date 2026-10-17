@@ -10,6 +10,8 @@ const RETURN: u32 = 0xff0d;
 const KP_ENTER: u32 = 0xff8d;
 /// `XK_BackSpace`。
 const BACKSPACE: u32 = 0xff08;
+/// `XK_F4`。Alt と一緒なら閉じる（WSLg は `WM_DELETE_WINDOW` に変えない・ADR 0008）。
+const F4: u32 = 0xffc1;
 /// `XK_Left` / `XK_Up` / `XK_Right` / `XK_Down`。
 const LEFT: u32 = 0xff51;
 const UP: u32 = 0xff52;
@@ -29,6 +31,8 @@ pub enum KeyInput {
     Character(char),
     /// 矢印。枠を動かす（FR-015）。
     Arrow(NudgeDirection),
+    /// F4。Alt と一緒なら閉じる（FR-015）。
+    F4,
     /// 反応しない鍵。
     Other,
 }
@@ -41,6 +45,7 @@ impl KeyInput {
             ESCAPE => Self::Escape,
             RETURN | KP_ENTER => Self::Return,
             BACKSPACE => Self::Backspace,
+            F4 => Self::F4,
             LEFT => Self::Arrow(NudgeDirection::Left),
             UP => Self::Arrow(NudgeDirection::Up),
             RIGHT => Self::Arrow(NudgeDirection::Right),
@@ -63,6 +68,11 @@ mod tests {
         assert_eq!(KeyInput::from_keysym(0xff08), KeyInput::Backspace);
         assert_eq!(KeyInput::from_keysym(0x23), KeyInput::Character('#'));
         assert_eq!(KeyInput::from_keysym(0x46), KeyInput::Character('F'));
+        assert_eq!(KeyInput::from_keysym(0xffe1), KeyInput::Other);
+    }
+
+    #[test]
+    fn maps_the_arrows_and_f4() {
         assert_eq!(
             KeyInput::from_keysym(0xff51),
             KeyInput::Arrow(NudgeDirection::Left)
@@ -71,6 +81,6 @@ mod tests {
             KeyInput::from_keysym(0xff54),
             KeyInput::Arrow(NudgeDirection::Down)
         );
-        assert_eq!(KeyInput::from_keysym(0xffe1), KeyInput::Other);
+        assert_eq!(KeyInput::from_keysym(0xffc1), KeyInput::F4);
     }
 }
