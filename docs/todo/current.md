@@ -1,6 +1,6 @@
 # いまのタスク — NeNe Ruler
 
-> GitHub Issue と PR が進行状態の正本。この文書は 2026-10-16 のクリップボード（Issue #8）の要約。
+> GitHub Issue と PR が進行状態の正本。この文書は 2026-10-16 の矢印での移動（Issue #10）の要約。
 
 ## 状態
 
@@ -17,16 +17,17 @@
 | ギアで設定モーダル。色見本 8 色と `#RRGGBB` の直接入力、単位、見え（ダーク・ライト）、最前面、版 | ✅ Issue #4・Xvfb で実測（gate-proofs 第 9 節）。PR #3 の枝の上 |
 | 設定の保存 `~/.config/nene-ruler/settings.v1.txt`。読めない版・壊れたファイルはモーダルに通知 | ✅ Issue #6・ADR 0006・Xvfb で再起動を実測（gate-proofs 第 10 節）。PR #5 の枝の上 |
 | 数字のクリックで CLIPBOARD へコピー。成功は反転、失敗は取り消し線 | ✅ Issue #8・ADR 0007・Xvfb で `xclip -o` を実測（gate-proofs 第 11 節）。PR #7 の枝の上 |
+| 矢印で 1 px、Shift+矢印で 10 px の移動 | ✅ Issue #10・Xvfb で実測（gate-proofs 第 12 節）。PR #9 の枝の上 |
 | CI の必須 check（`make ci`）と commit-msg フック | 配線済み。最初の PR で実行証拠を得るまで planned |
 | ruleset（main の保護・squash-only） | 未設定。施主が GitHub で設定したら gate-proofs に記録する |
 | WSLg（施主の実機）での目視 | 未。透明に出ること・掴めること・`_NET_WM_MOVERESIZE` が効くことを見る |
 
 ## 次に行うこと
 
-PR #3 → #5 → #7 → Issue #8 の PR を順に施主が WSLg で目視し、squash merge する。その後の焦点 Issue（それぞれ 1 つずつ）:
+PR #3 → #5 → #7 → #9 → Issue #10 の PR を順に施主が WSLg で目視し、squash merge する。その後の焦点 Issue（それぞれ 1 つずつ）:
 
 - モーダルの見え「システムに従う」。検出の方法（XSETTINGS か GTK の settings.ini か）を施主と決める
-- 矢印で 1 px / 10 px の移動（FR-015）、合成器が無いときの表示（FR-014）、HiDPI の倍率（FR-016）
+- 合成器が無いときの表示（FR-014）、HiDPI の倍率（FR-016）
 
 ## 残る穴
 

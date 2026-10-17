@@ -197,7 +197,7 @@ impl<'d> SettingsWindow<'d> {
             KeyInput::Return => RulerIntent::HexSubmit,
             KeyInput::Backspace => RulerIntent::HexBackspace,
             KeyInput::Character(character) => RulerIntent::HexTyped(character),
-            KeyInput::Other => return SettingsFlow::Continue,
+            KeyInput::Arrow(_) | KeyInput::Other => return SettingsFlow::Continue,
         };
         controller.apply(intent);
         SettingsFlow::Changed

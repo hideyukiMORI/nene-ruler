@@ -7,6 +7,7 @@ use nene_ruler_core::anchor::Anchor;
 use nene_ruler_core::hit_region::{self, HitRegion};
 use nene_ruler_core::hit_target::HitTarget;
 use nene_ruler_core::length::Length;
+use nene_ruler_core::nudge::Nudge;
 use nene_ruler_core::pixel_point::PixelPoint;
 use nene_ruler_core::pixel_rect::PixelRect;
 use nene_ruler_core::window_layer::WindowLayer;
@@ -17,7 +18,7 @@ use x11rb::protocol::xfixes::{self, ConnectionExt as _};
 use x11rb::protocol::xproto::{
     AtomEnum, ButtonPressEvent, ClientMessageEvent, ColormapAlloc, ColormapWrapper,
     ConfigureWindowAux, ConnectionExt as _, CreateGCAux, CreateWindowAux, EventMask,
-    GcontextWrapper, PropMode, Rectangle, Window, WindowClass, WindowWrapper,
+    GcontextWrapper, KeyButMask, PropMode, Rectangle, Window, WindowClass, WindowWrapper,
 };
 use x11rb::rust_connection::RustConnection;
 use x11rb::wrapper::ConnectionExt as _;
@@ -168,8 +169,15 @@ impl<'d> RulerWindow<'d> {
         } else if let Event::ButtonRelease(_) = event {
             self.drag = None;
         } else if let Event::KeyPress(key) = event {
-            if self.display.key_input(key) == KeyInput::Escape {
-                return Ok(Flow::Quit);
+            match self.display.key_input(key) {
+                KeyInput::Escape => return Ok(Flow::Quit),
+                KeyInput::Arrow(direction) => {
+                    self.nudge(Nudge::new(direction, key.state.contains(KeyButMask::SHIFT)))?;
+                }
+                KeyInput::Return
+                | KeyInput::Backspace
+                | KeyInput::Character(_)
+                | KeyInput::Other => {}
             }
         } else if let Event::ClientMessage(message) = event {
             let atoms = self.display.atoms();
@@ -239,6 +247,19 @@ impl<'d> RulerWindow<'d> {
         }
         controller.apply(RulerIntent::ClearCopyMark);
         self.present(&controller.frame())
+    }
+
+    /// 矢印で枠を動かす（FR-015）。WM があれば WM が位置を決め直す。
+    fn nudge(&self, nudge: Nudge) -> Result<(), UiFailure> {
+        let geometry = self.geometry()?;
+        self.display.connection().configure_window(
+            self.window.window(),
+            &ConfigureWindowAux::new()
+                .x(geometry.x().saturating_add(nudge.dx()))
+                .y(geometry.y().saturating_add(nudge.dy())),
+        )?;
+        self.display.connection().flush()?;
+        Ok(())
     }
 
     /// 自前のドラッグ中なら窓の幾何を更新する。
