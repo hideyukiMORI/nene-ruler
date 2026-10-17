@@ -56,6 +56,15 @@ impl ScreenMetrics {
         };
         f64::from(mm) / f64::from(px)
     }
+
+    /// 横の画素密度（dpi）。UI の倍率の元（FR-016）。整数に切り捨てる。
+    #[must_use]
+    pub fn dots_per_inch(self) -> u32 {
+        // 1 in = 25.4 mm。整数のまま割るために 10 倍して 254 で掛ける。
+        let tenths_of_mm = u64::from(self.width_mm) * 10;
+        let dpi = u64::from(self.width_px) * 254 / tenths_of_mm;
+        u32::try_from(dpi).unwrap_or(u32::MAX)
+    }
 }
 
 #[cfg(test)]
@@ -71,6 +80,22 @@ mod tests {
         assert_eq!(
             ScreenMetrics::new(1920, 1080, 527, 0),
             Err(ScreenMetricsFailure::ZeroMillimetres)
+        );
+    }
+
+    #[test]
+    fn measures_dots_per_inch_across() {
+        assert_eq!(
+            ScreenMetrics::new(3840, 2160, 600, 340)
+                .unwrap()
+                .dots_per_inch(),
+            162
+        );
+        assert_eq!(
+            ScreenMetrics::new(1920, 1080, 508, 286)
+                .unwrap()
+                .dots_per_inch(),
+            96
         );
     }
 

@@ -5,6 +5,7 @@ use alloc::string::String;
 
 use nene_ruler_core::modal_palette::ModalPalette;
 use nene_ruler_core::ruler_settings::RulerSettings;
+use nene_ruler_core::settings_layout::SettingsLayout;
 
 use crate::modal_session::ModalSession;
 use crate::product_version::ProductVersion;
@@ -17,6 +18,7 @@ const COPYRIGHT: &str = "(c) 2026 Hideyuki Mori / MIT";
 /// 設定・編集状態・配色・脚注。UI はこれを描いて部品の操作を意図として返す（ARC-011）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SettingsFrame {
+    layout: SettingsLayout,
     settings: RulerSettings,
     session: ModalSession,
     footer: String,
@@ -27,17 +29,24 @@ impl SettingsFrame {
     /// 値を束ねる。生成は `RulerController::settings_frame` だけが行う。
     #[must_use]
     pub fn new(
-        settings: RulerSettings,
-        session: ModalSession,
+        layout: SettingsLayout,
+        (settings, session): (RulerSettings, ModalSession),
         version: ProductVersion,
         notices: SettingsNotices,
     ) -> Self {
         Self {
+            layout,
             settings,
             session,
             footer: format!("NeNe Ruler {} {COPYRIGHT}", version.text()),
             notices,
         }
+    }
+
+    /// 幾何。描く置き場と当たり判定は同じこれから出す（ARC-001）。
+    #[must_use]
+    pub const fn layout(&self) -> SettingsLayout {
+        self.layout
     }
 
     /// いまの設定。

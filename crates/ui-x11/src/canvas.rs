@@ -8,19 +8,24 @@ use nene_ruler_application::ruler_frame::RulerFrame;
 use nene_ruler_application::transparency::Transparency;
 use nene_ruler_core::axis::Axis;
 use nene_ruler_core::edge::Edge;
-use nene_ruler_core::frame_layout::FrameLayout;
 use nene_ruler_core::pixel_point::PixelPoint;
 use nene_ruler_core::pixel_rect::PixelRect;
 use nene_ruler_core::rgb::Rgb;
+use nene_ruler_core::ui_scale::UiScale;
 
 use crate::ui_failure::UiFailure;
 
 /// 数字のフォント。toy text API なので家族名だけ（ADR 0002）。
 pub(crate) const FONT_FAMILY: &str = "sans-serif";
-/// 幅・高さの数字の大きさ。
+/// 幅・高さの数字の大きさ（1x）。
 const LABEL_FONT_PX: f64 = 11.0;
-/// 主目盛の数字の大きさ。
+/// 主目盛の数字の大きさ（1x）。
 const TICK_FONT_PX: f64 = 9.0;
+
+/// 1x の字の大きさに UI の倍率を掛ける（FR-016・ADR 0011）。
+pub(crate) fn font_px(base: f64, scale: UiScale) -> f64 {
+    base * f64::from(scale.factor())
+}
 /// ギアの歯の数。
 const GEAR_TEETH: u32 = 8;
 
@@ -192,7 +197,7 @@ pub(crate) fn fill_rect(context: &Context, rect: PixelRect) -> Result<(), UiFail
 /// 上辺と左辺の主目盛の数字。
 fn draw_tick_labels(context: &Context, frame: &RulerFrame) -> Result<(), UiFailure> {
     context.select_font_face(FONT_FAMILY, FontSlant::Normal, FontWeight::Normal);
-    context.set_font_size(TICK_FONT_PX);
+    context.set_font_size(font_px(TICK_FONT_PX, frame.layout().scale()));
     for edge in [Edge::Top, Edge::Left] {
         for label in frame.layout().tick_labels(edge) {
             let baseline = label.baseline();
@@ -214,7 +219,7 @@ fn draw_label(context: &Context, frame: &RulerFrame, axis: Axis) -> Result<(), U
         fill_rect(context, hit)?;
     }
     context.select_font_face(FONT_FAMILY, FontSlant::Normal, FontWeight::Normal);
-    context.set_font_size(LABEL_FONT_PX);
+    context.set_font_size(font_px(LABEL_FONT_PX, frame.layout().scale()));
     let extents = context.text_extents(text)?;
     let centred = -(extents.width() / 2.0_f64 + extents.x_bearing());
     context.save()?;
@@ -231,7 +236,7 @@ fn draw_label(context: &Context, frame: &RulerFrame, axis: Axis) -> Result<(), U
     context.show_text(text)?;
     context.restore()?;
     if mark.is_some_and(|mark| !mark.succeeded()) {
-        strike_through(context, hit, axis)?;
+        strike_through(context, hit, axis, frame.layout().scale().factor())?;
     }
     Ok(())
 }
@@ -239,7 +244,7 @@ fn draw_label(context: &Context, frame: &RulerFrame, axis: Axis) -> Result<(), U
 /// 枠の中の通知（FR-014）。下辺の目盛の上に、下から上へ。
 fn draw_notices(context: &Context, frame: &RulerFrame) -> Result<(), UiFailure> {
     context.select_font_face(FONT_FAMILY, FontSlant::Normal, FontWeight::Normal);
-    context.set_font_size(f64::from(FrameLayout::notice_px()));
+    context.set_font_size(f64::from(frame.layout().notice_px()));
     for (index, notice) in frame.notices().list().into_iter().enumerate() {
         let index = u16::try_from(index).map_err(|_error| UiFailure::GeometryOutOfRange)?;
         let baseline = frame.layout().notice_baseline(index);
@@ -249,11 +254,20 @@ fn draw_notices(context: &Context, frame: &RulerFrame) -> Result<(), UiFailure> 
     Ok(())
 }
 
-/// 数字の中央を横切る 1 px の線。縦軸の数字は縦に走る。
-fn strike_through(context: &Context, hit: PixelRect, axis: Axis) -> Result<(), UiFailure> {
+/// 数字の中央を横切る線（1x で 1 px）。縦軸の数字は縦に走る。
+fn strike_through(
+    context: &Context,
+    hit: PixelRect,
+    axis: Axis,
+    thickness: u16,
+) -> Result<(), UiFailure> {
     let line = match axis {
-        Axis::Horizontal => PixelRect::new(hit.x(), hit.y() + hit.height() / 2, hit.width(), 1),
-        Axis::Vertical => PixelRect::new(hit.x() + hit.width() / 2, hit.y(), 1, hit.height()),
+        Axis::Horizontal => {
+            PixelRect::new(hit.x(), hit.y() + hit.height() / 2, hit.width(), thickness)
+        }
+        Axis::Vertical => {
+            PixelRect::new(hit.x() + hit.width() / 2, hit.y(), thickness, hit.height())
+        }
     };
     fill_rect(context, line)
 }
@@ -320,6 +334,7 @@ mod tests {
     use nene_ruler_application::screen_metrics_port::ScreenMetricsPort;
     use nene_ruler_core::screen_metrics::ScreenMetrics;
     use nene_ruler_core::screen_metrics_failure::ScreenMetricsFailure;
+    use nene_ruler_core::tick_kind::TickKind;
 
     struct NoScreen;
 
@@ -379,6 +394,62 @@ mod tests {
         let board = FakeClipboard(Ok(()));
         let controller = controller_with(transparency, &board);
         Canvas::render(&controller.frame(), Format::ARgb32).unwrap()
+    }
+
+    #[test]
+    fn double_keeps_the_line_one_pixel_thick() {
+        let board = FakeClipboard(Ok(()));
+        let controller = RulerController::new(
+            nene_ruler_application::ports::Ports::new(&NoScreen, &NoStore, &board),
+            nene_ruler_application::environment::Environment::new(
+                Transparency::Composited,
+                nene_ruler_application::layering::Layering::Supported,
+            )
+            .with_xft_dpi(Some(192)),
+            nene_ruler_application::product_version::ProductVersion::new("0.1.0"),
+        );
+        let frame = controller.frame();
+        let mut canvas = Canvas::render(&frame, Format::ARgb32).unwrap();
+        assert_eq!((canvas.width(), canvas.height()), (448, 288));
+        // 上辺の線は y = 8 の 1 行だけ。目盛の無い x（枠の左端から 192 px）で、上下の行は帯の薄いインク。
+        let top = frame.layout().line(Edge::Top);
+        assert_eq!(top.y(), 8);
+        let x = top.x() + 192;
+        let alpha = |painted: &mut Canvas, y: u16| painted.pixel(x, y).unwrap().map(|p| p[3]);
+        assert_eq!(alpha(&mut canvas, 8), Some(0xFF));
+        assert!(alpha(&mut canvas, 7).is_some_and(|a| a < 0xFF));
+        assert!(alpha(&mut canvas, 9).is_some_and(|a| a < 0xFF));
+    }
+
+    #[test]
+    fn at_double_the_layer_notice_ends_before_the_right_ticks() {
+        let board = FakeClipboard(Ok(()));
+        let controller = RulerController::new(
+            nene_ruler_application::ports::Ports::new(&NoScreen, &NoStore, &board),
+            nene_ruler_application::environment::Environment::new(
+                Transparency::Composited,
+                nene_ruler_application::layering::Layering::Unsupported,
+            )
+            .with_xft_dpi(Some(192)),
+            nene_ruler_application::product_version::ProductVersion::new("0.1.0"),
+        );
+        let frame = controller.frame();
+        let layout = frame.layout();
+        let baseline = layout.notice_baseline(0);
+        // 右辺の中目盛（2x で 14 px）が始まる列より左を、目盛の無い行（5 px おきの行以外）だけ見る。
+        let ticks_from = layout.frame().right() - 14;
+        let top = layout.frame().y();
+        let mut canvas = Canvas::render(&frame, Format::ARgb32).unwrap();
+        let rows = baseline.y() - layout.notice_px()..=baseline.y() + 3;
+        let rightmost = rows
+            .filter(|y| !(y - top).is_multiple_of(TickKind::SPACING_PX))
+            .flat_map(|y| (baseline.x()..ticks_from).map(move |x| (x, y)))
+            .filter(|&(x, y)| canvas.pixel(x, y).unwrap().is_some_and(|p| p[3] > 0x80))
+            .map(|(x, _)| x)
+            .max()
+            .unwrap();
+        assert!(rightmost > baseline.x());
+        assert!(rightmost < ticks_from - 1, "{rightmost} vs {ticks_from}");
     }
 
     #[test]

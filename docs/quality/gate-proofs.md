@@ -1,6 +1,6 @@
 # ゲート発火の証明 — NeNe Ruler
 
-> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）/ Issue #12（第 13 節）/ WSLg の実機（第 14 節・2026-10-17）/ Issue #14（第 15 節）/ Issue #15（第 16 節）/ Issue #20（第 17 節）/ Issue #23（第 18 節）/ Issue #26（第 19 節）。以下は実行した結果のみ。
+> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）/ Issue #12（第 13 節）/ WSLg の実機（第 14 節・2026-10-17）/ Issue #14（第 15 節）/ Issue #15（第 16 節）/ Issue #20（第 17 節）/ Issue #23（第 18 節）/ Issue #26（第 19 節）/ Issue #28（第 20 節）。以下は実行した結果のみ。
 > 関連: QLT-007 / QLT-011 / QLT-013 / ADR 0003
 
 ## 1. 環境と範囲
@@ -499,3 +499,36 @@ X サーバは押されていない鍵の離しを捨てるので、F4 の離し
 | `make doc-check` | 警告なし |
 
 製品コードの変更は `ModalTheme` の doc コメント 1 行だけなので、`make test` は回していない（第 18.1 節の結果を再利用・ADR 0004）。
+
+## 20. Issue #28 — HiDPI の倍率 1x / 2x（2026-10-17）
+
+施主の WSL。Issue #26 の枝の上に積んだ。倍率の決め方と、掛けるもの・掛けないものは [ADR 0011](../adr/0011-integer-ui-scale.md)。
+
+### 20.1 ゲート
+
+| target | 結果 |
+| --- | --- |
+| `make lint` | 0 件 |
+| `make test` | core 55・application 18・adapters-x11 11・xtask 69 は成功。ui-x11 は 36 件中 35 成功。失敗は既存の `a_successful_copy_inverts_the_number`（Issue #21） |
+| `make conformance` | 違反なし（131 ファイル） |
+| `make doc-check` | 警告なし |
+| `make coverage` | core ＋ application: regions 98.03%・functions 96.12%・lines 97.41% |
+
+新しい画素テスト `at_double_the_layer_notice_ends_before_the_right_ticks` は、2x の枠で最前面の通知が右辺の中目盛より手前で終わることを見る。
+旧い文言 `always on top: not supported by this window manager` に戻すと落ち（右端 392・目盛 393）、新しい文言で通ることを確かめた。
+
+### 20.2 Xvfb（`-noreset` で起動）
+
+Xvfb は最後のクライアントが切れるとサーバを初期化し、ルート窓の `RESOURCE_MANAGER` を消す。`-noreset` を付けないと `xrdb` で置いた `Xft.dpi` が定規の起動前に消える。
+
+| `Xft.dpi` | 枠の窓 | 見え |
+| --- | --- | --- |
+| 96 | 424 × 264 | 今まで通り |
+| 192 | 448 × 288 | 帯・鉤括弧・ギア・目盛の長さ・数字・通知が 2 倍。線は 1 px のまま。最初は通知が枠の右からはみ出したので、文言を縮めた（ADR 0011 の 5） |
+| 192（モーダル） | 640 × 672 | 部品と字が 2 倍。2x の座標 (180, 340) のクリックで単位が mm になった（一時の `HOME` で保存を確認） |
+| 192（伸縮） | 左上の鉤括弧 (8, 8) を (108, 58) へ | 窓は (100, 50)・幅 348（枠 300 ＋ 2x の余白 48） |
+
+### 20.3 WSLg
+
+施主の WSLg には `Xft.dpi` が無く（`xrdb -query` が空）、主出力 rdp-0 は RandR で 0 mm なので、**そのままでは 1x になる**。
+`xrdb -merge` で `Xft.dpi: 192` を置いて起動すると、Windows 側の画面キャプチャで 2x の枠が透明のまま出て、通知 `always on top: not supported here` は枠の中に収まった。確認の後に `xrdb -remove` で元の空に戻した。

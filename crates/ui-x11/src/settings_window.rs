@@ -7,7 +7,6 @@ use nene_ruler_core::pixel_point::PixelPoint;
 use nene_ruler_core::rgb::Rgb;
 use nene_ruler_core::settings_control::SettingsControl;
 use nene_ruler_core::settings_hit;
-use nene_ruler_core::settings_layout::SettingsLayout;
 use x11rb::connection::Connection;
 use x11rb::protocol::Event;
 use x11rb::protocol::xproto::{
@@ -55,7 +54,7 @@ impl<'d> SettingsWindow<'d> {
         let connection = display.connection();
         let root = display.screen()?.root;
         let visual = display.visual();
-        let bounds = SettingsLayout::window();
+        let bounds = frame.layout().window();
         let colormap = ColormapWrapper::create_colormap(
             connection,
             ColormapAlloc::NONE,
@@ -189,8 +188,10 @@ impl<'d> SettingsWindow<'d> {
             return SettingsFlow::Continue;
         };
         let current_layer = controller.frame().layer();
-        let Some(control) = settings_hit::control_at(&SettingsLayout::hits(current_layer), point)
-        else {
+        let Some(layout) = controller.settings_frame().map(|frame| frame.layout()) else {
+            return SettingsFlow::Continue;
+        };
+        let Some(control) = settings_hit::control_at(&layout.hits(current_layer), point) else {
             return SettingsFlow::Continue;
         };
         let intent = match control {

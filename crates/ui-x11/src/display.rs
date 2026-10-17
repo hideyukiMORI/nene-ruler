@@ -3,6 +3,7 @@
 use nene_ruler_application::environment::Environment;
 use nene_ruler_application::layering::Layering;
 use nene_ruler_application::transparency::Transparency;
+use nene_ruler_core::ui_scale::UiScale;
 use x11rb::connection::Connection;
 use x11rb::protocol::xfixes::ConnectionExt as _;
 use x11rb::protocol::xproto::{
@@ -30,6 +31,7 @@ pub struct Display {
     transparency: Transparency,
     key_map: KeyMap,
     wm_supported: Vec<Atom>,
+    xft_dpi: Option<u32>,
 }
 
 impl Display {
@@ -65,6 +67,7 @@ impl Display {
         };
         let key_map = Self::key_map(&connection)?;
         let wm_supported = Self::wm_supported(&connection, screen.root, atoms)?;
+        let xft_dpi = Self::xft_dpi(&connection, screen.root)?;
         Ok(Self {
             connection,
             screen_index,
@@ -73,7 +76,26 @@ impl Display {
             transparency,
             key_map,
             wm_supported,
+            xft_dpi,
         })
+    }
+
+    /// ルート窓の `RESOURCE_MANAGER`（`xrdb` が置く文字列）の `Xft.dpi`。無ければ `None`（FR-016・ADR 0011）。
+    fn xft_dpi(
+        connection: &RustConnection,
+        root: x11rb::protocol::xproto::Window,
+    ) -> Result<Option<u32>, UiFailure> {
+        let reply = connection
+            .get_property(
+                false,
+                root,
+                AtomEnum::RESOURCE_MANAGER,
+                AtomEnum::STRING,
+                0,
+                u32::MAX / 4,
+            )?
+            .reply()?;
+        Ok(UiScale::xft_dpi_in(&String::from_utf8_lossy(&reply.value)))
     }
 
     /// WM が `_NET_SUPPORTED` に挙げている atom。WM が無ければ空。
@@ -94,7 +116,7 @@ impl Display {
         self.wm_supported.contains(&atom)
     }
 
-    /// 透明と最前面の対応。application が起動時に一度取り込む（ARC-004）。
+    /// 透明・最前面の対応・`Xft.dpi`。application が起動時に一度取り込む（ARC-004）。
     #[must_use]
     pub fn environment(&self) -> Environment {
         let layering = if self.wm_supports(self.atoms.net_wm_state_above) {
@@ -102,7 +124,7 @@ impl Display {
         } else {
             Layering::Unsupported
         };
-        Environment::new(self.transparency, layering)
+        Environment::new(self.transparency, layering).with_xft_dpi(self.xft_dpi)
     }
 
     /// キーボード配列を読む。

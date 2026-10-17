@@ -8,6 +8,8 @@ use nene_ruler_core::length_text::LengthText;
 use nene_ruler_core::ruler_settings::RulerSettings;
 use nene_ruler_core::screen_metrics::ScreenMetrics;
 use nene_ruler_core::screen_metrics_failure::ScreenMetricsFailure;
+use nene_ruler_core::settings_layout::SettingsLayout;
+use nene_ruler_core::ui_scale::UiScale;
 use nene_ruler_core::unit::Unit;
 
 use crate::copy_mark::CopyMark;
@@ -40,6 +42,7 @@ pub struct RulerController<'p> {
     store_failure: Option<SettingsStoreFailure>,
     copy_mark: Option<CopyMark>,
     environment: Environment,
+    scale: UiScale,
     version: ProductVersion,
 }
 
@@ -53,15 +56,17 @@ impl<'p> RulerController<'p> {
             Ok(None) => (RulerSettings::INITIAL, None),
             Err(failure) => (RulerSettings::INITIAL, Some(failure)),
         };
+        let metrics = ports.metrics().screen_metrics();
         Self {
             ports,
             size: FrameSize::INITIAL,
             settings,
             modal: None,
-            metrics: ports.metrics().screen_metrics(),
+            metrics,
             store_failure,
             copy_mark: None,
             environment,
+            scale: UiScale::choose(environment.xft_dpi(), metrics),
             version,
         }
     }
@@ -103,7 +108,7 @@ impl<'p> RulerController<'p> {
     #[must_use]
     pub fn frame(&self) -> RulerFrame {
         RulerFrame::new(
-            FrameLayout::new(self.size),
+            FrameLayout::new(self.size, self.scale),
             FrameTexts::new(self.text(Axis::Horizontal), self.text(Axis::Vertical)),
             FrameStyle::new(
                 self.settings.ink(),
@@ -125,8 +130,8 @@ impl<'p> RulerController<'p> {
     pub fn settings_frame(&self) -> Option<SettingsFrame> {
         self.modal.as_ref().map(|session| {
             SettingsFrame::new(
-                self.settings,
-                session.clone(),
+                SettingsLayout::new(self.scale),
+                (self.settings, session.clone()),
                 self.version,
                 SettingsNotices::new(
                     self.store_failure,
@@ -158,8 +163,14 @@ impl<'p> RulerController<'p> {
     /// 窓の大きさを枠の大きさに写す。
     fn resize(&mut self, width_px: u16, height_px: u16) {
         self.size = FrameSize::new(
-            self.clamp(FrameLayout::frame_px_for_window(width_px), Axis::Horizontal),
-            self.clamp(FrameLayout::frame_px_for_window(height_px), Axis::Vertical),
+            self.clamp(
+                FrameLayout::frame_px_for_window(width_px, self.scale),
+                Axis::Horizontal,
+            ),
+            self.clamp(
+                FrameLayout::frame_px_for_window(height_px, self.scale),
+                Axis::Vertical,
+            ),
         );
     }
 
@@ -559,6 +570,52 @@ mod tests {
         let mark = controller.frame().copy_mark().unwrap();
         assert!(!mark.succeeded());
         assert_eq!(mark.failure(), Some(ClipboardFailure::Rejected));
+    }
+
+    #[test]
+    fn xft_dpi_doubles_the_frame_and_the_modal_but_not_the_measure() {
+        use nene_ruler_core::ui_scale::UiScale;
+        static NO_CLIPBOARD: NoClipboard = NoClipboard;
+        let (screen, store) = (screen(), MemoryStore::empty());
+        let mut controller = RulerController::new(
+            Ports::new(&screen, &store, &NO_CLIPBOARD),
+            Environment::new(Transparency::Composited, Layering::Supported).with_xft_dpi(Some(192)),
+            ProductVersion::new("0.1.0"),
+        );
+        let layout = controller.frame().layout();
+        assert_eq!(layout.scale(), UiScale::Double);
+        assert_eq!(layout.window().width(), 448);
+        // 2x の窓から枠へ戻すときも、2x の余白を引く。
+        controller.apply(RulerIntent::WindowResized {
+            width_px: 548,
+            height_px: 288,
+        });
+        assert_eq!(controller.frame().text(Axis::Horizontal).as_str(), "500 px");
+        assert_eq!(controller.frame().text(Axis::Vertical).as_str(), "240 px");
+        controller.apply(RulerIntent::OpenSettings);
+        assert_eq!(
+            controller.settings_frame().unwrap().layout().scale(),
+            UiScale::Double
+        );
+    }
+
+    #[test]
+    fn without_xft_dpi_the_scale_comes_from_randr() {
+        use nene_ruler_core::ui_scale::UiScale;
+        static NO_CLIPBOARD: NoClipboard = NoClipboard;
+        // 1920 px / 480 mm ≒ 101 dpi は 1x。
+        let (screen, store) = (screen(), MemoryStore::empty());
+        assert_eq!(
+            controller(&screen, &store).frame().layout().scale(),
+            UiScale::Single
+        );
+        let dense = FixedScreen(ScreenMetrics::new(3840, 2160, 600, 340));
+        let controller = RulerController::new(
+            Ports::new(&dense, &store, &NO_CLIPBOARD),
+            Environment::new(Transparency::Composited, Layering::Supported),
+            ProductVersion::new("0.1.0"),
+        );
+        assert_eq!(controller.frame().layout().scale(), UiScale::Double);
     }
 
     #[test]

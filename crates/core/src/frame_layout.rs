@@ -4,7 +4,8 @@
 //! 描く矩形（`ink_rects`）と触れる矩形（`hit_regions`）が同じ `FrameLayout` から出ることで、
 //! 「見えるものと触れるもの」の経路を 1 本にする（ARC-001）。
 //!
-//! 値はすべて SPECIFICATION 第 2 節の「決め打ちしない」初期値である。
+//! 値はすべて SPECIFICATION 第 2 節の「決め打ちしない」1x の初期値である。飾り（帯・鉤括弧・ギア・目盛の長さ・文字）には
+//! UI の倍率を掛け、測るもの（枠の大きさ・線と目盛の太さ・目盛の間隔）には掛けない（FR-016・ADR 0011）。
 
 use alloc::string::ToString as _;
 use alloc::vec::Vec;
@@ -20,10 +21,11 @@ use crate::pixel_rect::PixelRect;
 use crate::tick_kind::TickKind;
 use crate::tick_label::TickLabel;
 use crate::tick_mark::TickMark;
+use crate::ui_scale::UiScale;
 
 /// 線の両側に広げる当たり判定の帯。窓の左上から枠の左上までの余白でもある。
 const GRAB_PAD_PX: u16 = 4;
-/// 線の太さ。
+/// 線の太さ。倍率を掛けない。
 const LINE_PX: u16 = 1;
 /// 鉤括弧の腕の長さ。
 const ANCHOR_ARM_PX: u16 = 12;
@@ -53,13 +55,25 @@ const TICK_DIGIT_PX: u16 = 6;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FrameLayout {
     size: FrameSize,
+    scale: UiScale,
 }
 
 impl FrameLayout {
-    /// 枠の大きさから作る。
+    /// 枠の大きさと UI の倍率から作る。
     #[must_use]
-    pub const fn new(size: FrameSize) -> Self {
-        Self { size }
+    pub const fn new(size: FrameSize, scale: UiScale) -> Self {
+        Self { size, scale }
+    }
+
+    /// UI の倍率。字の大きさを決めるのに UI が読む。
+    #[must_use]
+    pub const fn scale(self) -> UiScale {
+        self.scale
+    }
+
+    /// 1x の寸法に倍率を掛ける。
+    const fn px(self, base: u16) -> u16 {
+        base * self.scale.factor()
     }
 
     /// 枠の大きさ。
@@ -74,23 +88,23 @@ impl FrameLayout {
         PixelRect::new(
             0,
             0,
-            GRAB_PAD_PX + self.size.width().px() + BEYOND_PX,
-            GRAB_PAD_PX + self.size.height().px() + BEYOND_PX,
+            self.px(GRAB_PAD_PX) + self.size.width().px() + self.px(BEYOND_PX),
+            self.px(GRAB_PAD_PX) + self.size.height().px() + self.px(BEYOND_PX),
         )
     }
 
     /// 窓の大きさから枠の大きさへ戻す（WM の `ConfigureNotify` を受けたとき）。余白を引く。
     #[must_use]
-    pub const fn frame_px_for_window(window_px: u16) -> u16 {
-        window_px.saturating_sub(GRAB_PAD_PX + BEYOND_PX)
+    pub const fn frame_px_for_window(window_px: u16, scale: UiScale) -> u16 {
+        window_px.saturating_sub((GRAB_PAD_PX + BEYOND_PX) * scale.factor())
     }
 
     /// 枠の矩形。線はこの矩形の外周の画素に乗る。幅 400 なら左の線と右の線の間が 400 画素（両端を含む）。
     #[must_use]
     pub fn frame(self) -> PixelRect {
         PixelRect::new(
-            GRAB_PAD_PX,
-            GRAB_PAD_PX,
+            self.px(GRAB_PAD_PX),
+            self.px(GRAB_PAD_PX),
             self.size.width().px(),
             self.size.height().px(),
         )
@@ -112,11 +126,12 @@ impl FrameLayout {
     #[must_use]
     pub fn line_band(self, edge: Edge) -> PixelRect {
         let line = self.line(edge);
+        let pad = self.px(GRAB_PAD_PX);
         PixelRect::new(
-            line.x() - GRAB_PAD_PX,
-            line.y() - GRAB_PAD_PX,
-            line.width() + 2 * GRAB_PAD_PX,
-            line.height() + 2 * GRAB_PAD_PX,
+            line.x() - pad,
+            line.y() - pad,
+            line.width() + 2 * pad,
+            line.height() + 2 * pad,
         )
     }
 
@@ -124,7 +139,7 @@ impl FrameLayout {
     pub fn ticks(self, edge: Edge) -> impl Iterator<Item = PixelRect> {
         let frame = self.frame();
         TickMark::along(self.size.along(edge.axis())).map(move |mark| {
-            let reach = mark.kind().length_px();
+            let reach = self.px(mark.kind().length_px());
             match edge {
                 Edge::Top => {
                     PixelRect::new(frame.x() + mark.offset(), frame.y() + LINE_PX, 1, reach)
@@ -145,18 +160,20 @@ impl FrameLayout {
     /// 上辺と左辺の主目盛に添える数字。下辺と右辺には添えない（SPECIFICATION 第 2 節）。
     pub fn tick_labels(self, edge: Edge) -> impl Iterator<Item = TickLabel> {
         let frame = self.frame();
-        let inside = LINE_PX + TickKind::Major.length_px() + TEXT_GAP_PX;
+        let inside = LINE_PX + self.px(TickKind::Major.length_px() + TEXT_GAP_PX);
+        let gap = self.px(TEXT_GAP_PX);
+        let label_px = self.px(TICK_LABEL_PX);
         TickMark::along(self.size.along(edge.axis()))
             .filter(move |mark| mark.kind() == TickKind::Major)
             .filter_map(move |mark| {
                 let baseline = match edge {
                     Edge::Top => PixelPoint::new(
-                        frame.x() + mark.offset() + TEXT_GAP_PX,
-                        frame.y() + inside + TICK_LABEL_PX,
+                        frame.x() + mark.offset() + gap,
+                        frame.y() + inside + label_px,
                     ),
                     Edge::Left => PixelPoint::new(
                         frame.x() + inside,
-                        frame.y() + mark.offset() + TICK_LABEL_PX / 2,
+                        frame.y() + mark.offset() + label_px / 2,
                     ),
                     Edge::Bottom | Edge::Right => return None,
                 };
@@ -168,23 +185,25 @@ impl FrameLayout {
     #[must_use]
     pub fn anchor_arms(self, anchor: Anchor) -> [PixelRect; 2] {
         let frame = self.frame();
+        let arm = self.px(ANCHOR_ARM_PX);
+        let thickness = self.px(ANCHOR_THICKNESS_PX);
         match anchor {
             Anchor::TopLeft => [
-                PixelRect::new(frame.x(), frame.y(), ANCHOR_ARM_PX, ANCHOR_THICKNESS_PX),
-                PixelRect::new(frame.x(), frame.y(), ANCHOR_THICKNESS_PX, ANCHOR_ARM_PX),
+                PixelRect::new(frame.x(), frame.y(), arm, thickness),
+                PixelRect::new(frame.x(), frame.y(), thickness, arm),
             ],
             Anchor::BottomRight => [
                 PixelRect::new(
-                    frame.right() + 1 - ANCHOR_ARM_PX,
-                    frame.bottom() + 1 - ANCHOR_THICKNESS_PX,
-                    ANCHOR_ARM_PX,
-                    ANCHOR_THICKNESS_PX,
+                    frame.right() + 1 - arm,
+                    frame.bottom() + 1 - thickness,
+                    arm,
+                    thickness,
                 ),
                 PixelRect::new(
-                    frame.right() + 1 - ANCHOR_THICKNESS_PX,
-                    frame.bottom() + 1 - ANCHOR_ARM_PX,
-                    ANCHOR_THICKNESS_PX,
-                    ANCHOR_ARM_PX,
+                    frame.right() + 1 - thickness,
+                    frame.bottom() + 1 - arm,
+                    thickness,
+                    arm,
                 ),
             ],
         }
@@ -194,14 +213,14 @@ impl FrameLayout {
     #[must_use]
     pub fn anchor_hit(self, anchor: Anchor) -> PixelRect {
         let frame = self.frame();
-        let side = ANCHOR_ARM_PX + GRAB_PAD_PX;
+        let arm = self.px(ANCHOR_ARM_PX);
+        let pad = self.px(GRAB_PAD_PX);
+        let side = arm + pad;
         match anchor {
-            Anchor::TopLeft => {
-                PixelRect::new(frame.x() - GRAB_PAD_PX, frame.y() - GRAB_PAD_PX, side, side)
-            }
+            Anchor::TopLeft => PixelRect::new(frame.x() - pad, frame.y() - pad, side, side),
             Anchor::BottomRight => PixelRect::new(
-                frame.right() + 1 - ANCHOR_ARM_PX,
-                frame.bottom() + 1 - ANCHOR_ARM_PX,
+                frame.right() + 1 - arm,
+                frame.bottom() + 1 - arm,
                 side,
                 side,
             ),
@@ -213,10 +232,10 @@ impl FrameLayout {
     pub fn gear(self) -> PixelRect {
         let frame = self.frame();
         PixelRect::new(
-            frame.right() + 1 + GEAR_GAP_PX,
-            frame.bottom() + 1 + GEAR_GAP_PX,
-            GEAR_DIAMETER_PX,
-            GEAR_DIAMETER_PX,
+            frame.right() + 1 + self.px(GEAR_GAP_PX),
+            frame.bottom() + 1 + self.px(GEAR_GAP_PX),
+            self.px(GEAR_DIAMETER_PX),
+            self.px(GEAR_DIAMETER_PX),
         )
     }
 
@@ -224,16 +243,15 @@ impl FrameLayout {
     #[must_use]
     pub fn left_numbers_width(self) -> u16 {
         let digits = u16::try_from(self.size.height().px().to_string().len()).unwrap_or(5);
-        digits * TICK_DIGIT_PX
+        digits * self.px(TICK_DIGIT_PX)
     }
 
     /// 左辺の目盛と数字の右端から、枠の左端までの距離。
     fn left_inset(self) -> u16 {
         LINE_PX
-            + TickKind::Major.length_px()
-            + TEXT_GAP_PX
+            + self.px(TickKind::Major.length_px() + TEXT_GAP_PX)
             + self.left_numbers_width()
-            + TEXT_GAP_PX
+            + self.px(TEXT_GAP_PX)
     }
 
     /// 幅・高さの数字の置き場。横軸は上辺の目盛の数字の下の中央、縦軸は左辺の目盛の数字の右の中央に 90 度回して置く。
@@ -244,15 +262,15 @@ impl FrameLayout {
         match axis {
             Axis::Horizontal => {
                 let inside = LINE_PX
-                    + TickKind::Major.length_px()
-                    + TEXT_GAP_PX
-                    + TICK_LABEL_PX
-                    + TEXT_GAP_PX
-                    + LABEL_PX;
+                    + self.px(TickKind::Major.length_px()
+                        + TEXT_GAP_PX
+                        + TICK_LABEL_PX
+                        + TEXT_GAP_PX
+                        + LABEL_PX);
                 PixelPoint::new(frame.x() + frame.width() / 2, frame.y() + inside)
             }
             Axis::Vertical => PixelPoint::new(
-                frame.x() + self.left_inset() + LABEL_PX,
+                frame.x() + self.left_inset() + self.px(LABEL_PX),
                 frame.y() + frame.height() / 2,
             ),
         }
@@ -262,38 +280,40 @@ impl FrameLayout {
     #[must_use]
     pub fn notice_baseline(self, index: u16) -> PixelPoint {
         let frame = self.frame();
-        let inside = LINE_PX + TickKind::Major.length_px() + TEXT_GAP_PX;
+        let inside = LINE_PX + self.px(TickKind::Major.length_px() + TEXT_GAP_PX);
         PixelPoint::new(
             frame.x() + self.left_inset(),
             frame
                 .bottom()
-                .saturating_sub(inside + index * NOTICE_LINE_PX),
+                .saturating_sub(inside + index * self.px(NOTICE_LINE_PX)),
         )
     }
 
     /// 通知の文字の高さ。
     #[must_use]
-    pub const fn notice_px() -> u16 {
-        NOTICE_PX
+    pub const fn notice_px(self) -> u16 {
+        self.px(NOTICE_PX)
     }
 
     /// 幅・高さの数字の当たり判定。文字数から見積もる。
     #[must_use]
     pub fn label_hit(self, axis: Axis, chars: u16) -> PixelRect {
         let baseline = self.label_baseline(axis);
-        let span = chars * LABEL_ADVANCE_PX;
+        let span = chars * self.px(LABEL_ADVANCE_PX);
         let half = span / 2;
+        let label = self.px(LABEL_PX);
+        let depth = self.px(LABEL_PX + TEXT_GAP_PX);
         match axis {
             Axis::Horizontal => PixelRect::new(
                 baseline.x().saturating_sub(half),
-                baseline.y().saturating_sub(LABEL_PX),
+                baseline.y().saturating_sub(label),
                 span,
-                LABEL_PX + TEXT_GAP_PX,
+                depth,
             ),
             Axis::Vertical => PixelRect::new(
-                baseline.x().saturating_sub(LABEL_PX),
+                baseline.x().saturating_sub(label),
                 baseline.y().saturating_sub(half),
-                LABEL_PX + TEXT_GAP_PX,
+                depth,
                 span,
             ),
         }
@@ -345,15 +365,19 @@ mod tests {
     use crate::length::Length;
 
     fn layout() -> FrameLayout {
-        FrameLayout::new(FrameSize::INITIAL)
+        FrameLayout::new(FrameSize::INITIAL, UiScale::Single)
+    }
+
+    fn doubled() -> FrameLayout {
+        FrameLayout::new(FrameSize::INITIAL, UiScale::Double)
     }
 
     #[test]
     fn window_wraps_the_frame_and_the_gear() {
         let window = layout().window();
         assert_eq!((window.width(), window.height()), (424, 264));
-        assert_eq!(FrameLayout::frame_px_for_window(424), 400);
-        assert_eq!(FrameLayout::frame_px_for_window(3), 0);
+        assert_eq!(FrameLayout::frame_px_for_window(424, UiScale::Single), 400);
+        assert_eq!(FrameLayout::frame_px_for_window(3, UiScale::Single), 0);
         let gear = layout().gear();
         assert_eq!(gear.right(), window.right());
         assert_eq!(gear.bottom(), window.bottom());
@@ -480,13 +504,19 @@ mod tests {
         assert_eq!(target_at(&regions, PixelPoint::new(200, 120)), None);
     }
 
-    /// 左辺の主目盛の数字が占める矩形の見積り。
+    /// 左辺の主目盛の数字が占める矩形の見積り（字の高さは 1x で 9 px）。
     fn left_number_rects(layout: FrameLayout) -> Vec<PixelRect> {
+        let height = 9 * layout.scale().factor();
         layout
             .tick_labels(Edge::Left)
             .map(|label| {
                 let base = label.baseline();
-                PixelRect::new(base.x(), base.y() - 9, layout.left_numbers_width(), 9)
+                PixelRect::new(
+                    base.x(),
+                    base.y() - height,
+                    layout.left_numbers_width(),
+                    height,
+                )
             })
             .collect()
     }
@@ -497,13 +527,17 @@ mod tests {
 
     #[test]
     fn vertical_label_and_notices_clear_the_left_tick_numbers() {
-        for height in [240_u16, 270, 1_200] {
+        for (height, scale) in [240_u16, 270, 1_200]
+            .into_iter()
+            .flat_map(|height| [(height, UiScale::Single), (height, UiScale::Double)])
+        {
             let size = FrameSize::new(Length::INITIAL_WIDTH, Length::new(height).unwrap());
-            let layout = FrameLayout::new(size);
+            let layout = FrameLayout::new(size, scale);
             let label = layout.label_hit(Axis::Vertical, 7);
             let notice = {
                 let base = layout.notice_baseline(0);
-                PixelRect::new(base.x(), base.y() - 9, 120, 9)
+                let line = layout.notice_px();
+                PixelRect::new(base.x(), base.y() - line, 120, line)
             };
             for number in left_number_rects(layout) {
                 assert!(
@@ -527,5 +561,47 @@ mod tests {
             .sum();
         assert_eq!(rects.len(), 4 + ticks + 4);
         assert!(rects.contains(&layout().line(Edge::Right)));
+    }
+
+    #[test]
+    fn double_keeps_the_measure() {
+        let (single, double) = (layout(), doubled());
+        // 測るもの: 枠の大きさ・線の太さ・目盛の間隔と太さ。
+        assert_eq!(double.frame().width(), single.frame().width());
+        assert_eq!(double.frame().height(), single.frame().height());
+        assert_eq!(double.line(Edge::Top).height(), 1);
+        let offsets = |layout: FrameLayout| -> Vec<(u16, u16)> {
+            layout
+                .ticks(Edge::Top)
+                .map(|tick| (tick.x() - layout.frame().x(), tick.width()))
+                .collect()
+        };
+        assert_eq!(offsets(double), offsets(single));
+    }
+
+    #[test]
+    fn double_scales_the_decorations() {
+        let (single, double) = (layout(), doubled());
+        // 飾り: 帯・目盛の長さ・鉤括弧・ギア・文字。
+        assert_eq!(double.frame(), PixelRect::new(8, 8, 400, 240));
+        assert_eq!(double.line_band(Edge::Top), PixelRect::new(0, 0, 416, 17));
+        assert_eq!(
+            double.ticks(Edge::Top).next(),
+            Some(PixelRect::new(13, 9, 1, 8))
+        );
+        let [arm, _] = double.anchor_arms(Anchor::TopLeft);
+        assert_eq!(arm, PixelRect::new(8, 8, 24, 4));
+        assert_eq!(double.gear().width(), 2 * single.gear().width());
+    }
+
+    #[test]
+    fn double_grows_the_window_by_twice_the_margins() {
+        let (single, double) = (layout(), doubled());
+        assert_eq!(double.window(), PixelRect::new(0, 0, 448, 288));
+        assert_eq!(FrameLayout::frame_px_for_window(448, UiScale::Double), 400);
+        assert_eq!(double.notice_px(), 2 * single.notice_px());
+        assert_eq!(double.left_numbers_width(), 2 * single.left_numbers_width());
+        let gear = double.gear();
+        assert_eq!(gear.right(), double.window().right());
     }
 }
