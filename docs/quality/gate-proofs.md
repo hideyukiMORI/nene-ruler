@@ -1,6 +1,6 @@
 # ゲート発火の証明 — NeNe Ruler
 
-> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）/ Issue #12（第 13 節）/ WSLg の実機（第 14 節・2026-10-17）/ Issue #14（第 15 節）/ Issue #15（第 16 節）/ Issue #20（第 17 節）/ Issue #23（第 18 節）/ Issue #26（第 19 節）/ Issue #28（第 20 節）。以下は実行した結果のみ。
+> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）/ Issue #12（第 13 節）/ WSLg の実機（第 14 節・2026-10-17）/ Issue #14（第 15 節）/ Issue #15（第 16 節）/ Issue #20（第 17 節）/ Issue #23（第 18 節）/ Issue #26（第 19 節）/ Issue #28（第 20 節）/ Issue #30（第 21 節）。以下は実行した結果のみ。
 > 関連: QLT-007 / QLT-011 / QLT-013 / ADR 0003
 
 ## 1. 環境と範囲
@@ -532,3 +532,28 @@ Xvfb は最後のクライアントが切れるとサーバを初期化し、ル
 
 施主の WSLg には `Xft.dpi` が無く（`xrdb -query` が空）、主出力 rdp-0 は RandR で 0 mm なので、**そのままでは 1x になる**。
 `xrdb -merge` で `Xft.dpi: 192` を置いて起動すると、Windows 側の画面キャプチャで 2x の枠が透明のまま出て、通知 `always on top: not supported here` は枠の中に収まった。確認の後に `xrdb -remove` で元の空に戻した。
+
+## 21. Issue #30 — 最前面の通知と mm / in を外す（2026-10-17）
+
+施主の WSL。Issue #28 の枝の上に積んだ。決定は [ADR 0012](../adr/0012-px-only-and-no-layer-notice.md)。
+
+### 21.1 ゲート
+
+| target | 結果 |
+| --- | --- |
+| `make lint` | 0 件 |
+| `make test` | core 52・application 18・adapters-x11 12・xtask 69 は成功。ui-x11 は 33 件中 32 成功。失敗は既存の `a_successful_copy_inverts_the_number`（Issue #21） |
+| `make conformance` | 違反なし（130 ファイル） |
+| `make doc-check` / `make fmt-check` | 警告なし・差分なし |
+| `make coverage` | core ＋ application: regions 97.92%・functions 95.83%・lines 97.27% |
+
+### 21.2 実測（WSLg・`Xft.dpi: 192`）
+
+- 枠: Windows 側の画面キャプチャで、`always on top: not supported here` が出ない（`_NET_WM_STATE_ABOVE` の無い WSLg）
+- モーダル: 640 × 560（2x）。単位の段・`no screen size`・`not supported here` が無い
+- 施主の設定ファイル（`unit = px` を含む v1）を読んで起動できた
+
+### 21.3 WSLg の最前面（作らなかった回避策の記録）
+
+msrdc の窓 `NeNe Ruler (Ubuntu-22.04)` に Windows 側から `SetWindowPos(HWND_TOPMOST)` を掛けると、拡張スタイルが `0x80100` → `0x80108`（`WS_EX_TOPMOST`）になり、5 秒後も残った。
+別の窓（NeNeNib）を前面にしても、定規の描いた画素の上では `WindowFromPoint` が定規を返した。Windows 版で不要になるので実装はしない（ADR 0012 の却下した選択肢）。
