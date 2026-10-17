@@ -172,6 +172,7 @@ UI 層は、application が作った値を描き、利用者の操作を意図�
 - 依存を足すときは ADR を 1 本立てる。中核（core / application）と xtask は**依存 0** である
 - X11 と描画は `x11rb` と `cairo-rs` だけ（[ADR 0002](adr/0002-x11rb-and-cairo-without-a-toolkit.md)）。UI ツールキットを入れない
 - バージョンに `*` を書かない（`clippy::wildcard_dependencies`）。版の固定は `Cargo.lock` の仕事であり、マニフェストに `=` を書かない
+- 内部クレート（`publish = false`）同士の path 依存には版を書かない。`deny.toml` の `allow-wildcard-paths = true` はこれだけを通し、外部 crate の `*` は `wildcards = "deny"` が拒む（施主決定 2026-10-17・Issue #26）
 - `Cargo.lock` をコミットする。ゲートは `--locked` で走り、lock が更新される状態でのゲート通過を拒む
 - ライセンスは**許可制**である。`deny.toml` の `allow` に**実際に使っているものだけ**を書く。
   `make deny` は `--deny license-not-encountered` を付けて走るので、使っていないライセンスを先回りで許可すると落ちる

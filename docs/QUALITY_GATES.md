@@ -76,11 +76,10 @@ CI で必要な判定は、すべてローカルで実行できる。CI の work
 
 ### QLT-009 — カバレッジは下げられない
 
-中核（core / application）の分岐カバレッジ下限を 90% とする。閾値は上げてよいが下げてはならない。下げるには ADR が要る。
-**置いていない層は「置いていない」と書く。**
+中核（core / application）の region カバレッジ下限を 90% とする。閾値は上げてよいが下げてはならない。下げるには ADR が要る。
+**置いていない層は「置いていない」と書く。** 分岐は stable の rustc では測れないので、単位は region（[ADR 0010](adr/0010-coverage-floor-in-regions.md)）。
 
-- 機械強制: **planned**（`make coverage` は置いた。**分岐は stable の rustc では測れない**（`-Z coverage-options=branch` が要る。2026-10-15 に実測）。
-  いま `make coverage` が落とすのは **region** の 90% 未満であり、規則の文言（分岐）とは単位が違う。分岐に揃えるか、規則を region に改めるかは ADR で決めてから active にする。実測値は [gate-proofs](quality/gate-proofs.md) 第 8 節）
+- 機械強制: **active**（`make coverage` の `--fail-under-regions 90`。実測値と発火は [gate-proofs](quality/gate-proofs.md) 第 19 節）
 
 ### QLT-010 — ゲートの弱体化はアーキテクチャ変更
 
@@ -268,7 +267,7 @@ CNF-009 が「本文に定義があるのにここに行が無い」「状態が
 | QLT-006 | planned | |
 | QLT-007 | planned | `make prove` と `xtask` のテスト。証明の網羅は人手 |
 | QLT-008 | planned | レビュー事項 |
-| QLT-009 | planned | `make coverage`（region 90%）。分岐は stable で測れず、単位の決定は ADR 待ち |
+| QLT-009 | active | `make coverage`（region 90%・ADR 0010） |
 | QLT-010 | 不能 | PR の手続き |
 | QLT-011 | active | `rust-toolchain.toml` ＋ `--locked`（P-22） |
 | QLT-012 | planned | |
@@ -302,7 +301,7 @@ CNF-009 が「本文に定義があるのにここに行が無い」「状態が
 | `build` | release の 1 バイナリ | `cargo build --release --locked` |
 | `prove` | ゲート発火の証明 | `xtask prove` → `target/proofs/results.json` |
 | `ci` | Git 規約・PR の記録・空白 | `xtask validate-git` ＋ `git diff --check` |
-| `coverage` | 中核の region カバレッジ 90%（QLT-009 は planned。分岐は stable で測れない） | cargo-llvm-cov |
+| `coverage` | 中核の region カバレッジ 90%（QLT-009・ADR 0010） | cargo-llvm-cov |
 | `screenshot` | Xvfb の上で透明・不透明の窓を PNG に撮る（環境検証・QLT-013） | Xvfb ＋ xcompmgr ＋ ImageMagick |
 
 ---

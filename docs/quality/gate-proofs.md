@@ -1,6 +1,6 @@
 # ゲート発火の証明 — NeNe Ruler
 
-> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）/ Issue #12（第 13 節）/ WSLg の実機（第 14 節・2026-10-17）/ Issue #14（第 15 節）/ Issue #15（第 16 節）。以下は実行した結果のみ。
+> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）/ Issue #12（第 13 節）/ WSLg の実機（第 14 節・2026-10-17）/ Issue #14（第 15 節）/ Issue #15（第 16 節）/ Issue #20（第 17 節）/ Issue #23（第 18 節）/ Issue #26（第 19 節）。以下は実行した結果のみ。
 > 関連: QLT-007 / QLT-011 / QLT-013 / ADR 0003
 
 ## 1. 環境と範囲
@@ -41,6 +41,7 @@ CNF-009 は active の規則ごとに `| ID |` で始まる行がここにある
 | QLT-002 | lint・整形・言語の違反 | P-01〜P-20 | すべて非 0。復帰は 0 |
 | QLT-003 | `#[allow]`・`= "allow"`・`continue-on-error` | P-03 ＋ CNF-011 | `allow_attributes`（forbid） / xtask |
 | QLT-004 | 一行に詰めた `main` | P-20 ＋ CNF-011 | `Diff in`・終了 1 |
+| QLT-009 | 実測値（region 97.67%）より上の下限 98 を置く | `cargo llvm-cov … --fail-under-regions 98`（第 19 節） | 終了 1。下限 90 の `make coverage` は終了 0 |
 | QLT-011 | `Cargo.lock` を消して `--locked` | P-22 | 終了 101 |
 | CNF-001 | `Default` の derive・impl・穴埋め | xtask の正例・反例 | 反例は CNF-001、正例は 0 |
 | CNF-002 | `OnceLock`・proc-macro・`XlibSurface` / `XCBSurface` | 同上 | 反例は CNF-002 |
@@ -118,7 +119,7 @@ CNF-009 は active の規則ごとに `| ID |` で始まる行がここにある
 
 - CI の `make ci` と commit-msg フックの実行証拠（最初の PR で得る）
 - ruleset（`main` の保護・squash-only）。未設定
-- QLT-009 の「分岐」カバレッジ。stable では測れない（第 8 節）
+- 分岐カバレッジ。stable では測れない（第 8 節）。QLT-009 は region に改めた（ADR 0010・第 19 節）
 - WSLg（施主の実機）での表示・透明・掴む手応え（第 8 節は Xvfb のみ）
 - WM が `_NET_WM_MOVERESIZE` に対応する環境での移動と伸縮（Xvfb には WM が無く、自前の経路しか通っていない）
 
@@ -475,3 +476,26 @@ X サーバは押されていない鍵の離しを捨てるので、F4 の離し
 ### 18.2 WSLg
 
 モーダルを開き、Windows 側の画面キャプチャで `not supported here` が「Always on top」の右に、窓の右端より内側で出ることを確かめた。
+
+## 19. Issue #26 — 引き継ぎの施主判断を記録し、QLT-009 を region で active にする（2026-10-17）
+
+施主の WSL。Issue #23 の枝の上に積んだ。rustc 1.98.0 / cargo-llvm-cov 0.9.0。
+
+### 19.1 QLT-009 の発火
+
+| 実行 | 結果 |
+| --- | --- |
+| `make coverage`（`--fail-under-regions 90`） | 終了 0。core ＋ application: regions 97.67%・functions 95.31%・lines 96.91% |
+| `cargo llvm-cov -p nene-ruler-core -p nene-ruler-application --locked --summary-only --fail-under-regions 98` | **終了 1。** 表は同じ値で出し、下限を割った理由の文言は出さない |
+
+下限を実測値より上に置いたときだけ落ちるので、`--fail-under-regions` が効いている。
+
+### 19.2 ゲート
+
+| target | 結果 |
+| --- | --- |
+| `make lint` | 0 件 |
+| `make conformance` | 違反なし |
+| `make doc-check` | 警告なし |
+
+製品コードの変更は `ModalTheme` の doc コメント 1 行だけなので、`make test` は回していない（第 18.1 節の結果を再利用・ADR 0004）。

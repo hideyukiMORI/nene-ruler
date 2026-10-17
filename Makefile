@@ -49,8 +49,7 @@ validate-git:
 
 ## coverage — 中核（core / application）のカバレッジ下限（QLT-009）。
 ## 🔴 分岐（--branch）は stable の rustc では測れない（-Z coverage-options=branch が要る。2026-10-15 実測）。
-##    stable で測れる最も細かい単位は region なので、下限は region に置く。規則の文言（分岐）との差は
-##    QUALITY_GATES の QLT-009 に書いてあり、planned のままである。
+##    下限は region に置く（ADR 0010）。下限を割ると理由を出さずに終了 1 で落ちる。
 ## 導入: cargo install cargo-llvm-cov --locked
 coverage:
 	@command -v cargo-llvm-cov >/dev/null || { echo "coverage: cargo-llvm-cov が無い。cargo install cargo-llvm-cov --locked"; exit 2; }

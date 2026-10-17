@@ -25,3 +25,4 @@ ADR は「なぜそう決めたか」「何を却下したか」を書く。
 | [0007](0007-clipboard-owner-thread-in-adapters.md) | CLIPBOARD は adapters-x11 が専用の接続と 1 本のスレッドで所有する | 受理 |
 | [0008](0008-wslg-layered-window-hit-and-shadow.md) | WSLg では描いた画素が当たり判定になる。帯はアルファ 1 で描き、影は窓の種類で消し、Alt+F4 は自分で読む | 受理（文脈 3 と決定 4 は置換 → 0009） |
 | [0009](0009-alt-f4-on-the-f4-release.md) | Alt+F4 は、この窓が Alt の押下を受けていれば F4 の離しでも閉じる | 受理 |
+| [0010](0010-coverage-floor-in-regions.md) | カバレッジの下限は region で測る | 受理 |
