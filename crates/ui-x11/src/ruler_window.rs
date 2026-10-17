@@ -23,6 +23,7 @@ use x11rb::protocol::xproto::{
 use x11rb::rust_connection::RustConnection;
 use x11rb::wrapper::ConnectionExt as _;
 
+use crate::alt_f4_gesture::AltF4Gesture;
 use crate::canvas::Canvas;
 use crate::display::Display;
 use crate::drag::Drag;
@@ -57,6 +58,7 @@ pub struct RulerWindow<'d> {
     _colormap: ColormapWrapper<&'d RustConnection>,
     wm_moves: bool,
     drag: Option<Drag>,
+    alt_f4: AltF4Gesture,
 }
 
 impl<'d> RulerWindow<'d> {
@@ -89,7 +91,8 @@ impl<'d> RulerWindow<'d> {
                     | EventMask::BUTTON_RELEASE
                     | EventMask::POINTER_MOTION
                     | EventMask::LEAVE_WINDOW
-                    | EventMask::KEY_PRESS,
+                    | EventMask::KEY_PRESS
+                    | EventMask::KEY_RELEASE,
             );
         let window = WindowWrapper::create_window(
             connection,
@@ -114,6 +117,7 @@ impl<'d> RulerWindow<'d> {
             _colormap: colormap,
             wm_moves,
             drag: None,
+            alt_f4: AltF4Gesture::IDLE,
         };
         opened.declare_hints(frame.layer())?;
         opened.set_input_shape(&frame.hit_regions())?;
@@ -169,10 +173,15 @@ impl<'d> RulerWindow<'d> {
         } else if let Event::ButtonRelease(_) = event {
             self.drag = None;
         } else if let Event::KeyPress(key) = event {
-            match self.display.key_input(key) {
+            let input = self.display.key_input(key);
+            if self
+                .alt_f4
+                .pressed(input, key.state.contains(KeyButMask::MOD1))
+            {
+                return Ok(Flow::Quit);
+            }
+            match input {
                 KeyInput::Escape => return Ok(Flow::Quit),
-                // WSLg は Alt+F4 を WM_DELETE_WINDOW に変えないので、自分で読む（ADR 0008）。
-                KeyInput::F4 if key.state.contains(KeyButMask::MOD1) => return Ok(Flow::Quit),
                 KeyInput::Arrow(direction) => {
                     self.nudge(Nudge::new(direction, key.state.contains(KeyButMask::SHIFT)))?;
                 }
@@ -180,7 +189,17 @@ impl<'d> RulerWindow<'d> {
                 | KeyInput::Backspace
                 | KeyInput::Character(_)
                 | KeyInput::F4
+                | KeyInput::Alt
                 | KeyInput::Other => {}
+            }
+        } else if let Event::KeyRelease(key) = event {
+            // WSLg では Alt+F4 の押下が届かず、F4 の離しだけが届く（ADR 0009）。
+            let input = self.display.key_input(key);
+            if self
+                .alt_f4
+                .released(input, key.state.contains(KeyButMask::MOD1))
+            {
+                return Ok(Flow::Quit);
             }
         } else if let Event::ClientMessage(message) = event {
             let atoms = self.display.atoms();

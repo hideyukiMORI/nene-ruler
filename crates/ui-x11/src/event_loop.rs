@@ -27,7 +27,7 @@ pub fn run(display: &Display, controller: &mut RulerController<'_>) -> Result<()
             .as_ref()
             .is_some_and(|window| window_of(&event) == Some(window.window()));
         if for_settings {
-            if let Some(window) = &settings
+            if let Some(window) = &mut settings
                 && settings_step(controller, &ruler, window, &event)? == SettingsFlow::Close
             {
                 controller.apply(RulerIntent::CloseSettings);
@@ -51,7 +51,7 @@ pub fn run(display: &Display, controller: &mut RulerController<'_>) -> Result<()
 fn settings_step(
     controller: &mut RulerController<'_>,
     ruler: &RulerWindow<'_>,
-    window: &SettingsWindow<'_>,
+    window: &mut SettingsWindow<'_>,
     event: &Event,
 ) -> Result<SettingsFlow, UiFailure> {
     let flow = window.handle(controller, event)?;
@@ -96,6 +96,8 @@ fn window_of(event: &Event) -> Option<Window> {
     } else if let Event::LeaveNotify(leave) = event {
         Some(leave.event)
     } else if let Event::KeyPress(key) = event {
+        Some(key.event)
+    } else if let Event::KeyRelease(key) = event {
         Some(key.event)
     } else if let Event::ClientMessage(message) = event {
         Some(message.window)
