@@ -1,6 +1,6 @@
 # ADR 0011 — UI の倍率は 1x / 2x の整数で、飾りにだけ掛ける
 
-- 状態: 受理（決定 2 の主目盛の数字の大きさは置換 → [0013](0013-tick-numbers-keep-their-size.md)）
+- 状態: 受理（決定 2 の主目盛の数字の大きさは置換 → [0013](0013-tick-numbers-keep-their-size.md)、モーダルの倍率は置換 → [0014](0014-frameless-single-scale-modal.md)）
 - 日付: 2026-10-17
 - Issue: #28
 - 影響する規則: ARC-001 / ARC-004 / ARC-011。仕様 FR-016 / FR-003 / FR-014

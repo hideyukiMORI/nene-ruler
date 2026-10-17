@@ -24,6 +24,9 @@ const FOOTER_FONT_PX: f64 = 10.0;
 const RING_PX: u16 = 2;
 /// チェック箱の印の、箱の縁からの距離（1x）。
 const CHECK_INSET_PX: u16 = 6;
+/// 閉じるボタンの × の、ボタンの縁からの距離と線の太さ（1x）。
+const CROSS_INSET_PX: u16 = 7;
+const CROSS_LINE_PX: f64 = 1.5;
 
 /// モーダルを描き切る。
 ///
@@ -41,6 +44,8 @@ pub fn render_settings(frame: &SettingsFrame, format: Format) -> Result<Canvas, 
     Canvas::paint(layout.window(), format, |context| {
         set_ink(context, palette.background());
         context.paint()?;
+        draw_outline(context, palette.border(), layout.window())?;
+        draw_close_button(context, &palette, layout)?;
         draw_text(context, &palette, layout.title(), title_px)?;
         for heading in layout.headings() {
             draw_text(context, &palette, heading, body_px)?;
@@ -61,6 +66,46 @@ pub fn render_settings(frame: &SettingsFrame, format: Format) -> Result<Canvas, 
         set_ink(context, palette.text());
         write_at(context, layout.footer_baseline(), frame.footer(), footer_px)
     })
+}
+
+/// 窓の外周の 1 px の縁線。窓に飾りが無いので、黒い背景がデスクトップに溶けないようにする（ADR 0014）。
+fn draw_outline(context: &Context, ink: Rgb, window: PixelRect) -> Result<(), UiFailure> {
+    set_ink(context, ink);
+    let (width, height) = (window.width(), window.height());
+    for edge in [
+        PixelRect::new(0, 0, width, 1),
+        PixelRect::new(0, height.saturating_sub(1), width, 1),
+        PixelRect::new(0, 0, 1, height),
+        PixelRect::new(width.saturating_sub(1), 0, 1, height),
+    ] {
+        fill_rect(context, edge)?;
+    }
+    Ok(())
+}
+
+/// 右上の閉じるボタン。文字色の ×（ADR 0014）。
+fn draw_close_button(
+    context: &Context,
+    palette: &ModalPalette,
+    layout: SettingsLayout,
+) -> Result<(), UiFailure> {
+    let button = inset(
+        layout.close_button(),
+        CROSS_INSET_PX * layout.scale().factor(),
+    );
+    let (left, top) = (f64::from(button.x()), f64::from(button.y()));
+    let (right, bottom) = (
+        left + f64::from(button.width()),
+        top + f64::from(button.height()),
+    );
+    set_ink(context, palette.text());
+    context.set_line_width(CROSS_LINE_PX * f64::from(layout.scale().factor()));
+    context.move_to(left, top);
+    context.line_to(right, bottom);
+    context.move_to(right, top);
+    context.line_to(left, bottom);
+    context.stroke()?;
+    Ok(())
 }
 
 /// 文字色で 1 行書く。
@@ -353,7 +398,7 @@ mod tests {
         let clean_row: Vec<[u8; 4]> = (notice.x()..notice.x() + 80)
             .filter_map(|x| clean.pixel(x, notice.y() - 3).unwrap())
             .collect();
-        assert!(clean_row.iter().all(|p| *p == [0x1E, 0x1E, 0x1E, 0xFF]));
+        assert!(clean_row.iter().all(|p| *p == [0x00, 0x00, 0x00, 0xFF]));
     }
 
     #[test]
@@ -362,7 +407,7 @@ mod tests {
         assert_eq!((canvas.width(), canvas.height()), (320, 280));
         assert_eq!(
             canvas.pixel(305, 150).unwrap(),
-            Some([0x1E, 0x1E, 0x1E, 0xFF])
+            Some([0x00, 0x00, 0x00, 0xFF])
         );
         assert_eq!(
             canvas.pixel(28, 84).unwrap(),
@@ -374,7 +419,7 @@ mod tests {
         );
         assert_eq!(
             canvas.pixel(47, 71).unwrap(),
-            Some([0x1E, 0x1E, 0x1E, 0xFF])
+            Some([0x00, 0x00, 0x00, 0xFF])
         );
     }
 
@@ -414,9 +459,10 @@ mod tests {
     }
 
     #[test]
-    fn double_paints_the_modal_twice_as_large() {
+    fn the_modal_stays_single_even_at_double() {
+        // モーダルは倍率を掛けない（ADR 0014）。
         let double = canvas_at(&NoStore(Ok(None)), Some(192), &[]);
-        assert_eq!((double.width(), double.height()), (640, 560));
+        assert_eq!((double.width(), double.height()), (320, 280));
         let single = canvas(&[]);
         assert_eq!((single.width(), single.height()), (320, 280));
     }
@@ -436,5 +482,24 @@ mod tests {
             })
             .count();
         assert_eq!(red, 0);
+    }
+
+    #[test]
+    fn the_outline_and_the_close_cross_are_drawn() {
+        let mut canvas = canvas(&[]);
+        let border = [0x55, 0x55, 0x55, 0xFF];
+        assert_eq!(canvas.pixel(0, 140).unwrap(), Some(border));
+        assert_eq!(canvas.pixel(319, 140).unwrap(), Some(border));
+        assert_eq!(canvas.pixel(160, 279).unwrap(), Some(border));
+        // × の交点（ボタンの中央）は文字色に近い明るさ。
+        let close = SINGLE.close_button();
+        let centre = canvas
+            .pixel(
+                close.x() + close.width() / 2,
+                close.y() + close.height() / 2,
+            )
+            .unwrap()
+            .unwrap();
+        assert!(centre[0] > 0x80, "{centre:?}");
     }
 }

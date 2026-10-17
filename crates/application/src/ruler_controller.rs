@@ -122,7 +122,8 @@ impl<'p> RulerController<'p> {
     pub fn settings_frame(&self) -> Option<SettingsFrame> {
         self.modal.as_ref().map(|session| {
             SettingsFrame::new(
-                SettingsLayout::new(self.scale),
+                // モーダルは倍率を掛けない（施主指示 2026-10-17・ADR 0014）。
+                SettingsLayout::new(UiScale::Single),
                 (self.settings, session.clone()),
                 self.version,
                 self.store_failure,
@@ -531,7 +532,7 @@ mod tests {
     }
 
     #[test]
-    fn xft_dpi_doubles_the_frame_and_the_modal_but_not_the_measure() {
+    fn xft_dpi_doubles_the_frame_but_not_the_measure_or_the_modal() {
         use nene_ruler_core::ui_scale::UiScale;
         static NO_CLIPBOARD: NoClipboard = NoClipboard;
         let (screen, store) = (screen(), MemoryStore::empty());
@@ -551,9 +552,10 @@ mod tests {
         assert_eq!(controller.frame().text(Axis::Horizontal).as_str(), "500 px");
         assert_eq!(controller.frame().text(Axis::Vertical).as_str(), "240 px");
         controller.apply(RulerIntent::OpenSettings);
+        // モーダルは 2x の環境でも 1x（ADR 0014）。
         assert_eq!(
             controller.settings_frame().unwrap().layout().scale(),
-            UiScale::Double
+            UiScale::Single
         );
     }
 

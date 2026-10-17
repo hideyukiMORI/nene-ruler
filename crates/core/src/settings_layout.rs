@@ -40,6 +40,9 @@ const THEME_ROW_PX: u16 = 168;
 const LAYER_ROW_PX: u16 = 216;
 /// 見出しと段の間。
 const HEADING_GAP_PX: u16 = 8;
+/// 閉じるボタンの一辺と、窓の右上の角からの距離。
+const CLOSE_PX: u16 = 24;
+const CLOSE_INSET_PX: u16 = 8;
 /// 題のベースライン。
 const TITLE_BASELINE_PX: u16 = 28;
 /// 通知（設定の読み書きの失敗）のベースライン。
@@ -189,10 +192,26 @@ impl SettingsLayout {
         ))
     }
 
+    /// 右上の閉じるボタン。窓に飾りが無いので自前で持つ（ADR 0014）。
+    #[must_use]
+    pub const fn close_button(self) -> PixelRect {
+        self.scaled(PixelRect::new(
+            WIDTH_PX - CLOSE_INSET_PX - CLOSE_PX,
+            CLOSE_INSET_PX,
+            CLOSE_PX,
+            CLOSE_PX,
+        ))
+    }
+
     /// 当たり判定を優先順に。`layer` はいまの重なり順で、押すと反転する。
+    /// どれにも当たらない所は、窓を動かす掴み所になる（ADR 0014）。
     #[must_use]
     pub fn hits(self, layer: WindowLayer) -> Vec<SettingsHit> {
         let mut hits = Vec::new();
+        hits.push(SettingsHit::new(
+            self.close_button(),
+            SettingsControl::Close,
+        ));
         for index in 0..Rgb::PRESETS.len() {
             let index = u8::try_from(index).unwrap_or(u8::MAX);
             hits.push(SettingsHit::new(
@@ -233,7 +252,7 @@ mod tests {
             assert!(hit.rect().right() <= window.right(), "{hit:?}");
             assert!(hit.rect().bottom() <= window.bottom(), "{hit:?}");
         }
-        assert_eq!(hits.len(), 8 + 1 + 2 + 1);
+        assert_eq!(hits.len(), 1 + 8 + 1 + 2 + 1);
     }
 
     #[test]
@@ -271,6 +290,12 @@ mod tests {
             Some(SettingsControl::Layer(WindowLayer::Normal))
         );
         assert_eq!(control_at(&hits, PixelPoint::new(300, 250)), None);
+        assert_eq!(
+            control_at(&hits, PixelPoint::new(300, 20)),
+            Some(SettingsControl::Close)
+        );
+        // 題の上は掴み所（部品ではない）。
+        assert_eq!(control_at(&hits, PixelPoint::new(40, 20)), None);
     }
 
     #[test]

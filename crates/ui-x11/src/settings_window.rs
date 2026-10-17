@@ -3,6 +3,7 @@
 use nene_ruler_application::ruler_controller::RulerController;
 use nene_ruler_application::ruler_intent::RulerIntent;
 use nene_ruler_application::settings_frame::SettingsFrame;
+use nene_ruler_core::hit_target::HitTarget;
 use nene_ruler_core::pixel_point::PixelPoint;
 use nene_ruler_core::rgb::Rgb;
 use nene_ruler_core::settings_control::SettingsControl;
@@ -10,20 +11,22 @@ use nene_ruler_core::settings_hit;
 use x11rb::connection::Connection;
 use x11rb::protocol::Event;
 use x11rb::protocol::xproto::{
-    AtomEnum, ButtonPressEvent, ColormapAlloc, ColormapWrapper, ConnectionExt as _, CreateGCAux,
-    CreateWindowAux, EventMask, GcontextWrapper, InputFocus, KeyButMask, PropMode, Window,
-    WindowClass, WindowWrapper,
+    AtomEnum, ButtonPressEvent, ColormapAlloc, ColormapWrapper, ConfigureWindowAux,
+    ConnectionExt as _, CreateGCAux, CreateWindowAux, EventMask, GcontextWrapper, InputFocus,
+    KeyButMask, PropMode, Window, WindowClass, WindowWrapper,
 };
 use x11rb::rust_connection::RustConnection;
 use x11rb::wrapper::ConnectionExt as _;
 
 use crate::alt_f4_gesture::AltF4Gesture;
 use crate::display::Display;
+use crate::drag::Drag;
 use crate::key_input::KeyInput;
 use crate::settings_canvas::render_settings;
 use crate::settings_flow::SettingsFlow;
 use crate::transfer::Transfer;
 use crate::ui_failure::UiFailure;
+use crate::undecorated::{self, MOVERESIZE_MOVE};
 
 /// 左ボタン。
 const BUTTON_LEFT: u8 = 1;
@@ -38,6 +41,8 @@ pub struct SettingsWindow<'d> {
     gc: GcontextWrapper<&'d RustConnection>,
     _colormap: ColormapWrapper<&'d RustConnection>,
     alt_f4: AltF4Gesture,
+    wm_moves: bool,
+    drag: Option<Drag>,
 }
 
 impl<'d> SettingsWindow<'d> {
@@ -69,6 +74,8 @@ impl<'d> SettingsWindow<'d> {
                 EventMask::EXPOSURE
                     | EventMask::STRUCTURE_NOTIFY
                     | EventMask::BUTTON_PRESS
+                    | EventMask::BUTTON_RELEASE
+                    | EventMask::POINTER_MOTION
                     | EventMask::KEY_PRESS
                     | EventMask::KEY_RELEASE,
             );
@@ -92,6 +99,8 @@ impl<'d> SettingsWindow<'d> {
             gc,
             _colormap: colormap,
             alt_f4: AltF4Gesture::IDLE,
+            wm_moves: display.wm_supports(display.atoms().net_wm_moveresize),
+            drag: None,
         };
         opened.declare_hints(owner)?;
         connection.map_window(opened.window.window())?;
@@ -141,7 +150,11 @@ impl<'d> SettingsWindow<'d> {
                 self.expose(controller)?;
             }
         } else if let Event::ButtonPress(press) = event {
-            return Ok(Self::pressed(controller, press));
+            return self.pressed(controller, press);
+        } else if let Event::MotionNotify(motion) = event {
+            self.dragged((motion.root_x, motion.root_y))?;
+        } else if let Event::ButtonRelease(_) = event {
+            self.drag = None;
         } else if let Event::KeyPress(key) = event {
             let input = self.display.key_input(key);
             if self
@@ -179,35 +192,71 @@ impl<'d> SettingsWindow<'d> {
         }
     }
 
-    /// 左ボタンで押した部品を意図にする。
-    fn pressed(controller: &mut RulerController<'_>, press: &ButtonPressEvent) -> SettingsFlow {
+    /// 左ボタンで押した部品を意図にする。部品の無い所を掴むと窓を動かす（ADR 0014）。
+    fn pressed(
+        &mut self,
+        controller: &mut RulerController<'_>,
+        press: &ButtonPressEvent,
+    ) -> Result<SettingsFlow, UiFailure> {
         if press.detail != BUTTON_LEFT {
-            return SettingsFlow::Continue;
+            return Ok(SettingsFlow::Continue);
         }
         let Some(point) = PixelPoint::from_event(press.event_x, press.event_y) else {
-            return SettingsFlow::Continue;
+            return Ok(SettingsFlow::Continue);
         };
         let current_layer = controller.frame().layer();
         let Some(layout) = controller.settings_frame().map(|frame| frame.layout()) else {
-            return SettingsFlow::Continue;
+            return Ok(SettingsFlow::Continue);
         };
         let Some(control) = settings_hit::control_at(&layout.hits(current_layer), point) else {
-            return SettingsFlow::Continue;
+            self.start_move(press)?;
+            return Ok(SettingsFlow::Continue);
         };
         let intent = match control {
             SettingsControl::Preset(index) => {
                 let Some(preset) = Rgb::PRESETS.get(usize::from(index)) else {
-                    return SettingsFlow::Continue;
+                    return Ok(SettingsFlow::Continue);
                 };
                 RulerIntent::ChooseInk(*preset)
             }
             // 入力欄は常に鍵を受けるので、押しても状態は変わらない。
-            SettingsControl::HexField => return SettingsFlow::Continue,
+            SettingsControl::HexField => return Ok(SettingsFlow::Continue),
             SettingsControl::Theme(theme) => RulerIntent::ChooseModalTheme(theme),
             SettingsControl::Layer(layer) => RulerIntent::ChooseLayer(layer),
+            SettingsControl::Close => return Ok(SettingsFlow::Close),
         };
         controller.apply(intent);
-        SettingsFlow::Changed
+        Ok(SettingsFlow::Changed)
+    }
+
+    /// 窓を動かし始める。WM に任せ、できなければ自前で引く（枠の窓と同じ・ADR 0005 の 4）。
+    fn start_move(&mut self, press: &ButtonPressEvent) -> Result<(), UiFailure> {
+        let window = self.window.window();
+        if self.wm_moves {
+            undecorated::ask_wm_to_move_resize(self.display, window, press, MOVERESIZE_MOVE)
+        } else {
+            let start = undecorated::geometry_of(self.display, window)?;
+            self.drag = Some(Drag::begin(
+                HitTarget::Move,
+                (press.root_x, press.root_y),
+                start,
+            ));
+            Ok(())
+        }
+    }
+
+    /// 自前のドラッグ中なら窓を動かす。
+    fn dragged(&self, root: (i16, i16)) -> Result<(), UiFailure> {
+        let Some(drag) = self.drag else {
+            return Ok(());
+        };
+        let geometry = drag.geometry_at(root, 0);
+        self.display.connection().configure_window(
+            self.window.window(),
+            &ConfigureWindowAux::new().x(geometry.x()).y(geometry.y()),
+        )?;
+        self.display.connection().flush()?;
+        Ok(())
     }
 
     /// 鍵を入力欄の意図にする。Esc は閉じる。
@@ -225,11 +274,12 @@ impl<'d> SettingsWindow<'d> {
         SettingsFlow::Changed
     }
 
-    /// transient・閉じる要求・題を WM へ伝える。装飾は WM に任せる（枠の窓と違い、題を持つ）。
+    /// transient・飾りなし・閉じる要求・題を WM へ伝える。閉じるボタンと移動は自前（ADR 0014）。
     fn declare_hints(&self, owner: Window) -> Result<(), UiFailure> {
         let connection = self.display.connection();
         let atoms = self.display.atoms();
         let window = self.window.window();
+        undecorated::declare_undecorated(self.display, window)?;
         connection.change_property32(
             PropMode::REPLACE,
             window,
