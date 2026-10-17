@@ -27,6 +27,7 @@ use x11rb::rust_connection::RustConnection;
 use x11rb::wrapper::ConnectionExt as _;
 
 use crate::alt_f4_gesture::AltF4Gesture;
+use crate::app_icon;
 use crate::canvas::Canvas;
 use crate::display::Display;
 use crate::drag::Drag;
@@ -371,6 +372,7 @@ impl<'d> RulerWindow<'d> {
         let atoms = self.display.atoms();
         let window = self.window.window();
         undecorated::declare_undecorated(self.display, window)?;
+        app_icon::declare(self.display, window)?;
         // 枠が最小のときの窓より小さく縮めさせない。描く絵が窓の外で切れる（Issue #52）。
         let smallest = i32::from(FrameLayout::smallest_window(scale));
         let mut size_hints = WmSizeHints::new();

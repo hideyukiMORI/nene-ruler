@@ -32,6 +32,8 @@ pub struct Atoms {
     pub net_wm_window_type: Atom,
     /// `_NET_WM_WINDOW_TYPE_NORMAL`。
     pub net_wm_window_type_normal: Atom,
+    /// `_NET_WM_ICON`。アプリのアイコン（ADR 0020）。
+    pub net_wm_icon: Atom,
     /// `_KDE_NET_WM_WINDOW_TYPE_OVERRIDE`。Weston の XWM が影を描かない唯一の印（ADR 0008）。
     pub kde_net_wm_window_type_override: Atom,
 }
@@ -61,6 +63,7 @@ impl Atoms {
             net_wm_cm_s0: intern(connection, b"_NET_WM_CM_S0")?,
             net_wm_window_type: intern(connection, b"_NET_WM_WINDOW_TYPE")?,
             net_wm_window_type_normal: intern(connection, b"_NET_WM_WINDOW_TYPE_NORMAL")?,
+            net_wm_icon: intern(connection, b"_NET_WM_ICON")?,
             kde_net_wm_window_type_override: intern(
                 connection,
                 b"_KDE_NET_WM_WINDOW_TYPE_OVERRIDE",

@@ -5,6 +5,7 @@
 //! 時刻・環境・ファイルには到達しない（ARC-007 / CNF-012）。
 
 pub mod alt_f4_gesture;
+pub mod app_icon;
 pub mod atoms;
 pub mod canvas;
 pub mod display;
