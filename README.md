@@ -2,14 +2,16 @@
 
 A tiny frameless screen ruler for X11. Rust, `x11rb` + `cairo`, no UI toolkit.
 
-> **Status (2026-09-27):** repository initialised (Issue #1). The rules, the gates and their proofs exist;
-> the ruler itself does not yet. `cargo run` prints the reason and exits. Nothing to download.
+> **Status (2026-10-15):** first vertical slice (Issue #2). `cargo run` opens a transparent frame with ticks,
+> moves when you drag a line and resizes when you drag an anchor. Units, colour, copy and the settings window are not there yet.
+> Verified on Xvfb (`make screenshot`); not yet on a real desktop. Nothing to download.
 
 ## What it will be
 
-- A borderless strip that shows tick marks and the length it currently spans, in px / mm / in.
-- Drag anywhere to move, drag the ends to stretch, click the number to copy it.
-- Horizontal or vertical, dark or light, always on top if you want. Settings are saved with a version.
+- A transparent rectangle floating over the screen: four lines with tick marks, the width and height written on them, in px / mm / in.
+- Everything except the lines, the numbers, the two bracket-shaped anchors and the gear is transparent and lets clicks through.
+- Drag a line to move, drag an anchor to resize, click a number to copy it. One ink colour, chosen in the settings window.
+- Always on top if you want. Settings are saved with a version.
 - Runs on Xorg and XWayland (WSLg included). Measures physical pixels; converts to mm through RandR.
 
 The requirements are in [SPECIFICATION.md](SPECIFICATION.md) (Japanese).
@@ -31,7 +33,7 @@ Verification is chosen per change (`make lint`, `make test`, `make conformance`,
 make check REASON='why a narrower check cannot cover this change'
 ```
 
-It needs the toolchain pinned in `rust-toolchain.toml` (rustup installs it), `cargo-deny`, and `libcairo2-dev` for the upcoming UI crates.
+It needs the toolchain pinned in `rust-toolchain.toml` (rustup installs it), `cargo-deny`, and `libcairo2-dev` for the UI crate.
 `make doctor` lists what is missing.
 
 ## License

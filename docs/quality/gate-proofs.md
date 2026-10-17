@@ -1,6 +1,6 @@
 # ゲート発火の証明 — NeNe Ruler
 
-> 記録: 2026-09-27 / Issue #1。以下は実行した結果のみ。
+> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）。以下は実行した結果のみ。
 > 関連: QLT-007 / QLT-011 / QLT-013 / ADR 0003
 
 ## 1. 環境と範囲
@@ -34,7 +34,8 @@ CNF-009 は active の規則ごとに `| ID |` で始まる行がここにある
 | RS-017 | release で `255_u8 + 1_u8` | P-21 | `attempt to add with overflow`・終了 101 |
 | RS-018 | 型注釈の無いリテラル | P-08 | `default_numeric_fallback` |
 | RS-019 | forbid を `#[expect]`・腐った `#[expect]`・`#[allow]` | P-01 / P-02 / P-03 ＋ CNF-006 | E0453 / unfulfilled / `allow_attributes` |
-| ARC-002 | クレートの循環・ui → adapters | P-23 ＋ CNF-013 | `cyclic package dependency` / xtask |
+| ARC-002 | クレートの循環・ui → adapters | P-23 ＋ CNF-013 | `cyclic package dependency` / xtask（実ファイル: 第 8 節） |
+| ARC-003 | core の `#![no_std]` を外す・ui-x11 が adapters-x11 に依存 | CNF-007 ＋ CNF-013（実ファイル・第 8 節） | xtask が CNF-007 / CNF-013 を報告 |
 | ARC-007 | adapters の外で `std::time` | CNF-012 の反例テスト | xtask |
 | ARC-013 | 許可外のライセンス・先回りの許可・lock 無し | P-24 / P-25 / P-22 ＋ CNF-013 | cargo-deny / `--locked` / xtask |
 | QLT-002 | lint・整形・言語の違反 | P-01〜P-20 | すべて非 0。復帰は 0 |
@@ -42,7 +43,7 @@ CNF-009 は active の規則ごとに `| ID |` で始まる行がここにある
 | QLT-004 | 一行に詰めた `main` | P-20 ＋ CNF-011 | `Diff in`・終了 1 |
 | QLT-011 | `Cargo.lock` を消して `--locked` | P-22 | 終了 101 |
 | CNF-001 | `Default` の derive・impl・穴埋め | xtask の正例・反例 | 反例は CNF-001、正例は 0 |
-| CNF-002 | `OnceLock`・proc-macro | 同上 | 反例は CNF-002 |
+| CNF-002 | `OnceLock`・proc-macro・`XlibSurface` / `XCBSurface` | 同上 | 反例は CNF-002 |
 | CNF-003 | 2 つ目の主要宣言 | 同上 | 反例は CNF-003。ローカル型は通る |
 | CNF-004 | 禁止語尾・禁止モジュール名 | 同上 | 反例は CNF-004。`TickProcessor` は通る |
 | CNF-006 | 無い規則 ID・ID の無い reason・複数行 | 同上 | 反例は CNF-006 |
@@ -88,12 +89,12 @@ CNF-009 は active の規則ごとに `| ID |` で始まる行がここにある
 | P-24 | ARC-013 | `cargo deny --locked check licenses --deny license-not-encountered（allow = []）` | 4 | `│            rejected: license is not explicitly allowed` |
 | P-25 | ARC-013 | `cargo deny --locked check licenses --deny license-not-encountered（allow = ["MIT", "Apache-2.0"]）` | 4 | `error[license-not-encountered]: license was not encountered` |
 
-## 4. `xtask` の正例・反例（`cargo test -p xtask`・68 件）
+## 4. `xtask` の正例・反例（`cargo test -p xtask`・69 件）
 
 | 検査 | 件数 | テスト名 |
 | --- | --- | --- |
 | CNF-001 | 6 | cnf001_catches_derive_default, cnf001_catches_impl_default, cnf001_catches_struct_update_syntax, cnf001_ignores_clean_source, cnf001_ignores_markdown, cnf001_ignores_test_module |
-| CNF-002 | 3 | cnf002_catches_lazy_global, cnf002_catches_proc_macro_manifest, cnf002_ignores_clean_source |
+| CNF-002 | 4 | cnf002_catches_lazy_global, cnf002_catches_proc_macro_manifest, cnf002_catches_x_surfaces, cnf002_ignores_clean_source |
 | CNF-003 | 3 | cnf003_allows_single_declaration, cnf003_catches_second_declaration, cnf003_ignores_nested_declaration |
 | CNF-004 | 3 | cnf004_allows_context_dependent_name, cnf004_catches_forbidden_module_name, cnf004_catches_forbidden_suffix |
 | CNF-006 | 4 | cnf006_accepts_expect_citing_known_rule, cnf006_catches_reason_without_rule_id, cnf006_catches_unknown_rule_id, cnf006_reads_multiline_expect |
@@ -117,8 +118,9 @@ CNF-009 は active の規則ごとに `| ID |` で始まる行がここにある
 
 - CI の `make ci` と commit-msg フックの実行証拠（最初の PR で得る）
 - ruleset（`main` の保護・squash-only）。未設定
-- 中核クレートでの CNF-007 / QLT-009 の実ファイル発火（Issue #2）
-- 表示（Xvfb・WSLg）。製品コードが無い
+- QLT-009 の「分岐」カバレッジ。stable では測れない（第 8 節）
+- WSLg（施主の実機）での表示・透明・掴む手応え（第 8 節は Xvfb のみ）
+- WM が `_NET_WM_MOVERESIZE` に対応する環境での移動と伸縮（Xvfb には WM が無く、自前の経路しか通っていない）
 
 ## 7. 再現
 
@@ -126,4 +128,57 @@ CNF-009 は active の規則ごとに `| ID |` で始まる行がここにある
 make prove
 cargo test -p xtask
 make conformance
+make coverage
+make screenshot
 ```
+
+## 8. Issue #2 — 最初の縦切り（2026-10-15）
+
+同じコンテナ。rustc 1.98.0 / x11rb 0.14.0 / cairo-rs 0.22.9 / Xvfb / xcompmgr / ImageMagick / xdotool。
+
+### 8.1 実ファイルでの規約検査の発火
+
+| 規則 | やったこと | `make conformance` の実出力 |
+| --- | --- | --- |
+| CNF-007（ARC-003） | `crates/core/src/lib.rs` の `#![no_std]` を注釈行に置き換えた | `CNF-007: crates/core/src/lib.rs — nene-ruler-core は中核クレートだが、先頭の属性に #![no_std] が無い（ARC-003）` |
+| CNF-013（ARC-002 / ARC-003） | `crates/ui-x11/Cargo.toml` に `nene-ruler-adapters-x11` を足した（`--locked` が先に落ちるので `cargo run --offline -p xtask -- conformance` で実行） | `CNF-013: crates/ui-x11/Cargo.toml:20 — nene-ruler-adapters-x11 への依存は crates/ui-x11/ に許されていない（ARC-002 / ARC-013）` |
+| CNF-012（ARC-007） | `crates/ui-x11/src/flow.rs` に `std::env::var("HOME")` を足した | `CNF-012: crates/ui-x11/src/flow.rs:12 — std::env は adapters-x11 の外で読まない（ARC-007）` |
+| CNF-003 | 書いている途中で `ruler_window.rs` に 3 つの型が並んだ | `CNF-003: … Transfer は 2 つ目の主要宣言（1 つ目は Flow）`。`flow.rs` / `transfer.rs` に分けた |
+
+元に戻した後の `make conformance`: `規約違反なし（検査 87 ファイル）`。
+
+### 8.2 ゲート
+
+| target | 結果 |
+| --- | --- |
+| `make lint` | 0 件 |
+| `make test` | core 31・application 4・ui-x11 12・xtask 69、すべて成功 |
+| `make conformance` | 違反なし（87 ファイル） |
+| `make deny` | advisories / bans / licenses / sources すべて ok。`allow` は `cargo deny list` の実測で MIT・Apache-2.0・Apache-2.0 WITH LLVM-exception |
+| `make fmt-check` / `make doc-check` | 差分なし・警告なし |
+| `make coverage` | core ＋ application: regions 98.88%・functions 99.23%・lines 99.08%（下限 90% は region） |
+
+**分岐カバレッジは測れなかった。** `cargo llvm-cov --branch` は stable で `-Z coverage-options=branch` を要求して落ちる（空のクレートで実測）。QLT-009 は planned のまま。
+
+### 8.3 Xvfb での表示（環境検証・単体テストではない）
+
+`make screenshot` 相当。Xvfb `:97`（640×400×24）、根の窓を灰色にし、`xcompmgr -n` を起動して `cargo run`、`import -window root` で撮った。
+
+| 条件 | PNG | 見えたもの |
+| --- | --- | --- |
+| 合成器あり | [2026-10-15-xvfb-composited.png](screenshots/2026-10-15-xvfb-composited.png) | 中身が根の灰色のまま（透明）。四辺に目盛、上辺と左辺に主目盛の数字、上辺の中央に `400 px`、左辺の中央に回転した `240 px`、両角に鉤括弧、右下の外にギア。すべて `#E53935` |
+| 合成器なし | [2026-10-15-xvfb-opaque.png](screenshots/2026-10-15-xvfb-opaque.png) | 同じ絵が白い背景の上（インクの補色への降格。ADR 0005 の 5） |
+| 操作の後 | [2026-10-15-xvfb-after-drag.png](screenshots/2026-10-15-xvfb-after-drag.png) | 窓が (100, 50) に動き、枠が 440×260 に伸びている |
+
+### 8.4 xdotool での操作（Xvfb には WM が無いので、自前のドラッグの経路）
+
+| 操作 | 命令 | 結果 |
+| --- | --- | --- |
+| 中身の素通し | `xdotool mousemove 200 120; xdotool getmouselocation --shell` | `WINDOW=543`（根の窓）。枠の窓ではない |
+| 線の帯 | `xdotool mousemove 200 5; …` | `WINDOW=6291457`（枠の窓） |
+| 線を掴んで移動 | `mousemove 200 5; mousedown 1; mousemove 300 55; mouseup 1` | `Position: 0,0` → `Position: 100,50`、大きさは `424x264` のまま |
+| 右下の鉤括弧で伸縮 | `mousemove 500 290; mousedown 1; mousemove 540 310; mouseup 1` | `Geometry: 424x264` → `464x284`（枠は 440×260） |
+| Esc | `mousemove 200 5; xdotool key Escape` | `KeyPress` の keycode 9 が届き、プロセスが終了 |
+
+🔴 **見つかった欠陥:** 入力 shape は、`XFixesQueryVersion` を先に送らないと効かなかった（中身の上でも `WINDOW=6291457` が返った）。
+`Display::connect` で版 2.0 を交渉するようにして、素通しになった。単体テストでは見えない種類の欠陥で、Xvfb の実測で初めて出た。

@@ -1,0 +1,18 @@
+[package]
+name = "nene-ruler-adapters-x11"
+description = "NeNe Ruler のアダプタ。RandR の物理寸法を application のポートへ渡す。OS 資源に触れてよい唯一の製品モジュール"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+# 🔴 内部は application と core だけ（ARC-002 / CNF-013）。外部は x11rb だけ（ADR 0002）。
+[dependencies]
+nene-ruler-application = { path = "../application" }
+nene-ruler-core = { path = "../core" }
+x11rb = { version = "0.14.0", default-features = false, features = ["randr"] }

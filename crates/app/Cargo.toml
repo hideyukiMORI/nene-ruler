@@ -1,6 +1,6 @@
 [package]
 name = "nene-ruler"
-description = "A tiny frameless screen ruler for X11"
+description = "A tiny transparent screen ruler for X11"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -16,6 +16,9 @@ path = "src/main.rs"
 [lints]
 workspace = true
 
-# 🔴 依存は許可制（ARC-013）。x11rb と cairo-rs は ADR 0002 で方針を決めてあり、
-#    最初の縦切りの Issue で足す。ここに足すときは deny.toml の allow も実測で更新する。
+# 🔴 合成ルートだけが全クレートを見る（ARC-002 / ARC-006）。外部 crate はここに書かない。
 [dependencies]
+nene-ruler-adapters-x11 = { path = "../adapters-x11" }
+nene-ruler-ui-x11 = { path = "../ui-x11" }
+nene-ruler-application = { path = "../application" }
+nene-ruler-core = { path = "../core" }

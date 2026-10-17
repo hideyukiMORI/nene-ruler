@@ -170,11 +170,12 @@ Closes #N
 rustup toolchain install 1.98.0 --profile minimal -c rustfmt -c clippy -c llvm-tools-preview
 cargo install cargo-deny --locked
 cargo install cargo-llvm-cov --locked
-apt-get install -y --no-install-recommends imagemagick x11-apps xdotool
+apt-get install -y --no-install-recommends imagemagick x11-apps x11-utils xdotool xcompmgr
 ```
 
 `.claude/settings.json` の SessionStart フックが `make doctor` を走らせ、欠けている道具を最初に知らせる。
-表示の確認は Xvfb の上で窓を出し、`import` で PNG を撮って読む（QLT-013）。人が触る手応えは施主の WSLg で確かめる。
+表示の確認は `make screenshot`（Xvfb ＋ `xcompmgr` の上で窓を出し、透明と不透明の PNG を `out/` に撮る）で行い、PNG を読む（QLT-013）。
+掴む・伸ばす・素通しは `xdotool` で駆動して確かめる（手順は [gate-proofs](quality/gate-proofs.md) 第 8 節）。人が触る手応えは施主の WSLg で確かめる。
 
 ### WSLg（施主の実機）
 

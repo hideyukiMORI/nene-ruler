@@ -1,27 +1,37 @@
 # いまのタスク — NeNe Ruler
 
-> GitHub Issue と PR が進行状態の正本。この文書は 2026-09-27 の初期化（Issue #1）完了時点の要約。
+> GitHub Issue と PR が進行状態の正本。この文書は 2026-10-15 の最初の縦切り（Issue #2）の要約。
 
 ## 状態
 
 | | |
 | --- | --- |
-| 言語と土台 | Rust 1.98.0 / x11rb ＋ cairo-rs（ADR 0002）。施主決定 2026-09-27 |
-| 規範文書・ADR 0001〜0004 | ✅ Issue #1 |
+| 言語と土台 | Rust 1.98.0 / x11rb 0.14 ＋ cairo-rs 0.22（ADR 0002）。施主決定 2026-09-27 |
+| 規範文書・ADR 0001〜0005 | ✅ Issue #1 / #2 |
 | ゲート（clippy 二段構え・xtask・cargo-deny・rustfmt・rustdoc）と `make` の個別 target | ✅ Issue #1 |
-| ゲート発火の証明 `make prove`（26 件）と `cargo test -p xtask`（68 件） | ✅ Issue #1・[gate-proofs](../quality/gate-proofs.md) |
+| ゲート発火の証明 `make prove`（26 件）と `cargo test -p xtask`（69 件） | ✅ Issue #1・[gate-proofs](../quality/gate-proofs.md) |
+| 仕様の改訂: 透明な 2 次元の枠・四辺に目盛・鉤括弧で伸縮・単色（施主の口述 2026-10-15） | ✅ Issue #2・[ADR 0005](../adr/0005-transparent-frame-with-input-shape.md) |
+| 5 クレート（core / application / adapters-x11 / ui-x11 / app） | ✅ Issue #2 |
+| 透明の窓・目盛・幅と高さの数字・鉤括弧・ギアの描画。線で移動、鉤括弧で伸縮、Esc で閉じる | ✅ Issue #2・Xvfb で実測（gate-proofs 第 8 節） |
+| `make coverage`（region 90%）・`make screenshot` | ✅ Issue #2。分岐は stable で測れず QLT-009 は planned |
 | CI の必須 check（`make ci`）と commit-msg フック | 配線済み。最初の PR で実行証拠を得るまで planned |
 | ruleset（main の保護・squash-only） | 未設定。施主が GitHub で設定したら gate-proofs に記録する |
-| 製品コード | 無し。`crates/app` は起動できない理由を返す stub |
+| WSLg（施主の実機）での目視 | 未。透明に出ること・掴めること・`_NET_WM_MOVERESIZE` が効くことを見る |
 
 ## 次に行うこと
 
-[Issue #2](https://github.com/hideyukiMORI/nene-ruler/issues/2) — 最初の縦切り。
-`crates/core` / `crates/application` / `crates/adapters-x11` / `crates/ui-x11` を作り、枠なしの窓に目盛と長さを描いて Xvfb で撮る（FR-001 / FR-003 / FR-004 / FR-016）。
-依存 `x11rb` / `cairo-rs` を足し、`deny.toml` の `allow` を実測で更新する。ARC-003 / QLT-009 / CNF-007 の実ファイル発火を記録して active にする。
+Issue #2 の PR を出し、施主が WSLg で目視する。その後の焦点 Issue（それぞれ 1 つずつ）:
+
+- 単位の切替と mm / in の表示（FR-008）。RandR のミリ寸法は adapters にある
+- 数字のクリックでクリップボードへコピー（FR-007）。当たり判定 `HitTarget::Copy` は既にある
+- ギアで設定モーダル。インク色のプリセットと `#RRGGBB` の直接入力、モーダルの見え、最前面、単位（FR-009〜FR-011）
+- 設定の保存（FR-012 / ARC-009）
+- 矢印で 1 px / 10 px の移動（FR-015）、合成器が無いときの表示（FR-014）、HiDPI の倍率（FR-016）
 
 ## 残る穴
 
+- QLT-009 の単位（分岐か region か）を ADR で決める
 - CNF-012 はマクロ・別名・間接呼び出しを見ない。ui-x11 は `std` を使うので字句検査だけが残る
-- CNF-005（不変条件を持つ型の単独モジュール）は判定方法が未定
-- `PutImage` の速さと WSLg での見え方は未実測（ADR 0002）
+- CNF-005（不変条件を持つ型の単独モジュール）は判定方法が未定。core の型は 1 ファイル 1 型になっている
+- `_NET_WM_MOVERESIZE` の経路は WM の無い Xvfb では通らない。WSLg で確かめる
+- 当たり判定の矩形と描いたものの一致はレビュー事項（ADR 0005）

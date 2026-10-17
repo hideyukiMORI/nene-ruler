@@ -81,16 +81,17 @@
 🔑 中核クレートは `#![no_std]` ＋ `extern crate alloc` で書く。`std::fs` / `std::env` / `std::time` が
 lint 違反ではなく**名前解決エラー**になる。宣言そのものが消えていないことは CNF-007 が見る。
 
-- 機械強制: **planned**（中核クレートはまだ無い。最初の縦切りで `nene-ruler-core` / `nene-ruler-application` が生まれた時点で、CNF-007 と CNF-013 の実ファイルでの発火を記録して active にする）
+- 機械強制: **active**（`#![no_std]` の宣言＝CNF-007、外部 crate の禁止＝CNF-013。Issue #2 で `nene-ruler-core` / `nene-ruler-application` の実ファイルでの発火を記録した。[gate-proofs](quality/gate-proofs.md) 第 8 節）
 
 ### ARC-004 — 状態には唯一の所有者がいる
 
 | 状態 | 意味 | 所有者 | 変更経路 |
 | --- | --- | --- | --- |
-| 長さ・向き | 物差しが測っている物理画素と向き | application | 利用者の伸縮・切替の意図 |
+| 枠（幅・高さ） | 物差しが測っている物理画素。左上が原点 | application | 利用者の伸縮の意図と WM からの `ConfigureNotify` |
 | 単位 | px / mm / in | application | 利用者の切替意図 |
 | 物理寸法 | 画面の画素数とミリ寸法 | application | `ScreenMetricsPort` の結果を一度取り込む |
-| テーマと設定 | 検証済みの設定値 | application | 設定変更意図と保存ポートの結果 |
+| インク色と設定 | 検証済みの設定値 | application | 設定変更意図と保存ポートの結果 |
+| 透明 | 合成器があり透明に描けるか | application | 起動時に合成器の有無を一度取り込む |
 
 同じ事実を 2 つの区分に独立して持たない。派生値（表示文字列・目盛の位置）は再計算する。
 

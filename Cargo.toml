@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/app", "xtask"]
+members = ["crates/core", "crates/application", "crates/adapters-x11", "crates/ui-x11", "crates/app", "xtask"]
 
 [workspace.package]
 # 版はここが唯一の出どころ。設定モーダルの表示はこれをビルド時に受け取る（FR-011）。

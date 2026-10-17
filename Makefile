@@ -6,7 +6,7 @@
 #    全件は限定した検証で影響を覆えない理由を REASON= に添えたときだけ回す（QLT-001 / ADR 0021 の継承）。
 CARGO ?= cargo
 
-.PHONY: all check ci fmt fmt-check lint test conformance validate-git coverage deny doc-check build prove doctor clean
+.PHONY: all check ci fmt fmt-check lint test conformance validate-git coverage deny doc-check build prove screenshot doctor clean
 
 all: doctor
 
@@ -47,11 +47,14 @@ conformance:
 validate-git:
 	$(CARGO) run --quiet -p xtask --locked -- validate-git
 
-## coverage — 中核の分岐カバレッジ（QLT-009）。中核クレートが入った Issue で下限を置く。
+## coverage — 中核（core / application）のカバレッジ下限（QLT-009）。
+## 🔴 分岐（--branch）は stable の rustc では測れない（-Z coverage-options=branch が要る。2026-10-15 実測）。
+##    stable で測れる最も細かい単位は region なので、下限は region に置く。規則の文言（分岐）との差は
+##    QUALITY_GATES の QLT-009 に書いてあり、planned のままである。
 ## 導入: cargo install cargo-llvm-cov --locked
 coverage:
 	@command -v cargo-llvm-cov >/dev/null || { echo "coverage: cargo-llvm-cov が無い。cargo install cargo-llvm-cov --locked"; exit 2; }
-	$(CARGO) llvm-cov --workspace --locked --branch --summary-only
+	$(CARGO) llvm-cov -p nene-ruler-core -p nene-ruler-application --locked --summary-only --fail-under-regions 90
 
 ## deny — 依存の許可制（ARC-013）。方針の正本は deny.toml。
 ## 🔴 --deny license-not-encountered を外さないこと。
@@ -71,6 +74,25 @@ build:
 prove:
 	$(CARGO) run --quiet -p xtask --locked -- prove
 
+## screenshot — Xvfb の上で窓を出し、合成器あり（透明）と無し（不透明に降格）の PNG を out/ に撮る（QLT-013）。
+## 単体テストではなく環境検証である。結果は目で見て docs/quality/gate-proofs.md に記録する。
+SCREENSHOT_DISPLAY ?= :99
+screenshot:
+	@command -v Xvfb >/dev/null || { echo "screenshot: Xvfb が無い（apt-get install xvfb）"; exit 2; }
+	@command -v xcompmgr >/dev/null || { echo "screenshot: xcompmgr が無い（apt-get install xcompmgr）"; exit 2; }
+	@command -v import >/dev/null || { echo "screenshot: ImageMagick が無い（apt-get install imagemagick）"; exit 2; }
+	$(CARGO) build --locked -p nene-ruler
+	@mkdir -p out
+	@Xvfb $(SCREENSHOT_DISPLAY) -screen 0 640x400x24 >/dev/null 2>&1 & echo $$! > out/xvfb.pid; sleep 1; \
+	  DISPLAY=$(SCREENSHOT_DISPLAY) xcompmgr -n >/dev/null 2>&1 & echo $$! > out/xcompmgr.pid; sleep 1; \
+	  DISPLAY=$(SCREENSHOT_DISPLAY) ./target/debug/nene-ruler & echo $$! > out/ruler.pid; sleep 2; \
+	  DISPLAY=$(SCREENSHOT_DISPLAY) import -window root out/xvfb-composited.png; \
+	  kill $$(cat out/ruler.pid) $$(cat out/xcompmgr.pid) 2>/dev/null; sleep 1; \
+	  DISPLAY=$(SCREENSHOT_DISPLAY) ./target/debug/nene-ruler & echo $$! > out/ruler.pid; sleep 2; \
+	  DISPLAY=$(SCREENSHOT_DISPLAY) import -window root out/xvfb-opaque.png; \
+	  kill $$(cat out/ruler.pid) $$(cat out/xvfb.pid) 2>/dev/null; rm -f out/*.pid
+	@echo "out/xvfb-composited.png と out/xvfb-opaque.png を Read で見る"
+
 ## doctor — 開発環境（クラウドのコンテナ・WSLg）に道具が揃っているかを見る。検査ではない。
 doctor:
 	@rustc --version; cargo --version; cargo clippy --version; cargo fmt --version
@@ -79,6 +101,8 @@ doctor:
 	@pkg-config --modversion cairo >/dev/null 2>&1 && echo "cairo $$(pkg-config --modversion cairo)" || echo "cairo: 無い（apt-get install libcairo2-dev）"
 	@command -v Xvfb >/dev/null && echo "Xvfb: ある" || echo "Xvfb: 無い（apt-get install xvfb）"
 	@command -v import >/dev/null && echo "ImageMagick: ある" || echo "ImageMagick: 無い（apt-get install imagemagick）"
+	@command -v xcompmgr >/dev/null && echo "xcompmgr: ある" || echo "xcompmgr: 無い（apt-get install xcompmgr。透明の確認に要る）"
+	@command -v xdotool >/dev/null && echo "xdotool: ある" || echo "xdotool: 無い（apt-get install xdotool）"
 
 clean:
 	$(CARGO) clean

@@ -79,7 +79,8 @@ CI で必要な判定は、すべてローカルで実行できる。CI の work
 中核（core / application）の分岐カバレッジ下限を 90% とする。閾値は上げてよいが下げてはならない。下げるには ADR が要る。
 **置いていない層は「置いていない」と書く。**
 
-- 機械強制: **planned**（中核クレートが無いので測っていない。最初の縦切りで `cargo llvm-cov --branch --fail-under-*` を `make coverage` に置き、反例を記録して active にする）
+- 機械強制: **planned**（`make coverage` は置いた。**分岐は stable の rustc では測れない**（`-Z coverage-options=branch` が要る。2026-10-15 に実測）。
+  いま `make coverage` が落とすのは **region** の 90% 未満であり、規則の文言（分岐）とは単位が違う。分岐に揃えるか、規則を region に改めるかは ADR で決めてから active にする。実測値は [gate-proofs](quality/gate-proofs.md) 第 8 節）
 
 ### QLT-010 — ゲートの弱体化はアーキテクチャ変更
 
@@ -131,9 +132,10 @@ lint が見ないもの、つまり**このリポジトリ固有の規約**を�
 
 ### CNF-002 — 禁止構文
 
-`dyn Any`・`OnceLock`・`LazyLock`・`lazy_static`・`proc-macro = true` を拒む。
+`dyn Any`・`OnceLock`・`LazyLock`・`lazy_static`・`proc-macro = true`・`XlibSurface`・`XCBSurface` を拒む。
+最後の 2 つは「描画は `ImageSurface` に完成させてから転送する」（ADR 0002）の禁止語で、Issue #2 で足した。
 
-- 対応する規則: RS-006 / RS-009 / RS-010
+- 対応する規則: RS-006 / RS-009 / RS-010 / ADR 0002
 - 機械強制: **active**（`xtask`）
 
 ### CNF-003 — 1 ファイル 1 主要宣言
@@ -168,7 +170,7 @@ lint が見ないもの、つまり**このリポジトリ固有の規約**を�
 名前が `-core` / `-application` で終わるクレートの `src/lib.rs` の先頭の属性行群に `#![no_std]` があること。
 
 - 対応する規則: ARC-003 / RS-015
-- 機械強制: **active**（`xtask`。実ファイルはまだ無く、正例・反例テストのみ。ARC-003 は planned のまま）
+- 機械強制: **active**（`xtask`。Issue #2 で `crates/core/src/lib.rs` の `#![no_std]` を外して実ファイルで発火させた）
 
 ### CNF-008 — `build.rs` を置かない
 
@@ -224,7 +226,7 @@ CNF-009 が「本文に定義があるのにここに行が無い」「状態が
 | --- | --- | --- |
 | ARC-001 | planned | レビュー事項（CNF-004 と `pub_use` が温床を減らす） |
 | ARC-002 | active | cargo の循環拒否（P-23）＋ CNF-013 |
-| ARC-003 | planned | 中核クレートが生まれた時点で CNF-007 / CNF-013 の実ファイル発火を記録 |
+| ARC-003 | active | CNF-007（`#![no_std]`）＋ CNF-013（外部 crate の禁止）。実ファイル発火は gate-proofs 第 8 節 |
 | ARC-004 | planned | |
 | ARC-005 | planned | |
 | ARC-006 | planned | CNF-002 と RS-014 が一部を守る |
@@ -266,7 +268,7 @@ CNF-009 が「本文に定義があるのにここに行が無い」「状態が
 | QLT-006 | planned | |
 | QLT-007 | planned | `make prove` と `xtask` のテスト。証明の網羅は人手 |
 | QLT-008 | planned | レビュー事項 |
-| QLT-009 | planned | 中核が無いので未測定 |
+| QLT-009 | planned | `make coverage`（region 90%）。分岐は stable で測れず、単位の決定は ADR 待ち |
 | QLT-010 | 不能 | PR の手続き |
 | QLT-011 | active | `rust-toolchain.toml` ＋ `--locked`（P-22） |
 | QLT-012 | planned | |
@@ -300,7 +302,8 @@ CNF-009 が「本文に定義があるのにここに行が無い」「状態が
 | `build` | release の 1 バイナリ | `cargo build --release --locked` |
 | `prove` | ゲート発火の証明 | `xtask prove` → `target/proofs/results.json` |
 | `ci` | Git 規約・PR の記録・空白 | `xtask validate-git` ＋ `git diff --check` |
-| `coverage` | 中核の分岐カバレッジ（planned） | cargo-llvm-cov |
+| `coverage` | 中核の region カバレッジ 90%（QLT-009 は planned。分岐は stable で測れない） | cargo-llvm-cov |
+| `screenshot` | Xvfb の上で透明・不透明の窓を PNG に撮る（環境検証・QLT-013） | Xvfb ＋ xcompmgr ＋ ImageMagick |
 
 ---
 

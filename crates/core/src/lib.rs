@@ -1,0 +1,35 @@
+//! `NeNe Ruler` の中核。値・不変条件・閉じた選択肢・整形・目盛と当たり判定の計算（ARC-003）。
+//!
+//! 🔴 `#![no_std]` である。X11・cairo・ファイル・時刻・環境変数には構文的に到達できない。
+//! 外部クレートへの依存は 0（ARC-013 / CNF-013）。
+//!
+//! 幾何はすべて物理画素で、窓の左上を原点とする `u16` の座標で表す（FR-016 / ADR 0005）。
+//! X の矩形（`i16` / `u16`）にも cairo の `f64` にも `From` / `TryFrom` で写せる（RS-007）。
+
+#![no_std]
+
+extern crate alloc;
+
+#[cfg(test)]
+extern crate std;
+
+pub mod anchor;
+pub mod axis;
+pub mod edge;
+pub mod frame_layout;
+pub mod frame_size;
+pub mod hit_region;
+pub mod hit_target;
+pub mod ink_color;
+pub mod ink_color_failure;
+pub mod length;
+pub mod length_failure;
+pub mod length_text;
+pub mod pixel_point;
+pub mod pixel_rect;
+pub mod screen_metrics;
+pub mod screen_metrics_failure;
+pub mod tick_kind;
+pub mod tick_label;
+pub mod tick_mark;
+pub mod unit;
