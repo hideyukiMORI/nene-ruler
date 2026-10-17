@@ -343,19 +343,22 @@ make screenshot
 
 ### 14.2 実機で崩れたもの（Issue #14 / #15）
 
-| 項目 | 実測 | 原因 | 対応 |
-| --- | --- | --- | --- |
-| 当たり判定の帯 | Windows 側は X の入力 shape に従わず、**描いた画素（アルファ > 0）だけが当たる**。線は 1 px、ギアの穴は素通し、数字は字画の上だけ | WSLg の RDP の窓が `WS_EX_LAYERED` で、アルファ 0 はクリックが抜ける | 当たり判定の矩形をアルファ 1/255 で描く（ADR 0008） |
-| 影 | 飾りなしなのに外周に影（右下 20 px）。外周 5 px の当たり帯も影 | Weston の XWM が飾りなしの窓に影を描き、RDP で送る。`_NET_WM_WINDOW_TYPE` に `_KDE_NET_WM_WINDOW_TYPE_OVERRIDE` があれば描かない（施主が 300×200 の窓で実験） | map の前に付ける（ADR 0008） |
-| Alt+F4 | 閉じない。`Alt_L` ＋ `F4` の素の `KeyPress` として届く | WSLg の XWM は `WM_DELETE_WINDOW` に変えない | アプリが Alt+F4 を読んで閉じる（ADR 0008） |
-| 最前面 | `_NET_WM_STATE` が空、Windows 側 topmost=False | WSLg の `_NET_SUPPORTED` に `_NET_WM_STATE_ABOVE` が無い | 環境の制約。できないことを通知する（Issue #14） |
-| 縦書きの `270 px` | 左辺の主目盛の数字 `150` と重なる | 数字の置き場が目盛の数字の幅を見込んでいない | Issue #15 |
-| 通知 `no screen size: px only` | 左辺の主目盛の数字 `250` と重なる | 同上 | Issue #15 |
+再目視は `feat/15-label-overlap`（`0edce90`）・2026-10-17 夕方・同じ機械と手順（[wslg-2026-10-17.md](wslg-2026-10-17.md) の「再目視」）。
+
+| 項目 | 実測 | 原因 | 対応 | 再目視 |
+| --- | --- | --- | --- | --- |
+| 当たり判定の帯 | Windows 側は X の入力 shape に従わず、**描いた画素（アルファ > 0）だけが当たる**。線は 1 px、ギアの穴は素通し、数字は字画の上だけ | WSLg の RDP の窓が `WS_EX_LAYERED` で、アルファ 0 はクリックが抜ける | 当たり判定の矩形をアルファ 1/255 で描く（ADR 0008） | ✅ 線は 9 px の帯、ギアは 16×16 全体、数字は箱全体 |
+| 影 | 飾りなしなのに外周に影（右下 20 px）。外周 5 px の当たり帯も影 | Weston の XWM が飾りなしの窓に影を描き、RDP で送る。`_NET_WM_WINDOW_TYPE` に `_KDE_NET_WM_WINDOW_TYPE_OVERRIDE` があれば描かない（施主が 300×200 の窓で実験） | map の前に付ける（ADR 0008） | ✅ 影なし、外周 5 px の当たり帯なし、下塗りは見えない |
+| Alt+F4 | 閉じない。~~`Alt_L` ＋ `F4` の素の `KeyPress` として届く~~ **訂正: F4 は `KeyRelease` だけが届く**（押下と離しを分けずに読んだ誤り） | Windows が押下を握り、`SC_CLOSE` を遅れて送る | ~~F4 の押下を読む（ADR 0008）~~ Alt を見た後の F4 の離しでも閉じる（ADR 0009・Issue #20） | ❌ ADR 0008 の版は閉じない（押下が届かない）。Issue #20 の版は第 17 節 |
+| 最前面 | `_NET_WM_STATE` が空、Windows 側 topmost=False | WSLg の `_NET_SUPPORTED` に `_NET_WM_STATE_ABOVE` が無い | 環境の制約。できないことを通知する（Issue #14） | ✅ 枠の通知は出る。⚠️ モーダルの通知は右端で `…man` と切れる |
+| 縦書きの `270 px` | 左辺の主目盛の数字 `150` と重なる | 数字の置き場が目盛の数字の幅を見込んでいない | Issue #15 | ✅ `150` の右 |
+| 通知 `no screen size: px only` | 左辺の主目盛の数字 `250` と重なる | 同上 | Issue #15 | ✅ `250` の右・幅 400 に収まる |
 
 ### 14.3 未解明
 
-- Alt+F4 を送った後の 2 回目の起動で、X 側では描けているのに Windows 側に絵が出ず、プロセスが無言で終わった。3 回目は正常。再現していない
-- `_KDE_NET_WM_WINDOW_TYPE_OVERRIDE` を付けた枠で、MOVERESIZE・焦点・Alt+Tab・タスクバーがどう変わるかは未確認（Weston のソースでは影と飾りだけのはず）
+- ~~Alt+F4 を送った後の 2 回目の起動で、X 側では描けているのに Windows 側に絵が出ず、プロセスが無言で終わった。3 回目は正常。再現していない~~
+  → 再目視で 2 つに分かれた。「無言で終わった」は遅れて届いた `SC_CLOSE`（終了コード 0）。「絵が出ない」は起動直後に再現し、窓を動かすと出た（RDP のアイドルからの復帰と重なった。原因は未検証）
+- `_KDE_NET_WM_WINDOW_TYPE_OVERRIDE` を付けた枠で、MOVERESIZE・焦点・Alt+Tab・タスクバーがどう変わるかは未確認（Weston のソースでは影と飾りだけのはず）。再目視では右下の鉤括弧の伸縮（WM 経由）と、Windows の `SetForegroundWindow` での前面化は効いた
 - 線を掴んでから 200 ms で動かし始めると動かず、600 ms 置くと動いた（WM 経由の MOVERESIZE の開始待ち）。人の操作では問題にならない速さだが、記録しておく
 
 ## 15. Issue #14 — WSLg への適合（2026-10-17）
@@ -408,3 +411,47 @@ make screenshot
 
 `unit = mm` で起動し（Xvfb はミリ寸法 0 なので通知が出る）、右下の鉤括弧で高さ 270 に伸ばして撮った。
 縦書きの `270 px` は `150` の右、通知 `no screen size: px only` は `250` の右に出て、重ならない。[height-270](screenshots/2026-10-17-xvfb-height-270.png)
+
+## 17. Issue #20 — WSLg の Alt+F4（2026-10-17）
+
+施主の WSL（Ubuntu 22.04・rustc 1.98.0・cairo 1.16.0）。Issue #15 の枝の上に積んだ。ADR 0009。
+
+### 17.1 ゲート
+
+| target | 結果 |
+| --- | --- |
+| `make lint` | 0 件 |
+| `make test` | core 47・application 16・adapters-x11 11・xtask は成功。ui-x11 は 32 件中 31 成功、**`canvas::tests::a_successful_copy_inverts_the_number` が失敗**。本件の変更を退避した `feat/15-label-overlap`（`0edce90`）でも同じく落ちるので既存の失敗（フォント依存の推定・Issue #21） |
+| `make conformance` | 違反なし（129 ファイル） |
+| `make fmt-check` / `make doc-check` | 差分なし・警告なし |
+
+新しいテスト: `alt_f4_gesture` の 6 件と、`key_input` の Alt の 2 行。
+
+### 17.2 Xvfb（`-listen tcp`・WM 無し）
+
+WSLg の機械では `/tmp/.X11-unix` が WSLg のもので Xvfb が unix ソケットを作れないので、`Xvfb :97 -listen tcp -nolisten unix` と `DISPLAY=127.0.0.1:97` で起動した。
+X サーバは押されていない鍵の離しを捨てるので、F4 の離しは `XSendEvent`（`KeyRelease`・keycode は `XK_F4`）で窓へ直接送った。Alt の押下と離しは `xdotool keydown` / `keyup`。
+
+| 手順 | 期待 | 結果 |
+| --- | --- | --- |
+| 枠で `xdotool key alt+F4`（押下の経路） | 終了 | 終了コード 0 |
+| 枠で Alt 押下 → F4 の離し（`state` 0x8）→ Alt 離し（WSLg の並び） | 終了 | 終了コード 0 |
+| 枠で F4 の離し（`state` 0x8）だけ。Alt の押下なし | 残る | 残る |
+| 枠で Alt 押下 → Alt 離し → F4 の離し（`state` 0x8） | 残る | 残る |
+| 枠で Alt 押下 → F4 の離し（`state` 0x0）→ Alt 離し | 残る | 残る |
+| 枠で Esc | 終了 | 終了コード 0 |
+| モーダルで Alt 押下 → F4 の離し（`state` 0x8） | モーダルだけ閉じる | 閉じる・枠は残る |
+| モーダルで F4 の離しだけ | 残る | 残る |
+| モーダルで `xdotool key alt+F4` | モーダルだけ閉じる | 閉じる・枠は残る |
+
+### 17.3 WSLg（施主の機械・`e535bad` の release ビルド）
+
+| 手順 | 結果 |
+| --- | --- |
+| 施主の本物のキーボードで、枠に Alt+F4 を 3〜4 回 | 枠に届いたのは最後の 1 回だけ（`xev`: `KeyPress Alt_L` → `KeyRelease F4` state 0x108）で、その回で終了コード 0。それ以前の回は枠に鍵が届いていない（施主が同時に別の操作をしていた。焦点が枠に無かった） |
+| 定規が見えていて別の窓（ASHEN）が前面の状態で、線を 1 回クリック | Windows の前面が `NeNe Ruler (Ubuntu-22.04)` になり、X の焦点も枠の窓に来る（`xdotool getwindowfocus`） |
+| 続けて Alt+F4（`keybd_event`・前面の題名を確かめてから送る） | 1 秒以内に終了コード 0 |
+| ギアを押してモーダルを開き、Alt+F4 | モーダルだけ閉じる。枠は残る |
+| その後 26 秒待って線を 2 回クリック | 枠は残る（モーダル宛の `SC_CLOSE` が遅れて届いても巻き添えにならない） |
+
+`WSLg` では定規が最前面にならないので、他の窓の陰に入るとクリックはその窓に行き、焦点も来ない（ADR 0008 の 5・最前面の通知のとおり）。

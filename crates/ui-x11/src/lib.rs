@@ -4,6 +4,7 @@
 //! 可変性の隔離区画（ARC-005）。業務状態は複製しない。
 //! 時刻・環境・ファイルには到達しない（ARC-007 / CNF-012）。
 
+pub mod alt_f4_gesture;
 pub mod atoms;
 pub mod canvas;
 pub mod display;

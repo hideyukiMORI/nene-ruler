@@ -18,6 +18,7 @@ use x11rb::protocol::xproto::{
 use x11rb::rust_connection::RustConnection;
 use x11rb::wrapper::ConnectionExt as _;
 
+use crate::alt_f4_gesture::AltF4Gesture;
 use crate::display::Display;
 use crate::key_input::KeyInput;
 use crate::settings_canvas::render_settings;
@@ -37,6 +38,7 @@ pub struct SettingsWindow<'d> {
     window: WindowWrapper<&'d RustConnection>,
     gc: GcontextWrapper<&'d RustConnection>,
     _colormap: ColormapWrapper<&'d RustConnection>,
+    alt_f4: AltF4Gesture,
 }
 
 impl<'d> SettingsWindow<'d> {
@@ -68,7 +70,8 @@ impl<'d> SettingsWindow<'d> {
                 EventMask::EXPOSURE
                     | EventMask::STRUCTURE_NOTIFY
                     | EventMask::BUTTON_PRESS
-                    | EventMask::KEY_PRESS,
+                    | EventMask::KEY_PRESS
+                    | EventMask::KEY_RELEASE,
             );
         let window = WindowWrapper::create_window(
             connection,
@@ -89,6 +92,7 @@ impl<'d> SettingsWindow<'d> {
             window,
             gc,
             _colormap: colormap,
+            alt_f4: AltF4Gesture::IDLE,
         };
         opened.declare_hints(owner)?;
         connection.map_window(opened.window.window())?;
@@ -129,7 +133,7 @@ impl<'d> SettingsWindow<'d> {
     ///
     /// 描き直しに失敗した。
     pub(crate) fn handle(
-        &self,
+        &mut self,
         controller: &mut RulerController<'_>,
         event: &Event,
     ) -> Result<SettingsFlow, UiFailure> {
@@ -140,8 +144,23 @@ impl<'d> SettingsWindow<'d> {
         } else if let Event::ButtonPress(press) = event {
             return Ok(Self::pressed(controller, press));
         } else if let Event::KeyPress(key) = event {
-            let alt = key.state.contains(KeyButMask::MOD1);
-            return Ok(Self::typed(controller, self.display.key_input(key), alt));
+            let input = self.display.key_input(key);
+            if self
+                .alt_f4
+                .pressed(input, key.state.contains(KeyButMask::MOD1))
+            {
+                return Ok(SettingsFlow::Close);
+            }
+            return Ok(Self::typed(controller, input));
+        } else if let Event::KeyRelease(key) = event {
+            // WSLg では Alt+F4 の押下が届かず、F4 の離しだけが届く（ADR 0009）。
+            let input = self.display.key_input(key);
+            if self
+                .alt_f4
+                .released(input, key.state.contains(KeyButMask::MOD1))
+            {
+                return Ok(SettingsFlow::Close);
+            }
         } else if let Event::ClientMessage(message) = event {
             let atoms = self.display.atoms();
             if message.type_ == atoms.wm_protocols
@@ -192,14 +211,15 @@ impl<'d> SettingsWindow<'d> {
     }
 
     /// 鍵を入力欄の意図にする。Esc は閉じる。
-    fn typed(controller: &mut RulerController<'_>, input: KeyInput, alt: bool) -> SettingsFlow {
+    fn typed(controller: &mut RulerController<'_>, input: KeyInput) -> SettingsFlow {
         let intent = match input {
             KeyInput::Escape => return SettingsFlow::Close,
             KeyInput::Return => RulerIntent::HexSubmit,
             KeyInput::Backspace => RulerIntent::HexBackspace,
             KeyInput::Character(character) => RulerIntent::HexTyped(character),
-            KeyInput::F4 if alt => return SettingsFlow::Close,
-            KeyInput::F4 | KeyInput::Arrow(_) | KeyInput::Other => return SettingsFlow::Continue,
+            KeyInput::F4 | KeyInput::Alt | KeyInput::Arrow(_) | KeyInput::Other => {
+                return SettingsFlow::Continue;
+            }
         };
         controller.apply(intent);
         SettingsFlow::Changed
