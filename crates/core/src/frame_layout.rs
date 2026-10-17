@@ -431,8 +431,14 @@ impl FrameLayout {
             }
             rects.extend(self.ticks(edge));
         }
-        rects.extend(self.anchor_arms(Anchor::TopLeft));
-        rects.extend(self.anchor_arms(Anchor::BottomRight));
+        for anchor in [Anchor::TopLeft, Anchor::BottomRight] {
+            let [horizontal, vertical] = self.anchor_arms(anchor);
+            rects.push(horizontal);
+            // 線を消した表示では縦の腕を描かない。短い形の字に重なるので（施主指示 2026-10-17・Issue #56）。
+            if self.detail != FrameDetail::Bare {
+                rects.push(vertical);
+            }
+        }
         rects
     }
 
@@ -805,8 +811,10 @@ mod tests {
         assert_eq!(fitted(60, 40).detail(), FrameDetail::Bare);
         let bare = fitted(16, 16);
         let compact = fitted(102, 52);
-        // 線のインクが無く、鉤括弧は 4 本の細い腕だけ。
-        assert_eq!(bare.ink_rects().len(), 4);
+        // 線のインクが無く、鉤括弧は横の細い腕 2 本だけ（Issue #56）。
+        let [top_left_arm, _] = bare.anchor_arms(Anchor::TopLeft);
+        let [bottom_right_arm, _] = bare.anchor_arms(Anchor::BottomRight);
+        assert_eq!(bare.ink_rects(), [top_left_arm, bottom_right_arm]);
         let [arm, _] = bare.anchor_arms(Anchor::TopLeft);
         assert_eq!((arm.width(), arm.height()), (6, 1));
         // 掴める範囲は変えない。
