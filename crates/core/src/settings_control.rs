@@ -1,7 +1,6 @@
 //! 設定モーダルの操作部品の意味。
 
 use crate::modal_theme::ModalTheme;
-use crate::unit::Unit;
 use crate::window_layer::WindowLayer;
 
 /// クリックした部品が何か。閉じた集合。
@@ -11,8 +10,6 @@ pub enum SettingsControl {
     Preset(u8),
     /// `#RRGGBB` の入力欄。
     HexField,
-    /// 単位の選択。
-    Unit(Unit),
     /// モーダルの見えの選択。
     Theme(ModalTheme),
     /// 重なり順の切替。

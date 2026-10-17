@@ -3,19 +3,19 @@
 A tiny frameless screen ruler for X11. Rust, `x11rb` + `cairo`, no UI toolkit.
 
 > **Status (2026-10-16):** Issues #2, #4, #6, #8, #10 and #12. `cargo run` opens a transparent frame with ticks,
-> moves when you drag a line and resizes when you drag an anchor; the gear opens a settings window for ink colour, unit and always-on-top.
+> moves when you drag a line and resizes when you drag an anchor; the gear opens a settings window for ink colour, theme and always-on-top.
 > Settings are saved to `~/.config/nene-ruler/settings.v1.txt`; clicking a number copies it to the clipboard.
-> Arrow keys nudge the frame by 1 px (10 px with Shift). Degradations (no compositor, no screen size) are written inside the frame.
-> HiDPI scaling and "follow the system theme" are not there yet.
+> Arrow keys nudge the frame by 1 px (10 px with Shift). Lengths are always physical pixels (mm / in were dropped). With no compositor the frame falls back to opaque and says so.
+> HiDPI is 1x or 2x, from `Xft.dpi` or the RandR dpi.
 > Verified on Xvfb (`make screenshot`) and once on WSLg (see `docs/quality/wslg-2026-10-17.md`). Nothing to download.
 
 ## What it will be
 
-- A transparent rectangle floating over the screen: four lines with tick marks, the width and height written on them, in px / mm / in.
+- A transparent rectangle floating over the screen: four lines with tick marks, the width and height written on them in physical pixels.
 - Everything except the lines, the numbers, the two bracket-shaped anchors and the gear is transparent and lets clicks through.
 - Drag a line to move, drag an anchor to resize, click a number to copy it. One ink colour, chosen in the settings window.
-- Always on top if the window manager supports it (WSLg does not). Settings are saved with a version (`settings.v1.txt`, plain `key = value`).
-- Runs on Xorg and XWayland (WSLg included). Measures physical pixels; converts to mm through RandR.
+- Always on top if the window manager supports it (WSLg does not; a native Windows build is planned). Settings are saved with a version (`settings.v1.txt`, plain `key = value`).
+- Runs on Xorg and XWayland (WSLg included). Measures physical pixels.
 
 The requirements are in [SPECIFICATION.md](SPECIFICATION.md) (Japanese).
 

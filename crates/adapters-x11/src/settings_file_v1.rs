@@ -4,18 +4,18 @@ use nene_ruler_application::settings_store_failure::SettingsStoreFailure;
 use nene_ruler_core::modal_theme::ModalTheme;
 use nene_ruler_core::rgb::Rgb;
 use nene_ruler_core::ruler_settings::RulerSettings;
-use nene_ruler_core::unit::Unit;
 use nene_ruler_core::window_layer::WindowLayer;
 
 /// この型が読み書きする版。
 const VERSION: &str = "1";
 
-/// `version = 1` のファイル 1 つ分。鍵は 4 つで、すべて必須。
+/// `version = 1` のファイル 1 つ分。鍵は 3 つで、すべて必須。
+///
+/// 以前の `unit` の行（`px` / `mm` / `in`）は、読むときは値を確かめて捨て、書くときは書かない（ADR 0012）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SettingsFileV1 {
     ink: Rgb,
     modal_theme: ModalTheme,
-    unit: Unit,
     layer: WindowLayer,
 }
 
@@ -26,7 +26,6 @@ impl SettingsFileV1 {
         Self {
             ink: settings.ink(),
             modal_theme: settings.modal_theme(),
-            unit: settings.unit(),
             layer: settings.layer(),
         }
     }
@@ -37,7 +36,6 @@ impl SettingsFileV1 {
         RulerSettings::INITIAL
             .with_ink(self.ink)
             .with_modal_theme(self.modal_theme)
-            .with_unit(self.unit)
             .with_layer(self.layer)
     }
 
@@ -45,10 +43,9 @@ impl SettingsFileV1 {
     #[must_use]
     pub fn render(self) -> String {
         format!(
-            "version = {VERSION}\nink = {}\nmodal_theme = {}\nunit = {}\nlayer = {}\n",
+            "version = {VERSION}\nink = {}\nmodal_theme = {}\nlayer = {}\n",
             self.ink.hex(),
             theme_word(self.modal_theme),
-            self.unit.suffix(),
             layer_word(self.layer),
         )
     }
@@ -62,7 +59,6 @@ impl SettingsFileV1 {
         let mut version = None;
         let mut ink = None;
         let mut modal_theme = None;
-        let mut unit = None;
         let mut layer = None;
         for line in text.lines().map(str::trim) {
             if line.is_empty() || line.starts_with('#') {
@@ -79,7 +75,7 @@ impl SettingsFileV1 {
                         Some(Rgb::parse(value).map_err(|_error| SettingsStoreFailure::Malformed)?);
                 }
                 "modal_theme" => modal_theme = Some(parse_theme(value)?),
-                "unit" => unit = Some(parse_unit(value)?),
+                "unit" => check_retired_unit(value)?,
                 "layer" => layer = Some(parse_layer(value)?),
                 _unknown => return Err(SettingsStoreFailure::Malformed),
             }
@@ -92,7 +88,6 @@ impl SettingsFileV1 {
         Ok(Self {
             ink: ink.ok_or(SettingsStoreFailure::Malformed)?,
             modal_theme: modal_theme.ok_or(SettingsStoreFailure::Malformed)?,
-            unit: unit.ok_or(SettingsStoreFailure::Malformed)?,
             layer: layer.ok_or(SettingsStoreFailure::Malformed)?,
         })
     }
@@ -122,11 +117,10 @@ fn parse_theme(value: &str) -> Result<ModalTheme, SettingsStoreFailure> {
     }
 }
 
-fn parse_unit(value: &str) -> Result<Unit, SettingsStoreFailure> {
+/// 外した `unit` の行。値は以前の 3 つのどれかでなければ壊れたファイルとみなす（ADR 0012）。
+fn check_retired_unit(value: &str) -> Result<(), SettingsStoreFailure> {
     match value {
-        "px" => Ok(Unit::Px),
-        "mm" => Ok(Unit::Mm),
-        "in" => Ok(Unit::In),
+        "px" | "mm" | "in" => Ok(()),
         _other => Err(SettingsStoreFailure::Malformed),
     }
 }
@@ -147,7 +141,6 @@ mod tests {
         RulerSettings::INITIAL
             .with_ink(Rgb::new(0x00, 0xAA, 0x55))
             .with_modal_theme(ModalTheme::Light)
-            .with_unit(Unit::Mm)
             .with_layer(WindowLayer::Normal)
     }
 
@@ -156,7 +149,7 @@ mod tests {
         let text = SettingsFileV1::from_settings(sample()).render();
         assert_eq!(
             text,
-            "version = 1\nink = #00AA55\nmodal_theme = light\nunit = mm\nlayer = normal\n"
+            "version = 1\nink = #00AA55\nmodal_theme = light\nlayer = normal\n"
         );
     }
 
@@ -178,8 +171,16 @@ mod tests {
     fn tolerates_blank_lines_comments_spacing_and_order() {
         let text = "\n# hand edited\nlayer=normal\n  unit =  in\nmodal_theme = dark\nink = #112233\nversion = 1\n";
         let parsed = SettingsFileV1::parse(text).unwrap().into_settings();
-        assert_eq!(parsed.unit(), Unit::In);
         assert_eq!(parsed.ink(), Rgb::new(0x11, 0x22, 0x33));
+    }
+
+    #[test]
+    fn reads_a_retired_unit_line_and_drops_it_on_write() {
+        // 施主の今のファイルの形。mm / in は外したので、読めて、書き戻すと unit の行が消える。
+        let old = "version = 1\nink = #00AA55\nmodal_theme = light\nunit = mm\nlayer = normal\n";
+        let parsed = SettingsFileV1::parse(old).unwrap();
+        assert_eq!(parsed.into_settings(), sample());
+        assert!(!parsed.render().contains("unit"));
     }
 
     #[test]
@@ -194,7 +195,7 @@ mod tests {
             Err(SettingsStoreFailure::Malformed)
         );
         assert_eq!(
-            SettingsFileV1::parse(&good.replace("unit = mm\n", "")),
+            SettingsFileV1::parse(&good.replace("layer = normal\n", "")),
             Err(SettingsStoreFailure::Malformed)
         );
         assert_eq!(
@@ -210,7 +211,7 @@ mod tests {
             Err(SettingsStoreFailure::Malformed)
         );
         assert_eq!(
-            SettingsFileV1::parse(&good.replace("unit = mm", "unit = cm")),
+            SettingsFileV1::parse(&format!("{good}unit = cm\n")),
             Err(SettingsStoreFailure::Malformed)
         );
         assert_eq!(

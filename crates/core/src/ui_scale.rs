@@ -44,7 +44,7 @@ impl UiScale {
         metrics: Result<ScreenMetrics, ScreenMetricsFailure>,
     ) -> Self {
         xft_dpi
-            .or_else(|| metrics.ok().map(ScreenMetrics::dots_per_inch))
+            .or_else(|| metrics.ok().and_then(ScreenMetrics::dots_per_inch))
             .map_or(Self::Single, Self::from_dpi)
     }
 
@@ -90,15 +90,20 @@ mod tests {
     #[test]
     fn prefers_xft_dpi_then_randr_then_single() {
         // 4K の 27 型（3840 px / 600 mm ≒ 162 dpi）。
-        let dense = ScreenMetrics::new(3840, 2160, 600, 340);
+        let dense = ScreenMetrics::new(3840, 2160, 600);
         assert_eq!(UiScale::choose(None, dense), UiScale::Double);
         assert_eq!(UiScale::choose(Some(96), dense), UiScale::Single);
         assert_eq!(
-            UiScale::choose(Some(192), Err(ScreenMetricsFailure::ZeroMillimetres)),
+            UiScale::choose(Some(192), Err(ScreenMetricsFailure::Unavailable)),
             UiScale::Double
         );
         assert_eq!(
-            UiScale::choose(None, Err(ScreenMetricsFailure::ZeroMillimetres)),
+            UiScale::choose(None, Err(ScreenMetricsFailure::Unavailable)),
+            UiScale::Single
+        );
+        // 主画面が 0 mm（施主の WSLg の rdp-0）なら RandR からは決まらない。
+        assert_eq!(
+            UiScale::choose(None, ScreenMetrics::new(3840, 2160, 0)),
             UiScale::Single
         );
     }

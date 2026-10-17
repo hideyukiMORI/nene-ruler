@@ -3,7 +3,6 @@
 use nene_ruler_core::axis::Axis;
 use nene_ruler_core::modal_theme::ModalTheme;
 use nene_ruler_core::rgb::Rgb;
-use nene_ruler_core::unit::Unit;
 use nene_ruler_core::window_layer::WindowLayer;
 
 /// 状態を次へ進める入力。UI は値を渡すだけで、解釈はしない。
@@ -22,8 +21,6 @@ pub enum RulerIntent {
     CloseSettings,
     /// インク色を選んだ（プリセット）。
     ChooseInk(Rgb),
-    /// 単位を選んだ。
-    ChooseUnit(Unit),
     /// モーダルの見えを選んだ。
     ChooseModalTheme(ModalTheme),
     /// 重なり順を選んだ。

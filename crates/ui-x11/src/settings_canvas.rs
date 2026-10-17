@@ -9,7 +9,6 @@ use nene_ruler_core::pixel_point::PixelPoint;
 use nene_ruler_core::pixel_rect::PixelRect;
 use nene_ruler_core::rgb::Rgb;
 use nene_ruler_core::settings_layout::SettingsLayout;
-use nene_ruler_core::unit::Unit;
 use nene_ruler_core::window_layer::WindowLayer;
 
 use crate::canvas::{Canvas, FONT_FAMILY, fill_rect, font_px, set_ink};
@@ -48,27 +47,8 @@ pub fn render_settings(frame: &SettingsFrame, format: Format) -> Result<Canvas, 
         }
         draw_presets(context, &palette, layout, frame.settings().ink())?;
         draw_hex_field(context, &palette, frame)?;
-        draw_unit_buttons(context, &palette, layout, frame.settings().unit())?;
-        if frame.metrics_failure().is_some() {
-            set_ink(context, Rgb::INITIAL_INK);
-            write_at(
-                context,
-                layout.unit_notice_baseline(),
-                "no screen size",
-                footer_px,
-            )?;
-        }
         draw_theme_buttons(context, &palette, layout, frame.settings().modal_theme())?;
         draw_layer_toggle(context, &palette, layout, frame.settings().layer())?;
-        if frame.layering() == nene_ruler_application::layering::Layering::Unsupported {
-            set_ink(context, Rgb::INITIAL_INK);
-            write_at(
-                context,
-                layout.layer_notice_baseline(),
-                "not supported here",
-                footer_px,
-            )?;
-        }
         if let Some(failure) = frame.store_failure() {
             set_ink(context, Rgb::INITIAL_INK);
             write_at(
@@ -248,24 +228,6 @@ fn draw_button(
     write_centred(context, rect, text, layout)
 }
 
-/// 単位のボタン列。
-fn draw_unit_buttons(
-    context: &Context,
-    palette: &ModalPalette,
-    layout: SettingsLayout,
-    unit: Unit,
-) -> Result<(), UiFailure> {
-    for candidate in [Unit::Px, Unit::Mm, Unit::In] {
-        draw_button(
-            context,
-            palette,
-            (layout.unit_button(candidate), layout),
-            (candidate.suffix(), candidate == unit),
-        )?;
-    }
-    Ok(())
-}
-
 /// 見えのボタン列。
 fn draw_theme_buttons(
     context: &Context,
@@ -357,33 +319,14 @@ mod tests {
     }
 
     fn canvas_with(store: &NoStore, intents: &[RulerIntent]) -> Canvas {
-        canvas_in(
-            store,
-            nene_ruler_application::layering::Layering::Supported,
-            intents,
-        )
+        canvas_at(store, None, intents)
     }
 
-    fn canvas_in(
-        store: &NoStore,
-        layering: nene_ruler_application::layering::Layering,
-        intents: &[RulerIntent],
-    ) -> Canvas {
-        canvas_at(store, (layering, None), intents)
-    }
-
-    fn canvas_at(
-        store: &NoStore,
-        (layering, xft_dpi): (nene_ruler_application::layering::Layering, Option<u32>),
-        intents: &[RulerIntent],
-    ) -> Canvas {
+    fn canvas_at(store: &NoStore, xft_dpi: Option<u32>, intents: &[RulerIntent]) -> Canvas {
         let mut controller = RulerController::new(
             Ports::new(&NoScreen, store, &NoClipboard),
-            nene_ruler_application::environment::Environment::new(
-                Transparency::Composited,
-                layering,
-            )
-            .with_xft_dpi(xft_dpi),
+            nene_ruler_application::environment::Environment::new(Transparency::Composited)
+                .with_xft_dpi(xft_dpi),
             ProductVersion::new("0.1.0"),
         );
         controller.apply(RulerIntent::OpenSettings);
@@ -395,42 +338,6 @@ mod tests {
 
     fn canvas(intents: &[RulerIntent]) -> Canvas {
         canvas_with(&NoStore(Ok(None)), intents)
-    }
-
-    #[test]
-    fn the_layer_notice_ends_inside_the_right_margin() {
-        // WSLg で `…man` と右端で切れた（Issue #23）。字の右端を見る。
-        let mut canvas = canvas_in(
-            &NoStore(Ok(None)),
-            nene_ruler_application::layering::Layering::Unsupported,
-            &[],
-        );
-        let notice = SINGLE.layer_notice_baseline();
-        let window = SINGLE.window();
-        let margin = SINGLE.layer_toggle().x();
-        let rightmost = (notice.y() - 10..=notice.y() + 3)
-            .flat_map(|y| (notice.x()..window.width()).map(move |x| (x, y)))
-            .filter(|&(x, y)| {
-                canvas
-                    .pixel(x, y)
-                    .unwrap()
-                    .is_some_and(|p| p[2] > 0x80 && p[2] > p[1])
-            })
-            .map(|(x, _)| x)
-            .max()
-            .unwrap_or(0);
-        assert!(rightmost > notice.x());
-        assert!(rightmost < window.width() - margin);
-    }
-
-    #[test]
-    fn missing_screen_size_is_noted_beside_the_unit_buttons() {
-        let mut canvas = canvas(&[]);
-        let notice = SINGLE.unit_notice_baseline();
-        let row: Vec<[u8; 4]> = (notice.x()..notice.x() + 60)
-            .filter_map(|x| canvas.pixel(x, notice.y() - 3).unwrap())
-            .collect();
-        assert!(row.iter().any(|p| p[2] > p[1] && p[2] > 0x80));
     }
 
     #[test]
@@ -452,9 +359,9 @@ mod tests {
     #[test]
     fn dark_background_and_the_selected_preset_have_the_expected_pixels() {
         let mut canvas = canvas(&[]);
-        assert_eq!((canvas.width(), canvas.height()), (320, 336));
+        assert_eq!((canvas.width(), canvas.height()), (320, 280));
         assert_eq!(
-            canvas.pixel(300, 300).unwrap(),
+            canvas.pixel(305, 150).unwrap(),
             Some([0x1E, 0x1E, 0x1E, 0xFF])
         );
         assert_eq!(
@@ -475,23 +382,8 @@ mod tests {
     fn light_theme_changes_the_background() {
         let mut canvas = canvas(&[RulerIntent::ChooseModalTheme(ModalTheme::Light)]);
         assert_eq!(
-            canvas.pixel(300, 300).unwrap(),
+            canvas.pixel(305, 150).unwrap(),
             Some([0xF5, 0xF5, 0xF5, 0xFF])
-        );
-    }
-
-    #[test]
-    fn selected_unit_button_is_filled_with_the_accent() {
-        let mut canvas = canvas(&[RulerIntent::ChooseUnit(Unit::Mm)]);
-        let mm = SINGLE.unit_button(Unit::Mm);
-        let px = SINGLE.unit_button(Unit::Px);
-        assert_eq!(
-            canvas.pixel(mm.x() + 2, mm.y() + 2).unwrap(),
-            Some([0xFF, 0xFF, 0xFF, 0xFF])
-        );
-        assert_eq!(
-            canvas.pixel(px.x() + 2, px.y() + 2).unwrap(),
-            Some([0x2C, 0x2C, 0x2C, 0xFF])
         );
     }
 
@@ -523,16 +415,26 @@ mod tests {
 
     #[test]
     fn double_paints_the_modal_twice_as_large() {
-        let double = canvas_at(
-            &NoStore(Ok(None)),
-            (
-                nene_ruler_application::layering::Layering::Supported,
-                Some(192),
-            ),
-            &[],
-        );
-        assert_eq!((double.width(), double.height()), (640, 672));
+        let double = canvas_at(&NoStore(Ok(None)), Some(192), &[]);
+        assert_eq!((double.width(), double.height()), (640, 560));
         let single = canvas(&[]);
-        assert_eq!((single.width(), single.height()), (320, 336));
+        assert_eq!((single.width(), single.height()), (320, 280));
+    }
+
+    #[test]
+    fn nothing_is_noted_beside_always_on_top_or_for_a_missing_screen_size() {
+        // 最前面が効かないことも、物理寸法が無いことも示さない（ADR 0012）。NoScreen で描く。
+        let mut canvas = canvas(&[]);
+        let toggle = SINGLE.layer_toggle();
+        let red = (toggle.y()..toggle.bottom())
+            .flat_map(|y| (toggle.right() + 100..SINGLE.window().width()).map(move |x| (x, y)))
+            .filter(|&(x, y)| {
+                canvas
+                    .pixel(x, y)
+                    .unwrap()
+                    .is_some_and(|p| p[2] > 0x80 && p[2] > p[1])
+            })
+            .count();
+        assert_eq!(red, 0);
     }
 }
