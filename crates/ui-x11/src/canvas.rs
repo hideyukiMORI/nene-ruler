@@ -442,7 +442,7 @@ mod tests {
         let mut canvas = Canvas::render(&frame, Format::ARgb32).unwrap();
         let rows = baseline.y() - layout.notice_px()..=baseline.y() + 3;
         let rightmost = rows
-            .filter(|y| (y - top) % TickKind::SPACING_PX != 0)
+            .filter(|y| !(y - top).is_multiple_of(TickKind::SPACING_PX))
             .flat_map(|y| (baseline.x()..ticks_from).map(move |x| (x, y)))
             .filter(|&(x, y)| canvas.pixel(x, y).unwrap().is_some_and(|p| p[3] > 0x80))
             .map(|(x, _)| x)
