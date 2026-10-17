@@ -1,6 +1,6 @@
 # ゲート発火の証明 — NeNe Ruler
 
-> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）/ Issue #12（第 13 節）/ WSLg の実機（第 14 節・2026-10-17）/ Issue #14（第 15 節）。以下は実行した結果のみ。
+> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）/ Issue #12（第 13 節）/ WSLg の実機（第 14 節・2026-10-17）/ Issue #14（第 15 節）/ Issue #15（第 16 節）。以下は実行した結果のみ。
 > 関連: QLT-007 / QLT-011 / QLT-013 / ADR 0003
 
 ## 1. 環境と範囲
@@ -387,3 +387,24 @@ make screenshot
 
 🔴 **記録しておくこと（検証の手順の欠陥）:** `( … & )` で起動したプロセスは親の shell が先に消えると zombie になり、`pgrep` / `kill -0` が「生きている」と答える。
 本節から `$!` を取って `/proc/<pid>/status` の `State` と `wait` の終了コードで判定するようにした。第 9〜12 節の「終了した」の判定は `xdotool search` で窓が消えたことで見ており、影響は無い。
+
+## 16. Issue #15 — 縦書きの数字と通知の置き場（2026-10-17）
+
+同じコンテナ。Issue #14 の枝の上に積んだ。core の `FrameLayout` だけを変えた。
+
+### 16.1 ゲート
+
+| target | 結果 |
+| --- | --- |
+| `make lint` | 0 件 |
+| `make test` | core 47・application 16・adapters-x11 11・ui-x11 26・xtask 69、すべて成功 |
+| `make conformance` | 違反なし（127 ファイル） |
+| `make fmt-check` | 差分なし |
+| `make coverage` | core ＋ application: regions 97.67%・functions 95.31%・lines 96.91% |
+
+新しいテスト `vertical_label_and_notices_clear_the_left_tick_numbers` が、高さ 240 / 270 / 1200 で、縦軸の数字の矩形と通知の矩形が左辺の主目盛の数字の矩形と交わらないことを見る。
+
+### 16.2 Xvfb
+
+`unit = mm` で起動し（Xvfb はミリ寸法 0 なので通知が出る）、右下の鉤括弧で高さ 270 に伸ばして撮った。
+縦書きの `270 px` は `150` の右、通知 `no screen size: px only` は `250` の右に出て、重ならない。[height-270](screenshots/2026-10-17-xvfb-height-270.png)

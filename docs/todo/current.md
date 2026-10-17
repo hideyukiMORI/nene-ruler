@@ -1,6 +1,6 @@
 # いまのタスク — NeNe Ruler
 
-> GitHub Issue と PR が進行状態の正本。この文書は 2026-10-17 の WSLg の実測への対応（Issue #14）の要約。
+> GitHub Issue と PR が進行状態の正本。この文書は 2026-10-17 の WSLg の実測への対応（Issue #14 / #15）の要約。
 
 ## 状態
 
@@ -21,12 +21,13 @@
 | 不透明への降格と物理寸法の欠如を枠に、設定の失敗と物理寸法の欠如をモーダルに示す（FR-014） | ✅ Issue #12・Xvfb で実測（gate-proofs 第 13 節）。PR #11 の枝の上 |
 | WSLg（施主の実機）での目視 | ✅ 2026-10-17・[wslg-2026-10-17](../quality/wslg-2026-10-17.md)・gate-proofs 第 14 節。13 件が成り立ち、5 件が崩れた |
 | WSLg への適合: 当たり判定の帯をアルファ 1 で描く・影を消す・Alt+F4 を自分で読む・最前面ができないことを示す | ✅ Issue #14・ADR 0008。施主の再目視待ち。PR #13 の枝の上 |
+| 縦書きの高さの数字と通知を、左辺の主目盛の数字の右へ寄せる | ✅ Issue #15。PR #16 の枝の上 |
 | CI の必須 check（`make ci`）と commit-msg フック | 配線済み。最初の PR で実行証拠を得るまで planned |
 | ruleset（main の保護・squash-only） | 未設定。施主が GitHub で設定したら gate-proofs に記録する |
 
 ## 次に行うこと
 
-Issue #15（縦書きの数字と通知が左辺の目盛の数字と重なる）。次に施主が WSLg で Issue #14 の 4 件を再目視し、PR #3 → #5 → #7 → #9 → #11 → #13 → #14 → #15 の順に squash merge する。その後の焦点 Issue（それぞれ 1 つずつ）:
+施主が WSLg で Issue #14 の 4 件と Issue #15 の重なりを再目視し、PR #3 → #5 → #7 → #9 → #11 → #13 → #16 → Issue #15 の PR の順に squash merge する。その後の焦点 Issue（それぞれ 1 つずつ）:
 
 - モーダルの見え「システムに従う」。検出の方法（XSETTINGS か GTK の settings.ini か）を施主と決める
 - HiDPI の倍率（FR-016）。`Xft.dpi` か `RandR` の DPI から倍率を決め、core の初期値に掛ける
