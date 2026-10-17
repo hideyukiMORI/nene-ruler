@@ -12,6 +12,7 @@ use nene_ruler_core::settings_layout::SettingsLayout;
 use nene_ruler_core::window_layer::WindowLayer;
 
 use crate::canvas::{Canvas, FONT_FAMILY, fill_rect, font_px, set_ink};
+use crate::field_focus::FieldFocus;
 use crate::ui_failure::UiFailure;
 
 /// 題の大きさ（1x）。
@@ -27,13 +28,19 @@ const CHECK_INSET_PX: u16 = 6;
 /// 閉じるボタンの × の、ボタンの縁からの距離と線の太さ（1x）。
 const CROSS_INSET_PX: u16 = 7;
 const CROSS_LINE_PX: f64 = 1.5;
+/// 入力欄の棒の、欄の上下の縁からの距離（1x）。
+const CARET_MARGIN_PX: u16 = 6;
 
 /// モーダルを描き切る。
 ///
 /// # Errors
 ///
 /// cairo が失敗した。
-pub fn render_settings(frame: &SettingsFrame, format: Format) -> Result<Canvas, UiFailure> {
+pub fn render_settings(
+    frame: &SettingsFrame,
+    format: Format,
+    focus: FieldFocus,
+) -> Result<Canvas, UiFailure> {
     let palette = frame.palette();
     let layout = frame.layout();
     let (title_px, body_px, footer_px) = (
@@ -51,7 +58,7 @@ pub fn render_settings(frame: &SettingsFrame, format: Format) -> Result<Canvas, 
             draw_text(context, &palette, heading, body_px)?;
         }
         draw_presets(context, &palette, layout, frame.settings().ink())?;
-        draw_hex_field(context, &palette, frame)?;
+        draw_hex_field(context, &palette, frame, focus)?;
         draw_theme_buttons(context, &palette, layout, frame.settings().modal_theme())?;
         draw_layer_toggle(context, &palette, layout, frame.settings().layer())?;
         if let Some(failure) = frame.store_failure() {
@@ -212,28 +219,43 @@ fn draw_presets(
     Ok(())
 }
 
-/// `#RRGGBB` の入力欄。拒否されていれば右に短く示す（FR-014）。
+/// `#RRGGBB` の入力欄。焦点があれば選択色の縁と、文字の後ろに棒（Issue #40）。
+/// 拒否されていれば右に短く示す（FR-014）。
 fn draw_hex_field(
     context: &Context,
     palette: &ModalPalette,
     frame: &SettingsFrame,
+    focus: FieldFocus,
 ) -> Result<(), UiFailure> {
     let layout = frame.layout();
     let body_px = font_px(BODY_FONT_PX, layout.scale());
     let field = layout.hex_field();
+    let edge = match focus {
+        FieldFocus::Focused => palette.accent(),
+        FieldFocus::Unfocused => palette.border(),
+    };
     set_ink(context, palette.field());
     fill_rect(context, field)?;
-    stroke_ring(context, field, palette.border(), layout)?;
+    stroke_ring(context, field, edge, layout)?;
     set_ink(context, palette.field());
     fill_rect(context, inset(field, ring_px(layout)))?;
     set_ink(context, palette.text());
     let session = frame.session();
-    write_at(
-        context,
-        layout.hex_text_baseline(),
-        session.entry().text(),
-        body_px,
-    )?;
+    let baseline = layout.hex_text_baseline();
+    write_at(context, baseline, session.entry().text(), body_px)?;
+    if focus == FieldFocus::Focused {
+        // write_at の後は、いまの点が文字の末尾にある。そこに縦の棒を立てる。
+        let (end_x, _) = context.current_point()?;
+        let factor = f64::from(layout.scale().factor());
+        let margin = f64::from(CARET_MARGIN_PX) * factor;
+        context.rectangle(
+            end_x.ceil() + factor,
+            f64::from(field.y()) + margin,
+            factor,
+            f64::from(field.height()) - 2.0_f64 * margin,
+        );
+        context.fill()?;
+    }
     if session.rejection().is_some() {
         set_ink(context, Rgb::INITIAL_INK);
         write_at(
@@ -378,7 +400,12 @@ mod tests {
         for intent in intents {
             controller.apply(*intent);
         }
-        render_settings(&controller.settings_frame().unwrap(), Format::ARgb32).unwrap()
+        render_settings(
+            &controller.settings_frame().unwrap(),
+            Format::ARgb32,
+            FieldFocus::Unfocused,
+        )
+        .unwrap()
     }
 
     fn canvas(intents: &[RulerIntent]) -> Canvas {
@@ -501,5 +528,39 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(centre[0] > 0x80, "{centre:?}");
+    }
+
+    #[test]
+    fn a_focused_field_shows_an_accent_edge_and_a_caret() {
+        let controller_frame = |focus: FieldFocus| {
+            let store = NoStore(Ok(None));
+            let mut controller = RulerController::new(
+                Ports::new(&NoScreen, &store, &NoClipboard),
+                nene_ruler_application::environment::Environment::new(Transparency::Composited),
+                ProductVersion::new("0.1.0"),
+            );
+            controller.apply(RulerIntent::OpenSettings);
+            render_settings(&controller.settings_frame().unwrap(), Format::ARgb32, focus).unwrap()
+        };
+        let mut focused = controller_frame(FieldFocus::Focused);
+        let mut unfocused = controller_frame(FieldFocus::Unfocused);
+        let field = SINGLE.hex_field();
+        // 縁: 焦点ありは選択色（ダークは白）、なしは枠線の灰色。
+        assert_eq!(
+            focused.pixel(field.x(), field.y() + 10).unwrap(),
+            Some([0xFF, 0xFF, 0xFF, 0xFF])
+        );
+        assert_eq!(
+            unfocused.pixel(field.x(), field.y() + 10).unwrap(),
+            Some([0x55, 0x55, 0x55, 0xFF])
+        );
+        // 棒: 欄の中の縁を除いた所で、焦点ありだけに文字色の縦の列が増える。
+        let column_lit = |canvas: &mut Canvas, x: u16| {
+            (field.y() + 8..field.bottom() - 7)
+                .all(|y| canvas.pixel(x, y).unwrap().is_some_and(|p| p[0] > 0xC0))
+        };
+        let inside = field.x() + 4..field.right() - 3;
+        assert!(inside.clone().any(|x| column_lit(&mut focused, x)));
+        assert!(!inside.into_iter().any(|x| column_lit(&mut unfocused, x)));
     }
 }
