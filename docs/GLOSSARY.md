@@ -8,8 +8,10 @@
 | 結果（outcome） | 期待される成功・失敗を表す閉じた型 | `Result<T, *Failure>`（core / application） |
 | 拒否理由（failure） | 結果に添える閉じた理由の集合 | `*Failure`（`enum`） |
 | ポート（port） | 中核がプラットフォームを使うための型のある窓口 | `*Port`（application の `trait`） |
-| アダプタ（adapter） | 外部入力ポートの実装。物理寸法・クリップボード・設定の保存・現在時刻を中核へ渡す | `RandrScreenMetrics` / `FileSettingsStore`（adapters-x11） |
+| アダプタ（adapter） | 外部入力ポートの実装。物理寸法・クリップボード・設定の保存・現在時刻を中核へ渡す | `RandrScreenMetrics` / `FileSettingsStore` / `X11Clipboard`（adapters-x11） |
 | ポートの束 | 合成ルートが中核へ渡すポートの組。引数を増やさずにポートを足す | `Ports`（application） |
+| コピーの印 | 数字をコピーした結果。成功は反転、失敗は取り消し線。ポインタが離れるまで | `CopyMark`（application）・ADR 0007 |
+| 選択の答え | `SelectionRequest` の target ごとに何を書くかを決める純関数 | `SelectionAnswer`（adapters-x11） |
 | 設定ファイル | 版 1 の `key = value` テキスト。直列化の型は core の型と分ける | `SettingsFileV1`（adapters-x11）・ADR 0006 |
 | 合成ルート | 依存を結ぶ唯一の場所。端末と終了コードを持つ | `crates/app`（`main`） |
 | 反映（render） | 決まった値を画素へ写す操作。UI 状態を変えてよい唯一の場所 | `render*`（ui-x11） |

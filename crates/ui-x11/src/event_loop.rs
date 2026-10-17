@@ -93,6 +93,8 @@ fn window_of(event: &Event) -> Option<Window> {
         Some(release.event)
     } else if let Event::MotionNotify(motion) = event {
         Some(motion.event)
+    } else if let Event::LeaveNotify(leave) = event {
+        Some(leave.event)
     } else if let Event::KeyPress(key) = event {
         Some(key.event)
     } else if let Event::ClientMessage(message) = event {

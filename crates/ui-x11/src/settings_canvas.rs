@@ -311,9 +311,20 @@ mod tests {
         }
     }
 
+    struct NoClipboard;
+
+    impl nene_ruler_application::clipboard_port::ClipboardPort for NoClipboard {
+        fn copy(
+            &self,
+            _text: &str,
+        ) -> Result<(), nene_ruler_application::clipboard_failure::ClipboardFailure> {
+            Ok(())
+        }
+    }
+
     fn canvas_with(store: &NoStore, intents: &[RulerIntent]) -> Canvas {
         let mut controller = RulerController::new(
-            Ports::new(&NoScreen, store),
+            Ports::new(&NoScreen, store, &NoClipboard),
             Transparency::Composited,
             ProductVersion::new("0.1.0"),
         );

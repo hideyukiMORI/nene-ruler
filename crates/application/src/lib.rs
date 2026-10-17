@@ -9,6 +9,10 @@ extern crate alloc;
 #[cfg(test)]
 extern crate std;
 
+pub mod clipboard_failure;
+pub mod clipboard_port;
+pub mod copy_mark;
+pub mod frame_style;
 pub mod frame_texts;
 pub mod modal_session;
 pub mod ports;
