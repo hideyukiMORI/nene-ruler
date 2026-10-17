@@ -16,4 +16,6 @@ pub enum SettingsControl {
     Layer(WindowLayer),
     /// 右上の閉じるボタン（WM の飾りの代わり・ADR 0014）。
     Close,
+    /// アプリを終える（施主指示 2026-10-17・Issue #42）。
+    Quit,
 }

@@ -9,4 +9,6 @@ pub(crate) enum SettingsFlow {
     Changed,
     /// モーダルを閉じる。
     Close,
+    /// アプリを終える（Issue #42）。
+    Quit,
 }
