@@ -37,7 +37,7 @@ const GEAR_DIAMETER_PX: u16 = 16;
 const GEAR_GAP_PX: u16 = 4;
 /// 枠の右下の外側に要る余白。ギアが収まる分。
 const BEYOND_PX: u16 = GEAR_GAP_PX + GEAR_DIAMETER_PX;
-/// 主目盛の数字の高さ。
+/// 主目盛の数字の高さ。倍率を掛けない（施主指示 2026-10-17・ADR 0013）。
 const TICK_LABEL_PX: u16 = 9;
 /// 幅・高さの数字の高さ。
 const LABEL_PX: u16 = 11;
@@ -162,7 +162,7 @@ impl FrameLayout {
         let frame = self.frame();
         let inside = LINE_PX + self.px(TickKind::Major.length_px() + TEXT_GAP_PX);
         let gap = self.px(TEXT_GAP_PX);
-        let label_px = self.px(TICK_LABEL_PX);
+        let label_px = TICK_LABEL_PX;
         TickMark::along(self.size.along(edge.axis()))
             .filter(move |mark| mark.kind() == TickKind::Major)
             .filter_map(move |mark| {
@@ -243,7 +243,7 @@ impl FrameLayout {
     #[must_use]
     pub fn left_numbers_width(self) -> u16 {
         let digits = u16::try_from(self.size.height().px().to_string().len()).unwrap_or(5);
-        digits * self.px(TICK_DIGIT_PX)
+        digits * TICK_DIGIT_PX
     }
 
     /// 左辺の目盛と数字の右端から、枠の左端までの距離。
@@ -262,11 +262,8 @@ impl FrameLayout {
         match axis {
             Axis::Horizontal => {
                 let inside = LINE_PX
-                    + self.px(TickKind::Major.length_px()
-                        + TEXT_GAP_PX
-                        + TICK_LABEL_PX
-                        + TEXT_GAP_PX
-                        + LABEL_PX);
+                    + TICK_LABEL_PX
+                    + self.px(TickKind::Major.length_px() + TEXT_GAP_PX + TEXT_GAP_PX + LABEL_PX);
                 PixelPoint::new(frame.x() + frame.width() / 2, frame.y() + inside)
             }
             Axis::Vertical => PixelPoint::new(
@@ -506,7 +503,7 @@ mod tests {
 
     /// 左辺の主目盛の数字が占める矩形の見積り（字の高さは 1x で 9 px）。
     fn left_number_rects(layout: FrameLayout) -> Vec<PixelRect> {
-        let height = 9 * layout.scale().factor();
+        let height = 9;
         layout
             .tick_labels(Edge::Left)
             .map(|label| {
@@ -600,7 +597,14 @@ mod tests {
         assert_eq!(double.window(), PixelRect::new(0, 0, 448, 288));
         assert_eq!(FrameLayout::frame_px_for_window(448, UiScale::Double), 400);
         assert_eq!(double.notice_px(), 2 * single.notice_px());
-        assert_eq!(double.left_numbers_width(), 2 * single.left_numbers_width());
+        // 主目盛の数字は倍率を掛けない（ADR 0013）。
+        assert_eq!(double.left_numbers_width(), single.left_numbers_width());
+        let first = double
+            .tick_labels(Edge::Top)
+            .next()
+            .map(TickLabel::baseline);
+        // 目盛の長さと隙間は 2x、字の高さ 9 px はそのまま: y = 8 + 1 + 2 × (12 + 2) + 9。
+        assert_eq!(first, Some(PixelPoint::new(62, 46)));
         let gear = double.gear();
         assert_eq!(gear.right(), double.window().right());
     }
