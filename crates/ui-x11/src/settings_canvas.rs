@@ -1,7 +1,10 @@
 //! `SettingsFrame` を cairo の `ImageSurface` に描く。不透明（FR-010 の背景）。
 
-use cairo::{Context, FontSlant, FontWeight, Format};
+use core::f64::consts::PI;
+
+use cairo::{Context, FontSlant, FontWeight, Format, LinearGradient};
 use nene_ruler_application::settings_frame::SettingsFrame;
+use nene_ruler_core::hsv::Hsv;
 use nene_ruler_core::modal_label::ModalLabel;
 use nene_ruler_core::modal_palette::ModalPalette;
 use nene_ruler_core::modal_theme::ModalTheme;
@@ -59,6 +62,7 @@ pub fn render_settings(
         }
         draw_presets(context, &palette, layout, frame.settings().ink())?;
         draw_hex_field(context, &palette, frame, focus)?;
+        draw_picker(context, frame)?;
         draw_theme_buttons(context, &palette, layout, frame.settings().modal_theme())?;
         draw_layer_toggle(context, &palette, layout, frame.settings().layer())?;
         draw_button(
@@ -274,6 +278,99 @@ fn draw_hex_field(
     Ok(())
 }
 
+/// カラーピッカー。四角は色相の純色に、左から白・下から黒を重ね、帯は 6 区間の色相（ADR 0016）。
+fn draw_picker(context: &Context, frame: &SettingsFrame) -> Result<(), UiFailure> {
+    let layout = frame.layout();
+    let picker = frame.session().picker();
+    let area = layout.shade_area();
+    let (x, y, width, height) = (
+        f64::from(area.x()),
+        f64::from(area.y()),
+        f64::from(area.width()),
+        f64::from(area.height()),
+    );
+    set_ink(context, Hsv::new(picker.hue(), 1000, 1000).to_rgb());
+    fill_rect(context, area)?;
+    let whiten = LinearGradient::new(x, y, x + width, y);
+    whiten.add_color_stop_rgba(0.0_f64, 1.0_f64, 1.0_f64, 1.0_f64, 1.0_f64);
+    whiten.add_color_stop_rgba(1.0_f64, 1.0_f64, 1.0_f64, 1.0_f64, 0.0_f64);
+    context.set_source(&whiten)?;
+    context.rectangle(x, y, width, height);
+    context.fill()?;
+    let darken = LinearGradient::new(x, y, x, y + height);
+    darken.add_color_stop_rgba(0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64);
+    darken.add_color_stop_rgba(1.0_f64, 0.0_f64, 0.0_f64, 0.0_f64, 1.0_f64);
+    context.set_source(&darken)?;
+    context.rectangle(x, y, width, height);
+    context.fill()?;
+
+    let strip = layout.hue_bar();
+    let (bar_y, bar_height) = (f64::from(strip.y()), f64::from(strip.height()));
+    let hues = LinearGradient::new(0.0_f64, bar_y, 0.0_f64, bar_y + bar_height);
+    for sixth in 0..=6_u16 {
+        let colour = Hsv::new(sixth * 600, 1000, 1000).to_rgb();
+        hues.add_color_stop_rgb(
+            f64::from(sixth) / 6.0_f64,
+            f64::from(colour.red()) / 255.0_f64,
+            f64::from(colour.green()) / 255.0_f64,
+            f64::from(colour.blue()) / 255.0_f64,
+        );
+    }
+    context.set_source(&hues)?;
+    context.rectangle(
+        f64::from(strip.x()),
+        bar_y,
+        f64::from(strip.width()),
+        bar_height,
+    );
+    context.fill()?;
+    draw_picker_marks(context, layout, picker)
+}
+
+/// 四角の中の丸と、帯の横線。黒の外側と白の内側で、どの色の上でも見える。
+fn draw_picker_marks(
+    context: &Context,
+    layout: SettingsLayout,
+    picker: Hsv,
+) -> Result<(), UiFailure> {
+    let factor = f64::from(layout.scale().factor());
+    let spot = layout.shade_point(picker);
+    let (spot_x, spot_y) = (f64::from(spot.x()) + 0.5_f64, f64::from(spot.y()) + 0.5_f64);
+    for (ink, width) in [
+        (Rgb::new(0, 0, 0), 3.0_f64),
+        (Rgb::new(0xFF, 0xFF, 0xFF), 1.5_f64),
+    ] {
+        set_ink(context, ink);
+        context.set_line_width(width * factor);
+        context.new_path();
+        context.arc(spot_x, spot_y, 5.0_f64 * factor, 0.0_f64, 2.0_f64 * PI);
+        context.stroke()?;
+    }
+    let strip = layout.hue_bar();
+    let line_y = layout.hue_y(picker);
+    let reach = layout.scale().factor() * 2;
+    set_ink(context, Rgb::new(0, 0, 0));
+    fill_rect(
+        context,
+        PixelRect::new(
+            strip.x().saturating_sub(reach),
+            line_y.saturating_sub(reach),
+            strip.width() + 2 * reach,
+            1 + 2 * reach,
+        ),
+    )?;
+    set_ink(context, Rgb::new(0xFF, 0xFF, 0xFF));
+    fill_rect(
+        context,
+        PixelRect::new(
+            strip.x().saturating_sub(reach) + 1,
+            line_y.saturating_sub(reach) + 1,
+            strip.width() + 2 * reach - 2,
+            2 * reach - 1,
+        ),
+    )
+}
+
 /// 選ばれている・いないで地の色を変えたボタン。
 fn draw_button(
     context: &Context,
@@ -437,7 +534,7 @@ mod tests {
     #[test]
     fn dark_background_and_the_selected_preset_have_the_expected_pixels() {
         let mut canvas = canvas(&[]);
-        assert_eq!((canvas.width(), canvas.height()), (320, 280));
+        assert_eq!((canvas.width(), canvas.height()), (320, 376));
         assert_eq!(
             canvas.pixel(305, 150).unwrap(),
             Some([0x00, 0x00, 0x00, 0xFF])
@@ -495,9 +592,9 @@ mod tests {
     fn the_modal_stays_single_even_at_double() {
         // モーダルは倍率を掛けない（ADR 0014）。
         let double = canvas_at(&NoStore(Ok(None)), Some(192), &[]);
-        assert_eq!((double.width(), double.height()), (320, 280));
+        assert_eq!((double.width(), double.height()), (320, 376));
         let single = canvas(&[]);
-        assert_eq!((single.width(), single.height()), (320, 280));
+        assert_eq!((single.width(), single.height()), (320, 376));
     }
 
     #[test]
@@ -523,7 +620,7 @@ mod tests {
         let border = [0x55, 0x55, 0x55, 0xFF];
         assert_eq!(canvas.pixel(0, 140).unwrap(), Some(border));
         assert_eq!(canvas.pixel(319, 140).unwrap(), Some(border));
-        assert_eq!(canvas.pixel(160, 279).unwrap(), Some(border));
+        assert_eq!(canvas.pixel(160, 375).unwrap(), Some(border));
         // × の交点（ボタンの中央）は文字色に近い明るさ。
         let close = SINGLE.close_button();
         let centre = canvas
@@ -578,5 +675,33 @@ mod tests {
             canvas.pixel(quit.x() + 2, quit.y() + 2).unwrap(),
             Some([0x2C, 0x2C, 0x2C, 0xFF])
         );
+    }
+
+    #[test]
+    fn the_picker_paints_white_pure_and_black_corners_and_a_hue_bar() {
+        // インク色 #E53935 の色相（約 1 度）の純色が右上に来る。印は (168, 153) 付近と帯の上端。
+        let mut canvas = canvas(&[]);
+        let area = SINGLE.shade_area();
+        let near = |p: [u8; 4], q: [u8; 4]| p.iter().zip(q).all(|(a, b)| a.abs_diff(b) <= 8);
+        let top_left = canvas.pixel(area.x(), area.y()).unwrap().unwrap();
+        assert!(near(top_left, [0xFF, 0xFF, 0xFF, 0xFF]), "{top_left:?}");
+        let pure = Hsv::new(Hsv::of(Rgb::INITIAL_INK).hue(), 1000, 1000).to_rgb();
+        let top_right = canvas.pixel(area.right(), area.y()).unwrap().unwrap();
+        assert!(
+            near(top_right, [pure.blue(), pure.green(), pure.red(), 0xFF]),
+            "{top_right:?}"
+        );
+        let bottom = canvas
+            .pixel(area.x() + 100, area.bottom())
+            .unwrap()
+            .unwrap();
+        assert!(near(bottom, [0x00, 0x00, 0x00, 0xFF]), "{bottom:?}");
+        // 帯の上のほうは赤から橙（印の横線の下を見る）。
+        let strip = SINGLE.hue_bar();
+        let reddish = canvas
+            .pixel(strip.x() + 10, strip.y() + 6)
+            .unwrap()
+            .unwrap();
+        assert!(reddish[2] > 0xE0 && reddish[0] < 0x20, "{reddish:?}");
     }
 }

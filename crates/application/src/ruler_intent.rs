@@ -25,6 +25,15 @@ pub enum RulerIntent {
     ChooseModalTheme(ModalTheme),
     /// 重なり順を選んだ。
     ChooseLayer(WindowLayer),
+    /// ピッカーの四角を押した・引いた。彩度と明度（千分率）。色相はいまのピッカーの色のまま。
+    PickShade {
+        /// 彩度。
+        saturation: u16,
+        /// 明度。
+        value: u16,
+    },
+    /// ピッカーの帯を押した・引いた。色相（0.1 度）。
+    PickHue(u16),
     /// 入力欄に 1 文字打った。
     HexTyped(char),
     /// 入力欄の末尾を消した。

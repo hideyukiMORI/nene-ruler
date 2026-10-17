@@ -21,6 +21,7 @@ pub mod frame_size;
 pub mod hex_entry;
 pub mod hit_region;
 pub mod hit_target;
+pub mod hsv;
 pub mod length;
 pub mod length_failure;
 pub mod length_text;

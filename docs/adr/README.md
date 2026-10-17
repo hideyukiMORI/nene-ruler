@@ -31,3 +31,4 @@ ADR は「なぜそう決めたか」「何を却下したか」を書く。
 | [0013](0013-tick-numbers-keep-their-size.md) | 主目盛の数字は倍率に関わらず 9 px で描く | 受理 |
 | [0014](0014-frameless-single-scale-modal.md) | モーダルは 1x・飾りなしで、閉じるボタンと移動を自前で持つ | 受理 |
 | [0015](0015-length-numbers-keep-their-size.md) | 幅と高さの数字も倍率に関わらず 11 px で描く | 受理 |
+| [0016](0016-hsv-picker-in-core.md) | カラーピッカーの色は整数の HSV で core が換算し、モーダルの編集状態が持つ | 受理 |

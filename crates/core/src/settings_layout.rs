@@ -4,6 +4,7 @@
 
 use alloc::vec::Vec;
 
+use crate::hsv::Hsv;
 use crate::modal_label::ModalLabel;
 use crate::modal_theme::ModalTheme;
 use crate::pixel_point::PixelPoint;
@@ -19,7 +20,7 @@ const MARGIN_PX: u16 = 16;
 /// 窓の幅。
 const WIDTH_PX: u16 = 320;
 /// 窓の高さ。
-const HEIGHT_PX: u16 = 280;
+const HEIGHT_PX: u16 = 376;
 /// 色見本の一辺。
 const SWATCH_PX: u16 = 24;
 /// 色見本と色見本の隙間。
@@ -36,8 +37,17 @@ const FIELD_HEIGHT_PX: u16 = 26;
 /// 各段の上端。見出しのベースラインはその 8 px 上。
 const INK_ROW_PX: u16 = 72;
 const FIELD_ROW_PX: u16 = 108;
-const THEME_ROW_PX: u16 = 168;
-const LAYER_ROW_PX: u16 = 216;
+const PICKER_ROW_PX: u16 = 144;
+const THEME_ROW_PX: u16 = 264;
+const LAYER_ROW_PX: u16 = 312;
+/// カラーピッカーの高さ・四角の幅・帯の幅（ADR 0016）。
+const PICKER_HEIGHT_PX: u16 = 96;
+const SHADE_WIDTH_PX: u16 = 200;
+const HUE_BAR_WIDTH_PX: u16 = 20;
+/// 色相の 1 周（0.1 度刻み）の最後の値。
+const LAST_HUE: u32 = 3599;
+/// 彩度・明度の最大（千分率）。
+const PER_MILLE: u32 = 1000;
 /// 見出しと段の間。
 const HEADING_GAP_PX: u16 = 8;
 /// 終了ボタンの幅。
@@ -48,9 +58,9 @@ const CLOSE_INSET_PX: u16 = 8;
 /// 題のベースライン。
 const TITLE_BASELINE_PX: u16 = 28;
 /// 通知（設定の読み書きの失敗）のベースライン。
-const NOTICE_BASELINE_PX: u16 = 248;
+const NOTICE_BASELINE_PX: u16 = 344;
 /// 脚注のベースライン。
-const FOOTER_BASELINE_PX: u16 = 266;
+const FOOTER_BASELINE_PX: u16 = 362;
 
 /// 設定モーダルの置き場。大きさは倍率だけで決まる。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -168,6 +178,65 @@ impl SettingsLayout {
         )
     }
 
+    /// カラーピッカーの彩度 × 明度の四角。左が彩度 0、上が明度 1000。
+    #[must_use]
+    pub const fn shade_area(self) -> PixelRect {
+        self.scaled(PixelRect::new(
+            MARGIN_PX,
+            PICKER_ROW_PX,
+            SHADE_WIDTH_PX,
+            PICKER_HEIGHT_PX,
+        ))
+    }
+
+    /// カラーピッカーの色相の帯。上が 0 度（赤）で、下へ 1 周する。
+    #[must_use]
+    pub const fn hue_bar(self) -> PixelRect {
+        self.scaled(PixelRect::new(
+            MARGIN_PX + SHADE_WIDTH_PX + BUTTON_GAP_PX,
+            PICKER_ROW_PX,
+            HUE_BAR_WIDTH_PX,
+            PICKER_HEIGHT_PX,
+        ))
+    }
+
+    /// 四角の中の位置の彩度と明度（千分率）。四角の外は縁へ寄せる（引いて外へ出たとき）。
+    #[must_use]
+    pub fn shade_at(self, point: PixelPoint) -> (u16, u16) {
+        let area = self.shade_area();
+        let across = fraction(point.x(), area.x(), area.width());
+        let down = fraction(point.y(), area.y(), area.height());
+        (narrow(across), narrow(PER_MILLE - down))
+    }
+
+    /// 帯の中の位置の色相（0.1 度）。帯の外は端へ寄せる。
+    #[must_use]
+    pub fn hue_at(self, point: PixelPoint) -> u16 {
+        let strip = self.hue_bar();
+        let down = fraction(point.y(), strip.y(), strip.height());
+        narrow(down * LAST_HUE / PER_MILLE)
+    }
+
+    /// 色の、四角の中の印の位置。
+    #[must_use]
+    pub fn shade_point(self, colour: Hsv) -> PixelPoint {
+        let area = self.shade_area();
+        let span_x = u32::from(area.width().saturating_sub(1));
+        let span_y = u32::from(area.height().saturating_sub(1));
+        PixelPoint::new(
+            area.x() + narrow(u32::from(colour.saturation()) * span_x / PER_MILLE),
+            area.y() + narrow((PER_MILLE - u32::from(colour.value())) * span_y / PER_MILLE),
+        )
+    }
+
+    /// 色相の、帯の中の印の高さ。
+    #[must_use]
+    pub fn hue_y(self, colour: Hsv) -> u16 {
+        let strip = self.hue_bar();
+        let span = u32::from(strip.height().saturating_sub(1));
+        strip.y() + narrow(u32::from(colour.hue()) * span / LAST_HUE)
+    }
+
     /// 見えのボタン。
     #[must_use]
     pub const fn theme_button(self, theme: ModalTheme) -> PixelRect {
@@ -236,6 +305,8 @@ impl SettingsLayout {
             self.hex_field(),
             SettingsControl::HexField,
         ));
+        hits.push(SettingsHit::new(self.shade_area(), SettingsControl::Shade));
+        hits.push(SettingsHit::new(self.hue_bar(), SettingsControl::Hue));
         for theme in ModalTheme::ALL {
             hits.push(SettingsHit::new(
                 self.theme_button(theme),
@@ -249,6 +320,18 @@ impl SettingsLayout {
         hits.push(SettingsHit::new(self.quit_button(), SettingsControl::Quit));
         hits
     }
+}
+
+/// 始まり `origin` から長さ `span` の範囲での `at` の位置を千分率で。範囲の外は 0 か 1000 に寄せる。
+fn fraction(at: u16, origin: u16, span: u16) -> u32 {
+    let last = u32::from(span.saturating_sub(1)).max(1);
+    let offset = u32::from(at.saturating_sub(origin)).min(last);
+    offset * PER_MILLE / last
+}
+
+/// 範囲が分かっている値を `u16` に。
+fn narrow(value: u32) -> u16 {
+    u16::try_from(value).unwrap_or(u16::MAX)
 }
 
 #[cfg(test)]
@@ -266,7 +349,7 @@ mod tests {
             assert!(hit.rect().right() <= window.right(), "{hit:?}");
             assert!(hit.rect().bottom() <= window.bottom(), "{hit:?}");
         }
-        assert_eq!(hits.len(), 1 + 8 + 1 + 2 + 1 + 1);
+        assert_eq!(hits.len(), 1 + 8 + 1 + 2 + 2 + 1 + 1);
     }
 
     #[test]
@@ -287,33 +370,26 @@ mod tests {
     #[test]
     fn clicks_map_to_controls() {
         let hits = SINGLE.hits(WindowLayer::AlwaysOnTop);
-        assert_eq!(
-            control_at(&hits, PixelPoint::new(50, 80)),
-            Some(SettingsControl::Preset(1))
-        );
-        assert_eq!(
-            control_at(&hits, PixelPoint::new(20, 110)),
-            Some(SettingsControl::HexField)
-        );
-        assert_eq!(
-            control_at(&hits, PixelPoint::new(100, 174)),
-            Some(SettingsControl::Theme(ModalTheme::Light))
-        );
-        assert_eq!(
-            control_at(&hits, PixelPoint::new(20, 224)),
-            Some(SettingsControl::Layer(WindowLayer::Normal))
-        );
-        assert_eq!(control_at(&hits, PixelPoint::new(300, 250)), None);
-        assert_eq!(
-            control_at(&hits, PixelPoint::new(300, 20)),
-            Some(SettingsControl::Close)
-        );
-        assert_eq!(
-            control_at(&hits, PixelPoint::new(270, 228)),
-            Some(SettingsControl::Quit)
-        );
-        // 題の上は掴み所（部品ではない）。
-        assert_eq!(control_at(&hits, PixelPoint::new(40, 20)), None);
+        let cases = [
+            ((50, 80), Some(SettingsControl::Preset(1))),
+            ((20, 110), Some(SettingsControl::HexField)),
+            ((100, 150), Some(SettingsControl::Shade)),
+            ((230, 150), Some(SettingsControl::Hue)),
+            ((100, 270), Some(SettingsControl::Theme(ModalTheme::Light))),
+            ((20, 320), Some(SettingsControl::Layer(WindowLayer::Normal))),
+            ((300, 346), None),
+            ((300, 20), Some(SettingsControl::Close)),
+            ((270, 324), Some(SettingsControl::Quit)),
+            // 題の上は掴み所（部品ではない）。
+            ((40, 20), None),
+        ];
+        for ((x, y), expected) in cases {
+            assert_eq!(
+                control_at(&hits, PixelPoint::new(x, y)),
+                expected,
+                "({x}, {y})"
+            );
+        }
     }
 
     #[test]
@@ -328,7 +404,7 @@ mod tests {
     #[test]
     fn double_is_exactly_twice_the_single() {
         let double = SettingsLayout::new(UiScale::Double);
-        assert_eq!(double.window(), PixelRect::new(0, 0, 640, 560));
+        assert_eq!(double.window(), PixelRect::new(0, 0, 640, 752));
         assert_eq!(double.preset(7), PixelRect::new(480, 144, 48, 48));
         assert_eq!(
             double.notice_baseline(),
@@ -339,9 +415,32 @@ mod tests {
         );
         let hits = double.hits(WindowLayer::AlwaysOnTop);
         assert_eq!(
-            control_at(&hits, PixelPoint::new(200, 348)),
+            control_at(&hits, PixelPoint::new(200, 540)),
             Some(SettingsControl::Theme(ModalTheme::Light))
         );
         assert_eq!(control_at(&hits, PixelPoint::new(88, 174)), None);
+    }
+
+    #[test]
+    fn the_picker_maps_positions_to_colours_and_back() {
+        assert_eq!(SINGLE.shade_area(), PixelRect::new(16, 144, 200, 96));
+        assert_eq!(SINGLE.hue_bar(), PixelRect::new(224, 144, 20, 96));
+        // 四角: 左上は彩度 0・明度 1000、右下は彩度 1000・明度 0。外は縁へ寄せる。
+        let shades = [
+            ((16, 144), (0, 1000)),
+            ((215, 239), (1000, 0)),
+            ((0, 0), (0, 1000)),
+            ((400, 400), (1000, 0)),
+        ];
+        for ((x, y), expected) in shades {
+            assert_eq!(SINGLE.shade_at(PixelPoint::new(x, y)), expected);
+        }
+        // 帯: 上端が 0 度、下端が 359.9 度。
+        assert_eq!(SINGLE.hue_at(PixelPoint::new(230, 144)), 0);
+        assert_eq!(SINGLE.hue_at(PixelPoint::new(230, 239)), 3599);
+        // 印は逆写像。
+        let colour = Hsv::new(1800, 1000, 0);
+        assert_eq!(SINGLE.shade_point(colour), PixelPoint::new(215, 239));
+        assert_eq!(SINGLE.hue_y(colour), 144 + 47);
     }
 }
