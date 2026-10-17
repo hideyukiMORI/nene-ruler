@@ -636,7 +636,7 @@ mod tests {
             let size = FrameSize::new(Length::new(width).unwrap(), Length::new(height).unwrap());
             FrameLayout::new(size, UiScale::Single)
                 .tick_labels(edge)
-                .map(|label| label.value())
+                .map(TickLabel::value)
                 .collect()
         };
         // 幅 360: 350 は x = 4 + 350 + 2 から 3 桁（18 px）で右の線（363）を越える。
