@@ -2,6 +2,7 @@
 
 use alloc::vec::Vec;
 
+use nene_ruler_core::frame_detail::FrameDetail;
 use nene_ruler_core::frame_layout::FrameLayout;
 use nene_ruler_core::hit_region::HitRegion;
 use nene_ruler_core::length_label::LengthLabel;
@@ -80,6 +81,17 @@ impl RulerFrame {
     /// 当たり判定。文字数は表示文字列から取る。
     #[must_use]
     pub fn hit_regions(&self) -> Vec<HitRegion> {
-        self.layout.hit_regions(|label| self.text(label).chars())
+        self.layout.hit_regions(|label| self.shown(label).chars())
+    }
+
+    /// 描く文字列。線を消した表示の両方だけは短い形（`16×16`）で、それ以外はコピーと同じ（ADR 0019）。
+    #[must_use]
+    pub const fn shown(&self, label: LengthLabel) -> &LengthText {
+        match (self.layout.detail(), label) {
+            (FrameDetail::Bare, LengthLabel::Size) => self.texts.short_size(),
+            (FrameDetail::Full | FrameDetail::Compact | FrameDetail::Bare, _) => {
+                self.texts.text(label)
+            }
+        }
     }
 }

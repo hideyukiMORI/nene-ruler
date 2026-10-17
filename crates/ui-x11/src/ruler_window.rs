@@ -322,7 +322,7 @@ impl<'d> RulerWindow<'d> {
         };
         let hit = frame
             .layout()
-            .label_hit(mark.label(), frame.text(mark.label()).chars());
+            .label_hit(mark.label(), frame.shown(mark.label()).chars());
         let still_over = position
             .and_then(|(x, y)| PixelPoint::from_event(x, y))
             .is_some_and(|point| hit.contains(point));
