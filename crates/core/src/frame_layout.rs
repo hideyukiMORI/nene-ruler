@@ -767,7 +767,7 @@ mod tests {
         assert_eq!(fitted(100, 240).detail(), FrameDetail::Compact);
         assert_eq!(fitted(400, 60).detail(), FrameDetail::Compact);
         // 境目: 幅を 1 px ずつ縮めると、全部 → 詰める → 線を消す の順に一度ずつ変わり、戻らない。
-        let changes = (40..=400_u16)
+        let changes = (16..=400_u16)
             .map(|width| fitted(width, 240).detail())
             .collect::<Vec<_>>()
             .windows(2)
@@ -801,9 +801,9 @@ mod tests {
     #[test]
     fn frames_too_small_for_the_size_drop_their_lines() {
         assert_eq!(fitted(102, 52).detail(), FrameDetail::Compact);
-        assert_eq!(fitted(40, 40).detail(), FrameDetail::Bare);
+        assert_eq!(fitted(16, 16).detail(), FrameDetail::Bare);
         assert_eq!(fitted(60, 40).detail(), FrameDetail::Bare);
-        let bare = fitted(40, 40);
+        let bare = fitted(16, 16);
         let compact = fitted(102, 52);
         // 線のインクが無く、鉤括弧は 4 本の細い腕だけ。
         assert_eq!(bare.ink_rects().len(), 4);
@@ -814,8 +814,15 @@ mod tests {
             bare.anchor_hit(Anchor::TopLeft),
             compact.anchor_hit(Anchor::TopLeft)
         );
-        // 文字は窓の横の中央に置き、窓の中に収まる。
-        let hit = bare.label_hit(LengthLabel::Size, chars_for(40, 40)(LengthLabel::Size));
+    }
+
+    #[test]
+    fn the_short_size_fits_the_smallest_window() {
+        let bare = fitted(16, 16);
+        // 文字は窓の横の中央に置く。短い形（`16×16`・5 文字）は 1x の最小の窓（40 px）に収まる。
+        let short = LengthText::short_size(Length::new(16).unwrap(), Length::new(16).unwrap());
+        let hit = bare.label_hit(LengthLabel::Size, short.chars());
+        assert_eq!(hit.width(), 35);
         assert_eq!(
             bare.label_baseline(LengthLabel::Size).x(),
             bare.window().width() / 2
@@ -826,8 +833,8 @@ mod tests {
 
     #[test]
     fn the_smallest_window_holds_the_smallest_frame() {
-        assert_eq!(FrameLayout::smallest_window(UiScale::Single), 64);
-        assert_eq!(FrameLayout::smallest_window(UiScale::Double), 88);
+        assert_eq!(FrameLayout::smallest_window(UiScale::Single), 40);
+        assert_eq!(FrameLayout::smallest_window(UiScale::Double), 64);
         assert_eq!(
             FrameLayout::frame_px_for_window(
                 FrameLayout::smallest_window(UiScale::Double),

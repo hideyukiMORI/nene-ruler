@@ -10,8 +10,8 @@ use crate::length_failure::LengthFailure;
 pub struct Length(u16);
 
 impl Length {
-    /// 下限。左上と右下の鉤括弧（腕 12 px）が重ならず、間に数字が入る最小。
-    pub const MIN_PX: u16 = 40;
+    /// 下限（施主指定 2026-10-17・Issue #54）。線を消した表示の細い鉤括弧（腕 6 px）が重ならない最小。
+    pub const MIN_PX: u16 = 16;
     /// 上限。窓の座標を `u16` / `i16` で持てる範囲に収める（`FrameLayout` の余白を足しても `i16::MAX` 未満）。
     pub const MAX_PX: u16 = 16_384;
     /// 初期の幅（SPECIFICATION 第 2 節。決め打ちしない）。
@@ -54,20 +54,20 @@ mod tests {
 
     #[test]
     fn accepts_the_bounds_inclusive() {
-        assert_eq!(Length::new(40).map(Length::px), Ok(40));
+        assert_eq!(Length::new(16).map(Length::px), Ok(16));
         assert_eq!(Length::new(16_384).map(Length::px), Ok(16_384));
     }
 
     #[test]
     fn rejects_outside_the_bounds() {
-        assert_eq!(Length::new(39), Err(LengthFailure::BelowMinimum));
+        assert_eq!(Length::new(15), Err(LengthFailure::BelowMinimum));
         assert_eq!(Length::new(16_385), Err(LengthFailure::AboveMaximum));
     }
 
     #[test]
     fn clamps_into_the_range() {
         let max = Length::new(1_000).unwrap();
-        assert_eq!(Length::clamped(10, max).px(), 40);
+        assert_eq!(Length::clamped(10, max).px(), 16);
         assert_eq!(Length::clamped(5_000, max).px(), 1_000);
         assert_eq!(Length::clamped(300, max).px(), 300);
     }

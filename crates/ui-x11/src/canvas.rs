@@ -213,10 +213,11 @@ fn draw_tick_labels(context: &Context, frame: &RulerFrame) -> Result<(), UiFailu
 /// 幅・高さ・両方の数字。幅は上辺の中央、高さは左辺の中央に 90 度回して、両方は枠の中央に（ADR 0017）。
 /// コピーの印があれば、成功は反転（インクの箱に透明の文字）、失敗は取り消し線（ADR 0007 の 5）。
 fn draw_label(context: &Context, frame: &RulerFrame, label: LengthLabel) -> Result<(), UiFailure> {
-    let text = frame.text(label).as_str();
+    // 線を消した表示の両方だけは短い形を描く（ADR 0019）。コピーは `text` の方。
+    let text = frame.shown(label).as_str();
     let baseline = frame.layout().label_baseline(label);
     let mark = frame.copy_mark().filter(|mark| mark.label() == label);
-    let hit = frame.layout().label_hit(label, frame.text(label).chars());
+    let hit = frame.layout().label_hit(label, frame.shown(label).chars());
     if mark.is_some_and(CopyMark::succeeded) {
         fill_rect(context, hit)?;
     }

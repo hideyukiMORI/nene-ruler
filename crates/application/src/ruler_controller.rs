@@ -221,7 +221,10 @@ impl<'p> RulerController<'p> {
         FrameTexts::new(
             LengthText::in_pixels(width),
             LengthText::in_pixels(height),
-            LengthText::size(width, height),
+            (
+                LengthText::size(width, height),
+                LengthText::short_size(width, height),
+            ),
         )
     }
 }
@@ -697,5 +700,25 @@ mod tests {
         controller.apply(RulerIntent::CopyText(LengthLabel::Size));
         assert_eq!(board.copied.borrow().as_deref(), Some("100 \u{d7} 40 px"));
         assert_eq!(controller.frame().layout().detail(), FrameDetail::Compact);
+    }
+
+    #[test]
+    fn the_smallest_frame_shows_the_short_size_but_copies_the_full_one() {
+        let (screen, store, board) = (screen(), MemoryStore::empty(), clipboard());
+        let mut controller = RulerController::new(
+            Ports::new(&screen, &store, &board),
+            Environment::new(Transparency::Composited),
+            ProductVersion::new("0.1.0"),
+        );
+        // 窓 10 × 10 は最小の枠 16 × 16 に丸まる（余白 24）。
+        controller.apply(RulerIntent::WindowResized {
+            width_px: 10,
+            height_px: 10,
+        });
+        let frame = controller.frame();
+        assert_eq!(frame.layout().detail(), FrameDetail::Bare);
+        assert_eq!(frame.shown(LengthLabel::Size).as_str(), "16\u{d7}16");
+        controller.apply(RulerIntent::CopyText(LengthLabel::Size));
+        assert_eq!(board.copied.borrow().as_deref(), Some("16 \u{d7} 16 px"));
     }
 }

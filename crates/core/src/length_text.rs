@@ -22,6 +22,12 @@ impl LengthText {
         Self(format!("{} \u{d7} {} px", width.px(), height.px()))
     }
 
+    /// 幅と高さの短い形（`16×16`）。線を消した表示で、窓に収まるように空白と単位を省く（ADR 0019）。
+    #[must_use]
+    pub fn short_size(width: Length, height: Length) -> Self {
+        Self(format!("{}\u{d7}{}", width.px(), height.px()))
+    }
+
     /// 文字列そのもの。表示にもコピーにもこれを使う。
     #[must_use]
     pub fn as_str(&self) -> &str {
@@ -51,5 +57,12 @@ mod tests {
         let text = LengthText::size(Length::new(100).unwrap(), Length::new(40).unwrap());
         assert_eq!(text.as_str(), "100 \u{d7} 40 px");
         assert_eq!(text.chars(), 11);
+    }
+
+    #[test]
+    fn spells_the_short_size_without_spaces_or_unit() {
+        let text = LengthText::short_size(Length::new(16).unwrap(), Length::new(16).unwrap());
+        assert_eq!(text.as_str(), "16\u{d7}16");
+        assert_eq!(text.chars(), 5);
     }
 }
