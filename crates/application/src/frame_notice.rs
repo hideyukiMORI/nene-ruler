@@ -18,7 +18,7 @@ impl FrameNotice {
         match self {
             Self::Opaque => "no compositor: drawn opaque",
             Self::NoScreenMetrics => "no screen size: px only",
-            Self::NoAlwaysOnTop => "always on top: not supported by this window manager",
+            Self::NoAlwaysOnTop => "always on top: not supported here",
         }
     }
 }

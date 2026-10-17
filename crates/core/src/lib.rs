@@ -42,5 +42,6 @@ pub mod settings_layout;
 pub mod tick_kind;
 pub mod tick_label;
 pub mod tick_mark;
+pub mod ui_scale;
 pub mod unit;
 pub mod window_layer;
