@@ -19,7 +19,7 @@ use crate::ui_failure::UiFailure;
 pub(crate) const FONT_FAMILY: &str = "sans-serif";
 /// 幅・高さの数字の大きさ（1x）。
 const LABEL_FONT_PX: f64 = 11.0;
-/// 主目盛の数字の大きさ（1x）。
+/// 主目盛の数字の大きさ。倍率に関わらずこの大きさ（ADR 0013）。
 const TICK_FONT_PX: f64 = 9.0;
 
 /// 1x の字の大きさに UI の倍率を掛ける（FR-016・ADR 0011）。
@@ -197,7 +197,8 @@ pub(crate) fn fill_rect(context: &Context, rect: PixelRect) -> Result<(), UiFail
 /// 上辺と左辺の主目盛の数字。
 fn draw_tick_labels(context: &Context, frame: &RulerFrame) -> Result<(), UiFailure> {
     context.select_font_face(FONT_FAMILY, FontSlant::Normal, FontWeight::Normal);
-    context.set_font_size(font_px(TICK_FONT_PX, frame.layout().scale()));
+    // 主目盛の数字は倍率を掛けない（ADR 0013）。
+    context.set_font_size(TICK_FONT_PX);
     for edge in [Edge::Top, Edge::Left] {
         for label in frame.layout().tick_labels(edge) {
             let baseline = label.baseline();

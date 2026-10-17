@@ -26,5 +26,6 @@ ADR は「なぜそう決めたか」「何を却下したか」を書く。
 | [0008](0008-wslg-layered-window-hit-and-shadow.md) | WSLg では描いた画素が当たり判定になる。帯はアルファ 1 で描き、影は窓の種類で消し、Alt+F4 は自分で読む | 受理（文脈 3 と決定 4 は置換 → 0009、決定 5 は置換 → 0012） |
 | [0009](0009-alt-f4-on-the-f4-release.md) | Alt+F4 は、この窓が Alt の押下を受けていれば F4 の離しでも閉じる | 受理 |
 | [0010](0010-coverage-floor-in-regions.md) | カバレッジの下限は region で測る | 受理 |
-| [0011](0011-integer-ui-scale.md) | UI の倍率は 1x / 2x の整数で、飾りにだけ掛ける | 受理 |
+| [0011](0011-integer-ui-scale.md) | UI の倍率は 1x / 2x の整数で、飾りにだけ掛ける | 受理（主目盛の数字の大きさは置換 → 0013） |
 | [0012](0012-px-only-and-no-layer-notice.md) | 長さは px だけで綴り、最前面が効かないことは示さない | 受理 |
+| [0013](0013-tick-numbers-keep-their-size.md) | 主目盛の数字は倍率に関わらず 9 px で描く | 受理 |
