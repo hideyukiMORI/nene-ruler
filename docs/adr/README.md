@@ -33,3 +33,4 @@ ADR は「なぜそう決めたか」「何を却下したか」を書く。
 | [0015](0015-length-numbers-keep-their-size.md) | 幅と高さの数字も倍率に関わらず 11 px で描く | 受理 |
 | [0016](0016-hsv-picker-in-core.md) | カラーピッカーの色は整数の HSV で core が換算し、モーダルの編集状態が持つ | 受理 |
 | [0017](0017-compact-frame-detail.md) | 数字が読めない小さな枠では、目盛を消して中央に W × H px を出す | 受理 |
+| [0018](0018-bare-frame-detail.md) | W × H px が枠に収まらない枠では、線を消して文字を窓の中央に出す | 受理 |

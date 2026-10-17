@@ -32,6 +32,9 @@ const LINE_PX: u16 = 1;
 const ANCHOR_ARM_PX: u16 = 12;
 /// 鉤括弧の太さ。
 const ANCHOR_THICKNESS_PX: u16 = 2;
+/// 線を消した描き方（`Bare`）の鉤括弧の腕の長さと太さ（ADR 0018）。
+const BARE_ANCHOR_ARM_PX: u16 = 6;
+const BARE_ANCHOR_THICKNESS_PX: u16 = 1;
 /// ギアの直径。
 const GEAR_DIAMETER_PX: u16 = 16;
 /// 右下の鉤括弧からギアまでの隙間。
@@ -79,10 +82,19 @@ impl FrameLayout {
             detail: FrameDetail::Full,
             ..self
         };
+        let compact = Self {
+            detail: FrameDetail::Compact,
+            ..self
+        };
+        let size_width = compact
+            .label_hit(LengthLabel::Size, chars(LengthLabel::Size))
+            .width();
         let detail = if full.labels_fit(&chars) {
             FrameDetail::Full
-        } else {
+        } else if size_width + 2 <= compact.frame().width() {
             FrameDetail::Compact
+        } else {
+            FrameDetail::Bare
         };
         Self { detail, ..self }
     }
@@ -98,7 +110,7 @@ impl FrameLayout {
     pub const fn labels(self) -> &'static [LengthLabel] {
         match self.detail {
             FrameDetail::Full => &[LengthLabel::Width, LengthLabel::Height],
-            FrameDetail::Compact => &[LengthLabel::Size],
+            FrameDetail::Compact | FrameDetail::Bare => &[LengthLabel::Size],
         }
     }
 
@@ -250,8 +262,16 @@ impl FrameLayout {
     #[must_use]
     pub fn anchor_arms(self, anchor: Anchor) -> [PixelRect; 2] {
         let frame = self.frame();
-        let arm = self.px(ANCHOR_ARM_PX);
-        let thickness = self.px(ANCHOR_THICKNESS_PX);
+        let (arm, thickness) = match self.detail {
+            FrameDetail::Full | FrameDetail::Compact => {
+                (self.px(ANCHOR_ARM_PX), self.px(ANCHOR_THICKNESS_PX))
+            }
+            // 細く描くだけで、当たり判定（`anchor_hit`）は変えない（ADR 0018）。
+            FrameDetail::Bare => (
+                self.px(BARE_ANCHOR_ARM_PX),
+                self.px(BARE_ANCHOR_THICKNESS_PX),
+            ),
+        };
         match anchor {
             Anchor::TopLeft => [
                 PixelRect::new(frame.x(), frame.y(), arm, thickness),
@@ -336,10 +356,14 @@ impl FrameLayout {
                 frame.x() + self.left_inset() + LABEL_PX,
                 frame.y() + frame.height() / 2,
             ),
-            LengthLabel::Size => PixelPoint::new(
-                frame.x() + frame.width() / 2,
-                frame.y() + frame.height() / 2 + LABEL_PX / 2,
-            ),
+            LengthLabel::Size => {
+                // 線を消した描き方では、枠より広い文字を窓の横の中央に寄せて余白へはみ出させる（ADR 0018）。
+                let centre_x = match self.detail {
+                    FrameDetail::Full | FrameDetail::Compact => frame.x() + frame.width() / 2,
+                    FrameDetail::Bare => self.window().width() / 2,
+                };
+                PixelPoint::new(centre_x, frame.y() + frame.height() / 2 + LABEL_PX / 2)
+            }
         }
     }
 
@@ -366,7 +390,12 @@ impl FrameLayout {
     #[must_use]
     pub fn label_hit(self, label: LengthLabel, chars: u16) -> PixelRect {
         let baseline = self.label_baseline(label);
-        let span = chars * LABEL_ADVANCE_PX;
+        let estimate = chars * LABEL_ADVANCE_PX;
+        // 線を消した描き方では、見積りが窓より広くても窓の中に収める（ADR 0018）。
+        let span = match self.detail {
+            FrameDetail::Full | FrameDetail::Compact => estimate,
+            FrameDetail::Bare => estimate.min(self.window().width()),
+        };
         let half = span / 2;
         let depth = LABEL_PX + self.px(TEXT_GAP_PX);
         match label {
@@ -390,7 +419,9 @@ impl FrameLayout {
     pub fn ink_rects(self) -> Vec<PixelRect> {
         let mut rects = Vec::new();
         for edge in Edge::ALL {
-            rects.push(self.line(edge));
+            if self.detail != FrameDetail::Bare {
+                rects.push(self.line(edge));
+            }
             rects.extend(self.ticks(edge));
         }
         rects.extend(self.anchor_arms(Anchor::TopLeft));
@@ -728,15 +759,14 @@ mod tests {
         assert_eq!(fitted(400, 240).detail(), FrameDetail::Full);
         assert_eq!(fitted(100, 240).detail(), FrameDetail::Compact);
         assert_eq!(fitted(400, 60).detail(), FrameDetail::Compact);
-        assert_eq!(fitted(40, 40).detail(), FrameDetail::Compact);
-        // 境目: 幅を 1 px ずつ縮めると、どこかで一度だけ詰めた表示に変わり、戻らない。
-        let changes = (60..=400_u16)
+        // 境目: 幅を 1 px ずつ縮めると、全部 → 詰める → 線を消す の順に一度ずつ変わり、戻らない。
+        let changes = (40..=400_u16)
             .map(|width| fitted(width, 240).detail())
             .collect::<Vec<_>>()
             .windows(2)
             .filter(|pair| pair.first() != pair.last())
             .count();
-        assert_eq!(changes, 1);
+        assert_eq!(changes, 2);
     }
 
     #[test]
@@ -759,5 +789,31 @@ mod tests {
                 .iter()
                 .all(|region| region.target() != HitTarget::Copy(LengthLabel::Width))
         );
+    }
+
+    #[test]
+    fn frames_too_small_for_the_size_drop_their_lines() {
+        assert_eq!(fitted(102, 52).detail(), FrameDetail::Compact);
+        assert_eq!(fitted(40, 40).detail(), FrameDetail::Bare);
+        assert_eq!(fitted(60, 40).detail(), FrameDetail::Bare);
+        let bare = fitted(40, 40);
+        let compact = fitted(102, 52);
+        // 線のインクが無く、鉤括弧は 4 本の細い腕だけ。
+        assert_eq!(bare.ink_rects().len(), 4);
+        let [arm, _] = bare.anchor_arms(Anchor::TopLeft);
+        assert_eq!((arm.width(), arm.height()), (6, 1));
+        // 掴める範囲は変えない。
+        assert_eq!(
+            bare.anchor_hit(Anchor::TopLeft),
+            compact.anchor_hit(Anchor::TopLeft)
+        );
+        // 文字は窓の横の中央に置き、窓の中に収まる。
+        let hit = bare.label_hit(LengthLabel::Size, chars_for(40, 40)(LengthLabel::Size));
+        assert_eq!(
+            bare.label_baseline(LengthLabel::Size).x(),
+            bare.window().width() / 2
+        );
+        assert!(hit.right() <= bare.window().right(), "{hit:?}");
+        assert_eq!(bare.labels(), &[LengthLabel::Size]);
     }
 }
