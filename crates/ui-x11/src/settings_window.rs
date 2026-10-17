@@ -45,6 +45,7 @@ pub struct SettingsWindow<'d> {
     wm_moves: bool,
     drag: Option<Drag>,
     focus: FieldFocus,
+    picking: Option<SettingsControl>,
 }
 
 impl<'d> SettingsWindow<'d> {
@@ -105,6 +106,7 @@ impl<'d> SettingsWindow<'d> {
             wm_moves: display.wm_supports(display.atoms().net_wm_moveresize),
             drag: None,
             focus: FieldFocus::Unfocused,
+            picking: None,
         };
         opened.declare_hints(owner)?;
         connection.map_window(opened.window.window())?;
@@ -157,8 +159,16 @@ impl<'d> SettingsWindow<'d> {
             return self.pressed(controller, press);
         } else if let Event::MotionNotify(motion) = event {
             self.dragged((motion.root_x, motion.root_y))?;
+            if let Some(control) = self.picking
+                && let Some(intent) =
+                    Self::pick(controller, control, (motion.event_x, motion.event_y))
+            {
+                controller.apply(intent);
+                return Ok(SettingsFlow::Changed);
+            }
         } else if let Event::ButtonRelease(_) = event {
             self.drag = None;
+            self.picking = None;
         } else if let Event::FocusIn(_) = event {
             self.refocused(controller, FieldFocus::Focused)?;
         } else if let Event::FocusOut(_) = event {
@@ -249,6 +259,15 @@ impl<'d> SettingsWindow<'d> {
             }
             // 入力欄は常に鍵を受けるので、押しても状態は変わらない。
             SettingsControl::HexField => return Ok(SettingsFlow::Continue),
+            SettingsControl::Shade | SettingsControl::Hue => {
+                // 押したまま引くと追いかける（ADR 0016）。
+                self.picking = Some(control);
+                let Some(intent) = Self::pick(controller, control, (press.event_x, press.event_y))
+                else {
+                    return Ok(SettingsFlow::Continue);
+                };
+                intent
+            }
             SettingsControl::Theme(theme) => RulerIntent::ChooseModalTheme(theme),
             SettingsControl::Layer(layer) => RulerIntent::ChooseLayer(layer),
             SettingsControl::Close => return Ok(SettingsFlow::Close),
@@ -256,6 +275,29 @@ impl<'d> SettingsWindow<'d> {
         };
         controller.apply(intent);
         Ok(SettingsFlow::Changed)
+    }
+
+    /// ピッカーの位置を意図にする。窓の外へ引いた位置は縁へ寄せる。
+    fn pick(
+        controller: &RulerController<'_>,
+        control: SettingsControl,
+        (x, y): (i16, i16),
+    ) -> Option<RulerIntent> {
+        let point = PixelPoint::from_event(x.max(0), y.max(0))?;
+        let layout = controller.settings_frame()?.layout();
+        match control {
+            SettingsControl::Shade => {
+                let (saturation, value) = layout.shade_at(point);
+                Some(RulerIntent::PickShade { saturation, value })
+            }
+            SettingsControl::Hue => Some(RulerIntent::PickHue(layout.hue_at(point))),
+            SettingsControl::Preset(_)
+            | SettingsControl::HexField
+            | SettingsControl::Theme(_)
+            | SettingsControl::Layer(_)
+            | SettingsControl::Close
+            | SettingsControl::Quit => None,
+        }
     }
 
     /// 窓を動かし始める。WM に任せ、できなければ自前で引く（枠の窓と同じ・ADR 0005 の 4）。

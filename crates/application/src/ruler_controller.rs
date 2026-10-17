@@ -3,6 +3,7 @@
 use nene_ruler_core::axis::Axis;
 use nene_ruler_core::frame_layout::FrameLayout;
 use nene_ruler_core::frame_size::FrameSize;
+use nene_ruler_core::hsv::Hsv;
 use nene_ruler_core::length::Length;
 use nene_ruler_core::length_text::LengthText;
 use nene_ruler_core::ruler_settings::RulerSettings;
@@ -91,6 +92,10 @@ impl<'p> RulerController<'p> {
                 self.edit(|session| session.clone().with_entry(session.entry().backspaced()));
             }
             RulerIntent::HexSubmit => self.submit_hex(),
+            RulerIntent::PickShade { saturation, value } => {
+                self.pick(|picker| picker.with_shade(saturation, value));
+            }
+            RulerIntent::PickHue(hue) => self.pick(|picker| picker.with_hue(hue)),
             RulerIntent::CopyText(axis) => {
                 let outcome = self.ports.clipboard().copy(self.text(axis).as_str());
                 self.copy_mark = Some(CopyMark::new(axis, outcome));
@@ -162,6 +167,16 @@ impl<'p> RulerController<'p> {
         if let Some(session) = &self.modal {
             self.modal = Some(change(session));
         }
+    }
+
+    /// ピッカーの色を変えてインク色にする。モーダルが開いているときだけ（ADR 0016）。
+    fn pick(&mut self, change: impl FnOnce(Hsv) -> Hsv) {
+        let Some(session) = &self.modal else {
+            return;
+        };
+        let picker = change(session.picker());
+        self.change(self.settings.with_ink(picker.to_rgb()));
+        self.modal = Some(ModalSession::picked(picker));
     }
 
     /// 入力欄の文字列を色にする。読めなければ拒否を見せる。
@@ -594,5 +609,46 @@ mod tests {
         let (real_screen, fresh_store) = (self::screen(), MemoryStore::empty());
         let fine = self::controller(&real_screen, &fresh_store);
         assert!(fine.frame().notices().list().is_empty());
+    }
+
+    #[test]
+    fn the_picker_sets_the_ink_and_keeps_the_hue_through_black() {
+        let (screen, store) = (screen(), MemoryStore::empty());
+        let mut controller = controller(&screen, &store);
+        controller.apply(RulerIntent::OpenSettings);
+        controller.apply(RulerIntent::PickHue(2400));
+        controller.apply(RulerIntent::PickShade {
+            saturation: 1000,
+            value: 1000,
+        });
+        assert_eq!(controller.frame().ink(), Rgb::new(0, 0, 255));
+        assert_eq!(
+            controller
+                .settings_frame()
+                .unwrap()
+                .session()
+                .entry()
+                .text(),
+            "#0000FF"
+        );
+        // 黒まで落としても色相は残り、明度を戻すと青に戻る。
+        controller.apply(RulerIntent::PickShade {
+            saturation: 1000,
+            value: 0,
+        });
+        assert_eq!(controller.frame().ink(), Rgb::new(0, 0, 0));
+        controller.apply(RulerIntent::PickShade {
+            saturation: 1000,
+            value: 1000,
+        });
+        assert_eq!(controller.frame().ink(), Rgb::new(0, 0, 255));
+        assert_eq!(
+            *store.saved.borrow(),
+            Some(RulerSettings::INITIAL.with_ink(Rgb::new(0, 0, 255)))
+        );
+        // モーダルが閉じていれば何もしない。
+        controller.apply(RulerIntent::CloseSettings);
+        controller.apply(RulerIntent::PickHue(0));
+        assert_eq!(controller.frame().ink(), Rgb::new(0, 0, 255));
     }
 }

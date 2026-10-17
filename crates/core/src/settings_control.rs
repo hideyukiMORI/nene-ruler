@@ -10,6 +10,10 @@ pub enum SettingsControl {
     Preset(u8),
     /// `#RRGGBB` の入力欄。
     HexField,
+    /// カラーピッカーの彩度（横）× 明度（縦）の四角。値は押した位置から決まる（ADR 0016）。
+    Shade,
+    /// カラーピッカーの色相の帯。値は押した位置から決まる。
+    Hue,
     /// モーダルの見えの選択。
     Theme(ModalTheme),
     /// 重なり順の切替。
