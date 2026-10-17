@@ -1,6 +1,6 @@
 # ゲート発火の証明 — NeNe Ruler
 
-> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）。以下は実行した結果のみ。
+> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）。以下は実行した結果のみ。
 > 関連: QLT-007 / QLT-011 / QLT-013 / ADR 0003
 
 ## 1. 環境と範囲
@@ -182,3 +182,39 @@ make screenshot
 
 🔴 **見つかった欠陥:** 入力 shape は、`XFixesQueryVersion` を先に送らないと効かなかった（中身の上でも `WINDOW=6291457` が返った）。
 `Display::connect` で版 2.0 を交渉するようにして、素通しになった。単体テストでは見えない種類の欠陥で、Xvfb の実測で初めて出た。
+
+## 9. Issue #4 — 設定モーダル（2026-10-16）
+
+同じコンテナ。Issue #2 の枝の上に積んだ。
+
+### 9.1 ゲート
+
+| target | 結果 |
+| --- | --- |
+| `make lint` | 0 件 |
+| `make test` | core 43・application 9・ui-x11 19・xtask 69、すべて成功 |
+| `make conformance` | 違反なし（104 ファイル） |
+| `make deny` / `make fmt-check` / `make doc-check` | ok・差分なし・警告なし |
+| `make coverage` | core ＋ application: regions 98.55%・functions 96.24%・lines 97.75% |
+
+### 9.2 Xvfb での操作（`xdotool`・合成器あり・WM 無し）
+
+| 操作 | 命令 | 結果 | PNG |
+| --- | --- | --- | --- |
+| ギアを押す | `mousemove 416 256 click 1` | 2 枚目の窓 `NeNe Ruler Settings`（320×336）が出る。題・Ink の色見本 8 つ・`#E53935` の入力欄・Unit・Settings window・Always on top・脚注 | [settings-open](screenshots/2026-10-16-xvfb-settings-open.png) |
+| 色見本（紫） | `mousemove 188 84 click 1` | 枠の線・目盛・ギアが紫になり、入力欄が `#8E24AA` に変わる | |
+| 単位 mm → in | `mousemove 108 180 click 1` / `172 180` | 物理寸法が無い Xvfb では px のまま（FR-008 の降格）。ボタンの選択は移る | |
+| 見え Light | `mousemove 132 236 click 1` | 背景が `#F5F5F5` に変わる。枠の窓は変わらない（FR-018） | [light-in](screenshots/2026-10-16-xvfb-settings-light-in.png) |
+| 直接入力 | `key BackSpace`×7、`type "#00aa55"`、`key Return` | 枠が `#00AA55` の緑になり、入力欄は `#00AA55` | [hex](screenshots/2026-10-16-xvfb-settings-hex.png) |
+| 無効な入力 | `key BackSpace`、`key Return` | 入力欄の右に `not #RRGGBB`。枠の色は変わらない（FR-014） | [rejected](screenshots/2026-10-16-xvfb-settings-rejected.png) |
+| 最前面の切替 | `mousemove 28 284 click 1` | チェックが消える。WM が無いので重なり順の変化は見えない | |
+| Esc | `key Escape` | モーダルが消え、枠は残る。再びギアで開き直せる（新しい窓 ID） | |
+| 閉じる要求 | `xdotool windowclose`（`WM_DELETE_WINDOW`） | 同上 | |
+
+🔴 **見つかった欠陥:** Esc でモーダルを閉じても窓が残った。`WindowWrapper` の `Drop` が送る `DestroyWindow` が送信バッファに残り、
+次の `wait_for_event` では流れない。閉じた直後に `flush` するようにして消えた。単体テストでは見えない種類で、Xvfb の実測で出た。
+
+### 9.3 まだ証明していないこと（Issue #4）
+
+- WSLg（WM あり）での transient の扱い・最前面の切替（`_NET_WM_STATE` のメッセージ）・モーダルの位置
+- mm / in の表示。Xvfb の `RandR` はミリ寸法を 0 で返すので px に降格した。単位の換算は `RulerController` の単体テストで見ている

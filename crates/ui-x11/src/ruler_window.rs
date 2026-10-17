@@ -9,7 +9,8 @@ use nene_ruler_core::hit_target::HitTarget;
 use nene_ruler_core::length::Length;
 use nene_ruler_core::pixel_point::PixelPoint;
 use nene_ruler_core::pixel_rect::PixelRect;
-use x11rb::connection::{Connection, RequestConnection as _};
+use nene_ruler_core::window_layer::WindowLayer;
+use x11rb::connection::Connection;
 use x11rb::protocol::Event;
 use x11rb::protocol::shape;
 use x11rb::protocol::xfixes::{self, ConnectionExt as _};
@@ -24,8 +25,8 @@ use x11rb::wrapper::ConnectionExt as _;
 use crate::canvas::Canvas;
 use crate::display::Display;
 use crate::drag::Drag;
-use crate::escape_keys::EscapeKeys;
 use crate::flow::Flow;
+use crate::key_input::KeyInput;
 use crate::transfer::Transfer;
 use crate::ui_failure::UiFailure;
 use crate::window_geometry::WindowGeometry;
@@ -36,8 +37,11 @@ const MWM_HINTS_DECORATIONS: u32 = 1 << 1;
 const MOVERESIZE_SIZE_TOPLEFT: u32 = 0;
 const MOVERESIZE_SIZE_BOTTOMRIGHT: u32 = 4;
 const MOVERESIZE_MOVE: u32 = 8;
-/// `_NET_WM_MOVERESIZE` の `source_indication`: 通常のアプリケーション。
+/// `_NET_WM_MOVERESIZE` / `_NET_WM_STATE` の `source_indication`: 通常のアプリケーション。
 const SOURCE_APPLICATION: u32 = 1;
+/// `_NET_WM_STATE` の action。
+const NET_WM_STATE_REMOVE: u32 = 0;
+const NET_WM_STATE_ADD: u32 = 1;
 /// 左ボタン。
 const BUTTON_LEFT: u8 = 1;
 /// 窓の題。
@@ -50,7 +54,6 @@ pub struct RulerWindow<'d> {
     window: WindowWrapper<&'d RustConnection>,
     gc: GcontextWrapper<&'d RustConnection>,
     _colormap: ColormapWrapper<&'d RustConnection>,
-    escape_keys: EscapeKeys,
     wm_moves: bool,
     drag: Option<Drag>,
 }
@@ -100,7 +103,6 @@ impl<'d> RulerWindow<'d> {
             &attributes,
         )?;
         let gc = GcontextWrapper::create_gc(connection, window.window(), &CreateGCAux::new())?;
-        let escape_keys = Self::escape_keys(connection)?;
         let wm_moves = Self::wm_supports_moveresize(display, root)?;
 
         let opened = Self {
@@ -108,33 +110,40 @@ impl<'d> RulerWindow<'d> {
             window,
             gc,
             _colormap: colormap,
-            escape_keys,
             wm_moves,
             drag: None,
         };
-        opened.declare_hints()?;
+        opened.declare_hints(frame.layer())?;
         opened.set_input_shape(&frame.hit_regions())?;
         connection.map_window(opened.window.window())?;
         opened.present(frame)?;
         Ok(opened)
     }
 
-    /// イベントを待ち、意図を `controller` に渡し、描き直す。閉じる要求で戻る。
+    /// この窓の ID。
+    #[must_use]
+    pub fn window(&self) -> Window {
+        self.window.window()
+    }
+
+    /// 設定が変わった後に、枠を描き直し、当たり判定と重なり順を合わせる。
     ///
     /// # Errors
     ///
     /// X の要求か cairo が失敗した。
-    pub fn run(&mut self, controller: &mut RulerController) -> Result<(), UiFailure> {
-        loop {
-            let event = self.display.connection().wait_for_event()?;
-            if self.step(controller, &event)? == Flow::Quit {
-                return Ok(());
-            }
-        }
+    pub fn refresh(&self, controller: &RulerController) -> Result<(), UiFailure> {
+        let frame = controller.frame();
+        self.set_input_shape(&frame.hit_regions())?;
+        self.set_layer(frame.layer())?;
+        self.present(&frame)
     }
 
     /// 1 つのイベント。X のイベントは開いた集合なので `if let` の連なりで書く（規約 第 4 節）。
-    fn step(&mut self, controller: &mut RulerController, event: &Event) -> Result<Flow, UiFailure> {
+    pub(crate) fn step(
+        &mut self,
+        controller: &mut RulerController,
+        event: &Event,
+    ) -> Result<Flow, UiFailure> {
         if let Event::Expose(expose) = event {
             if expose.count == 0 {
                 self.present(&controller.frame())?;
@@ -148,13 +157,13 @@ impl<'d> RulerWindow<'d> {
             self.set_input_shape(&frame.hit_regions())?;
             self.present(&frame)?;
         } else if let Event::ButtonPress(press) = event {
-            self.pressed(&controller.frame(), press)?;
+            return self.pressed(&controller.frame(), press);
         } else if let Event::MotionNotify(motion) = event {
             self.dragged((motion.root_x, motion.root_y))?;
         } else if let Event::ButtonRelease(_) = event {
             self.drag = None;
         } else if let Event::KeyPress(key) = event {
-            if self.escape_keys.contains(key.detail) {
+            if self.display.key_input(key) == KeyInput::Escape {
                 return Ok(Flow::Quit);
             }
         } else if let Event::ClientMessage(message) = event {
@@ -169,30 +178,31 @@ impl<'d> RulerWindow<'d> {
     }
 
     /// 左ボタンで掴んだ場所の意味に従う。移動と伸縮は WM に任せ、できなければ自前で引く。
-    fn pressed(&mut self, frame: &RulerFrame, press: &ButtonPressEvent) -> Result<(), UiFailure> {
+    fn pressed(&mut self, frame: &RulerFrame, press: &ButtonPressEvent) -> Result<Flow, UiFailure> {
         if press.detail != BUTTON_LEFT {
-            return Ok(());
+            return Ok(Flow::Continue);
         }
         let Some(point) = PixelPoint::from_event(press.event_x, press.event_y) else {
-            return Ok(());
+            return Ok(Flow::Continue);
         };
         let Some(target) = hit_region::target_at(&frame.hit_regions(), point) else {
-            return Ok(());
+            return Ok(Flow::Continue);
         };
         let direction = match target {
             HitTarget::Move => MOVERESIZE_MOVE,
             HitTarget::Resize(Anchor::TopLeft) => MOVERESIZE_SIZE_TOPLEFT,
             HitTarget::Resize(Anchor::BottomRight) => MOVERESIZE_SIZE_BOTTOMRIGHT,
-            // ギアと数字は後続の Issue（設定モーダル・クリップボード）。いまは何もしない。
-            HitTarget::Gear | HitTarget::Copy(_) => return Ok(()),
+            HitTarget::Gear => return Ok(Flow::OpenSettings),
+            // 数字のコピーは後続の Issue（クリップボード）。いまは何もしない。
+            HitTarget::Copy(_) => return Ok(Flow::Continue),
         };
         if self.wm_moves {
-            self.ask_wm_to_move_resize(press, direction)
+            self.ask_wm_to_move_resize(press, direction)?;
         } else {
             let start = self.geometry()?;
             self.drag = Some(Drag::begin(target, (press.root_x, press.root_y), start));
-            Ok(())
         }
+        Ok(Flow::Continue)
     }
 
     /// 自前のドラッグ中なら窓の幾何を更新する。
@@ -262,7 +272,7 @@ impl<'d> RulerWindow<'d> {
     }
 
     /// 装飾なし・最前面・閉じる要求・題を WM へ伝える（FR-001 / FR-013 / FR-015）。
-    fn declare_hints(&self) -> Result<(), UiFailure> {
+    fn declare_hints(&self, layer: WindowLayer) -> Result<(), UiFailure> {
         let connection = self.display.connection();
         let atoms = self.display.atoms();
         let window = self.window.window();
@@ -273,12 +283,16 @@ impl<'d> RulerWindow<'d> {
             atoms.motif_wm_hints,
             &[MWM_HINTS_DECORATIONS, 0, 0, 0, 0],
         )?;
+        let states: &[u32] = match layer {
+            WindowLayer::AlwaysOnTop => &[atoms.net_wm_state_above],
+            WindowLayer::Normal => &[],
+        };
         connection.change_property32(
             PropMode::REPLACE,
             window,
             atoms.net_wm_state,
             AtomEnum::ATOM,
-            &[atoms.net_wm_state_above],
+            states,
         )?;
         connection.change_property32(
             PropMode::REPLACE,
@@ -322,47 +336,40 @@ impl<'d> RulerWindow<'d> {
         Ok(())
     }
 
-    /// フレームを描き切ってから `PutImage` で転送する（ADR 0002 の 4）。大きい画像は行で分ける。
+    /// フレームを描き切ってから `PutImage` で転送する（ADR 0002 の 4）。
     fn present(&self, frame: &RulerFrame) -> Result<(), UiFailure> {
-        let connection = self.display.connection();
         let mut canvas = Canvas::render(frame, self.display.visual().format())?;
-        let stride = canvas.stride()?;
-        let rows_per_request = Self::rows_per_request(connection.maximum_request_bytes(), stride);
-        let transfer = Transfer::new(
+        Transfer::new(
             (self.window.window(), self.gc.gcontext()),
             canvas.width(),
             self.display.visual().depth(),
+        )
+        .present(self.display.connection(), &mut canvas)
+    }
+
+    /// 表示中の窓の重なり順を変える。`_NET_WM_STATE` は map の後は WM へのメッセージで変える（FR-013）。
+    fn set_layer(&self, layer: WindowLayer) -> Result<(), UiFailure> {
+        let connection = self.display.connection();
+        let atoms = self.display.atoms();
+        let root = self.display.screen()?.root;
+        let action = match layer {
+            WindowLayer::AlwaysOnTop => NET_WM_STATE_ADD,
+            WindowLayer::Normal => NET_WM_STATE_REMOVE,
+        };
+        let message = ClientMessageEvent::new(
+            32,
+            self.window.window(),
+            atoms.net_wm_state,
+            [action, atoms.net_wm_state_above, 0, SOURCE_APPLICATION, 0],
         );
-        canvas.with_pixels(|bytes| -> Result<(), UiFailure> {
-            for (index, chunk) in bytes.chunks(rows_per_request * stride).enumerate() {
-                let first_row = u16::try_from(index * rows_per_request)
-                    .map_err(|_error| UiFailure::GeometryOutOfRange)?;
-                let rows = u16::try_from(chunk.len() / stride)
-                    .map_err(|_error| UiFailure::GeometryOutOfRange)?;
-                transfer.put_rows(connection, (first_row, rows), chunk)?;
-            }
-            Ok(())
-        })??;
+        connection.send_event(
+            false,
+            root,
+            EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY,
+            message,
+        )?;
         connection.flush()?;
         Ok(())
-    }
-
-    /// 1 回の `PutImage` に入れられる行数。要求の頭（24 バイト）の分を残す。
-    fn rows_per_request(maximum_request_bytes: usize, stride: usize) -> usize {
-        maximum_request_bytes
-            .saturating_sub(24)
-            .checked_div(stride.max(1))
-            .unwrap_or(1)
-            .max(1)
-    }
-
-    /// Esc の keycode をキーボード配列から拾う。
-    fn escape_keys(connection: &RustConnection) -> Result<EscapeKeys, UiFailure> {
-        let setup = connection.setup();
-        let first = setup.min_keycode;
-        let count = setup.max_keycode.saturating_sub(first).saturating_add(1);
-        let mapping = connection.get_keyboard_mapping(first, count)?.reply()?;
-        Ok(EscapeKeys::from_mapping(first, &mapping))
     }
 
     /// WM が `_NET_SUPPORTED` に `_NET_WM_MOVERESIZE` を挙げているか。
@@ -391,12 +398,6 @@ fn x_rectangle(rect: PixelRect) -> Result<Rectangle, UiFailure> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn rows_per_request_leaves_room_for_the_header() {
-        assert_eq!(RulerWindow::rows_per_request(16_384 + 24, 1_696), 9);
-        assert_eq!(RulerWindow::rows_per_request(10, 1_696), 1);
-    }
 
     #[test]
     fn rectangles_convert_within_the_x_limits() {

@@ -2,8 +2,9 @@
 
 A tiny frameless screen ruler for X11. Rust, `x11rb` + `cairo`, no UI toolkit.
 
-> **Status (2026-10-15):** first vertical slice (Issue #2). `cargo run` opens a transparent frame with ticks,
-> moves when you drag a line and resizes when you drag an anchor. Units, colour, copy and the settings window are not there yet.
+> **Status (2026-10-16):** Issues #2 and #4. `cargo run` opens a transparent frame with ticks,
+> moves when you drag a line and resizes when you drag an anchor; the gear opens a settings window for ink colour, unit and always-on-top.
+> Saving settings and copying the number are not there yet.
 > Verified on Xvfb (`make screenshot`); not yet on a real desktop. Nothing to download.
 
 ## What it will be

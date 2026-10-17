@@ -1,21 +1,33 @@
-//! 枠の窓に描くものすべてに使う 1 色（FR-018）。
+//! 不透明な色の値型。枠のインク色にもモーダルの配色にも、色はこの 1 つの型で表す（ARC-001）。
 
 use alloc::format;
 use alloc::string::String;
 
-use crate::ink_color_failure::InkColorFailure;
+use crate::rgb_failure::RgbFailure;
 
 /// 不透明な RGB。`#RRGGBB` で読み書きする（FR-010 の直接入力と設定の保存）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct InkColor {
+pub struct Rgb {
     red: u8,
     green: u8,
     blue: u8,
 }
 
-impl InkColor {
+impl Rgb {
     /// 既定のインク色（SPECIFICATION 第 2 節。決め打ちしない）。
-    pub const INITIAL: Self = Self::new(0xE5, 0x39, 0x35);
+    pub const INITIAL_INK: Self = Self::new(0xE5, 0x39, 0x35);
+
+    /// 設定モーダルに並べるインク色のプリセット（FR-010。決め打ちしない）。先頭が既定。
+    pub const PRESETS: [Self; 8] = [
+        Self::INITIAL_INK,
+        Self::new(0xFB, 0x8C, 0x00),
+        Self::new(0xFD, 0xD8, 0x35),
+        Self::new(0x43, 0xA0, 0x47),
+        Self::new(0x1E, 0x88, 0xE5),
+        Self::new(0x8E, 0x24, 0xAA),
+        Self::new(0xFF, 0xFF, 0xFF),
+        Self::new(0x21, 0x21, 0x21),
+    ];
 
     /// 成分から作る。どの値も有効なので失敗しない。
     #[must_use]
@@ -28,13 +40,12 @@ impl InkColor {
     /// # Errors
     ///
     /// `#` が無い・桁数が違う・16 進でない、のいずれか。
-    pub fn parse(text: &str) -> Result<Self, InkColorFailure> {
-        let digits = text.strip_prefix('#').ok_or(InkColorFailure::MissingHash)?;
+    pub fn parse(text: &str) -> Result<Self, RgbFailure> {
+        let digits = text.strip_prefix('#').ok_or(RgbFailure::MissingHash)?;
         if digits.chars().count() != 6 {
-            return Err(InkColorFailure::WrongLength);
+            return Err(RgbFailure::WrongLength);
         }
-        let value =
-            u32::from_str_radix(digits, 16).map_err(|_error| InkColorFailure::NotHexadecimal)?;
+        let value = u32::from_str_radix(digits, 16).map_err(|_error| RgbFailure::NotHexadecimal)?;
         let [_, red, green, blue] = value.to_be_bytes();
         Ok(Self::new(red, green, blue))
     }
@@ -83,31 +94,38 @@ mod tests {
 
     #[test]
     fn round_trips_hex() {
-        let ink = InkColor::parse("#e53935").unwrap();
-        assert_eq!(ink, InkColor::INITIAL);
+        let ink = Rgb::parse("#e53935").unwrap();
+        assert_eq!(ink, Rgb::INITIAL_INK);
         assert_eq!(ink.hex(), "#E53935");
         assert_eq!((ink.red(), ink.green(), ink.blue()), (0xE5, 0x39, 0x35));
     }
 
     #[test]
     fn rejects_malformed_text() {
-        assert_eq!(InkColor::parse("E53935"), Err(InkColorFailure::MissingHash));
-        assert_eq!(InkColor::parse("#E539"), Err(InkColorFailure::WrongLength));
-        assert_eq!(
-            InkColor::parse("#E5393G"),
-            Err(InkColorFailure::NotHexadecimal)
-        );
+        assert_eq!(Rgb::parse("E53935"), Err(RgbFailure::MissingHash));
+        assert_eq!(Rgb::parse("#E539"), Err(RgbFailure::WrongLength));
+        assert_eq!(Rgb::parse("#E5393G"), Err(RgbFailure::NotHexadecimal));
+    }
+
+    #[test]
+    fn presets_start_with_the_initial_ink_and_are_distinct() {
+        assert_eq!(Rgb::PRESETS.first(), Some(&Rgb::INITIAL_INK));
+        let mut seen = alloc::vec::Vec::new();
+        for preset in Rgb::PRESETS {
+            assert!(!seen.contains(&preset));
+            seen.push(preset);
+        }
     }
 
     #[test]
     fn picks_a_contrasting_background() {
         assert_eq!(
-            InkColor::new(0xFF, 0xFF, 0xFF).contrasting_background(),
-            InkColor::new(0, 0, 0)
+            Rgb::new(0xFF, 0xFF, 0xFF).contrasting_background(),
+            Rgb::new(0, 0, 0)
         );
         assert_eq!(
-            InkColor::new(0, 0, 0x40).contrasting_background(),
-            InkColor::new(0xFF, 0xFF, 0xFF)
+            Rgb::new(0, 0, 0x40).contrasting_background(),
+            Rgb::new(0xFF, 0xFF, 0xFF)
         );
     }
 }

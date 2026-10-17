@@ -1,6 +1,6 @@
 # いまのタスク — NeNe Ruler
 
-> GitHub Issue と PR が進行状態の正本。この文書は 2026-10-15 の最初の縦切り（Issue #2）の要約。
+> GitHub Issue と PR が進行状態の正本。この文書は 2026-10-16 の設定モーダル（Issue #4）の要約。
 
 ## 状態
 
@@ -14,18 +14,18 @@
 | 5 クレート（core / application / adapters-x11 / ui-x11 / app） | ✅ Issue #2 |
 | 透明の窓・目盛・幅と高さの数字・鉤括弧・ギアの描画。線で移動、鉤括弧で伸縮、Esc で閉じる | ✅ Issue #2・Xvfb で実測（gate-proofs 第 8 節） |
 | `make coverage`（region 90%）・`make screenshot` | ✅ Issue #2。分岐は stable で測れず QLT-009 は planned |
+| ギアで設定モーダル。色見本 8 色と `#RRGGBB` の直接入力、単位、見え（ダーク・ライト）、最前面、版 | ✅ Issue #4・Xvfb で実測（gate-proofs 第 9 節）。PR #2 の枝の上 |
 | CI の必須 check（`make ci`）と commit-msg フック | 配線済み。最初の PR で実行証拠を得るまで planned |
 | ruleset（main の保護・squash-only） | 未設定。施主が GitHub で設定したら gate-proofs に記録する |
 | WSLg（施主の実機）での目視 | 未。透明に出ること・掴めること・`_NET_WM_MOVERESIZE` が効くことを見る |
 
 ## 次に行うこと
 
-Issue #2 の PR を出し、施主が WSLg で目視する。その後の焦点 Issue（それぞれ 1 つずつ）:
+PR #3（Issue #2）と Issue #4 の PR を施主が WSLg で目視する。その後の焦点 Issue（それぞれ 1 つずつ）:
 
-- 単位の切替と mm / in の表示（FR-008）。RandR のミリ寸法は adapters にある
-- 数字のクリックでクリップボードへコピー（FR-007）。当たり判定 `HitTarget::Copy` は既にある
-- ギアで設定モーダル。インク色のプリセットと `#RRGGBB` の直接入力、モーダルの見え、最前面、単位（FR-009〜FR-011）
-- 設定の保存（FR-012 / ARC-009）
+- 設定の保存（FR-012 / ARC-009）。`RulerSettings` を版 1 の形式で adapters-x11 が読み書きする
+- 数字のクリックでクリップボードへコピー（FR-007）。選択の所有に待ち受けが要るので先に ADR
+- モーダルの見え「システムに従う」。検出の方法（XSETTINGS か GTK の settings.ini か）を施主と決める
 - 矢印で 1 px / 10 px の移動（FR-015）、合成器が無いときの表示（FR-014）、HiDPI の倍率（FR-016）
 
 ## 残る穴

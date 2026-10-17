@@ -5,8 +5,10 @@ use alloc::vec::Vec;
 use nene_ruler_core::axis::Axis;
 use nene_ruler_core::frame_layout::FrameLayout;
 use nene_ruler_core::hit_region::HitRegion;
-use nene_ruler_core::ink_color::InkColor;
+
 use nene_ruler_core::length_text::LengthText;
+use nene_ruler_core::rgb::Rgb;
+use nene_ruler_core::window_layer::WindowLayer;
 
 use crate::frame_texts::FrameTexts;
 use crate::transparency::Transparency;
@@ -16,7 +18,8 @@ use crate::transparency::Transparency;
 pub struct RulerFrame {
     layout: FrameLayout,
     texts: FrameTexts,
-    ink: InkColor,
+    ink: Rgb,
+    layer: WindowLayer,
     transparency: Transparency,
 }
 
@@ -26,13 +29,14 @@ impl RulerFrame {
     pub const fn new(
         layout: FrameLayout,
         texts: FrameTexts,
-        ink: InkColor,
+        ink: (Rgb, WindowLayer),
         transparency: Transparency,
     ) -> Self {
         Self {
             layout,
             texts,
-            ink,
+            ink: ink.0,
+            layer: ink.1,
             transparency,
         }
     }
@@ -51,8 +55,14 @@ impl RulerFrame {
 
     /// インク色。
     #[must_use]
-    pub const fn ink(&self) -> InkColor {
+    pub const fn ink(&self) -> Rgb {
         self.ink
+    }
+
+    /// 重なり順。窓の属性であって画素ではないが、UI が読む値なのでここに乗せる。
+    #[must_use]
+    pub const fn layer(&self) -> WindowLayer {
+        self.layer
     }
 
     /// 透明に描けるか。
