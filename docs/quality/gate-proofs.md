@@ -1,6 +1,6 @@
 # ゲート発火の証明 — NeNe Ruler
 
-> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）/ Issue #12（第 13 節）/ WSLg の実機（第 14 節・2026-10-17）/ Issue #14（第 15 節）/ Issue #15（第 16 節）/ Issue #20（第 17 節）/ Issue #23（第 18 節）/ Issue #26（第 19 節）/ Issue #28（第 20 節）/ Issue #30（第 21 節）。以下は実行した結果のみ。
+> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）/ Issue #12（第 13 節）/ WSLg の実機（第 14 節・2026-10-17）/ Issue #14（第 15 節）/ Issue #15（第 16 節）/ Issue #20（第 17 節）/ Issue #23（第 18 節）/ Issue #26（第 19 節）/ Issue #28（第 20 節）/ Issue #30（第 21 節）/ Issue #32（第 22 節）。以下は実行した結果のみ。
 > 関連: QLT-007 / QLT-011 / QLT-013 / ADR 0003
 
 ## 1. 環境と範囲
@@ -557,3 +557,15 @@ Xvfb は最後のクライアントが切れるとサーバを初期化し、ル
 
 msrdc の窓 `NeNe Ruler (Ubuntu-22.04)` に Windows 側から `SetWindowPos(HWND_TOPMOST)` を掛けると、拡張スタイルが `0x80100` → `0x80108`（`WS_EX_TOPMOST`）になり、5 秒後も残った。
 別の窓（NeNeNib）を前面にしても、定規の描いた画素の上では `WindowFromPoint` が定規を返した。Windows 版で不要になるので実装はしない（ADR 0012 の却下した選択肢）。
+
+## 22. Issue #32 — 2x でも主目盛の数字は 9 px（2026-10-17）
+
+施主の WSL。Issue #30 の枝の上に積んだ。決定は [ADR 0013](../adr/0013-tick-numbers-keep-their-size.md)。
+
+| target | 結果 |
+| --- | --- |
+| `make lint` | 0 件 |
+| `make test` | core 52 は成功（`double_grows_the_window_by_twice_the_margins` に 2x の主目盛の数字のベースライン (62, 46) と左辺の数字の幅が 1x と同じことを足した）。ui-x11 は 33 件中 32（既存の #21） |
+| `make conformance` | 違反なし |
+
+Xvfb（`-noreset`・`Xft.dpi: 192`・一時の `HOME`）で撮り、主目盛の数字が 1x と同じ大きさ、`400 px`・鉤括弧・ギア・通知は 2x のままであることを確かめた。
