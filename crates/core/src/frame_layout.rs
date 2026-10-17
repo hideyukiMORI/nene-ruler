@@ -177,7 +177,14 @@ impl FrameLayout {
                     ),
                     Edge::Bottom | Edge::Right => return None,
                 };
-                Some(TickLabel::new(mark.offset(), baseline))
+                // 枠の外へはみ出す数字は置かない（Issue #46）。上辺は字の右端、左辺はベースライン。
+                let inside_frame = match edge {
+                    Edge::Top => {
+                        baseline.x() + digits(mark.offset()) * TICK_DIGIT_PX <= frame.right()
+                    }
+                    Edge::Left | Edge::Bottom | Edge::Right => baseline.y() < frame.bottom(),
+                };
+                inside_frame.then(|| TickLabel::new(mark.offset(), baseline))
             })
     }
 
@@ -242,8 +249,7 @@ impl FrameLayout {
     /// 左辺の主目盛の数字が占める幅（最も桁の多い数字）。縦軸の数字と通知はこの右に置く。
     #[must_use]
     pub fn left_numbers_width(self) -> u16 {
-        let digits = u16::try_from(self.size.height().px().to_string().len()).unwrap_or(5);
-        digits * TICK_DIGIT_PX
+        digits(self.size.height().px()) * TICK_DIGIT_PX
     }
 
     /// 左辺の目盛と数字の右端から、枠の左端までの距離。
@@ -354,6 +360,11 @@ impl FrameLayout {
         }
         regions
     }
+}
+
+/// 10 進の桁数。
+fn digits(value: u16) -> u16 {
+    u16::try_from(value.to_string().len()).unwrap_or(5)
 }
 
 #[cfg(test)]
@@ -617,5 +628,22 @@ mod tests {
         );
         let gear = double.gear();
         assert_eq!(gear.right(), double.window().right());
+    }
+
+    #[test]
+    fn tick_numbers_that_would_leave_the_frame_are_dropped() {
+        let numbers = |width: u16, height: u16, edge: Edge| -> Vec<u16> {
+            let size = FrameSize::new(Length::new(width).unwrap(), Length::new(height).unwrap());
+            FrameLayout::new(size, UiScale::Single)
+                .tick_labels(edge)
+                .map(TickLabel::value)
+                .collect()
+        };
+        // 幅 360: 350 は x = 4 + 350 + 2 から 3 桁（18 px）で右の線（363）を越える。
+        assert_eq!(numbers(360, 240, Edge::Top).last(), Some(&300));
+        assert_eq!(numbers(400, 240, Edge::Top).last(), Some(&350));
+        // 高さ 252: 250 のベースラインは y = 4 + 250 + 4 で下の線（255）を越える。
+        assert_eq!(numbers(400, 252, Edge::Left).last(), Some(&200));
+        assert_eq!(numbers(400, 260, Edge::Left).last(), Some(&250));
     }
 }
