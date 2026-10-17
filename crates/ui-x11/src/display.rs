@@ -118,7 +118,7 @@ impl Display {
     /// 透明と `Xft.dpi`。application が起動時に一度取り込む（ARC-004）。
     #[must_use]
     pub fn environment(&self) -> Environment {
-        Environment::new(self.transparency).with_xft_dpi(self.xft_dpi)
+        Environment::new(self.transparency).with_desktop_dpi(self.xft_dpi)
     }
 
     /// キーボード配列を読む。

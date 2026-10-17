@@ -98,10 +98,11 @@
 ### RS-010 — 言語マジックを禁じる
 
 - `unsafe` を書かない（X11 の接続も cairo も safe な API だけを使う。`unsafe` が要る経路は ADR）
+- 例外は Windows の 2 クレート（`adapters-windows` / `ui-win32`）だけ。Win32 を呼ぶ小さな関数ごとに `#[expect(unsafe_code, reason = "RS-010: …")]` と `// SAFETY:` の注釈を置く（ADR 0021）
 - 手続きマクロを自作しない。`build.rs` を書かない
 - 宣言的マクロ（`macro_rules!`）は、同じ形の重複が 3 箇所以上あり、かつ関数と generics で書けないときに限る
 
-- 機械強制: **active**（`unsafe_code` を **forbid**（実測 P-18）。proc-macro の禁止＝CNF-002。`build.rs` の禁止＝CNF-008）
+- 機械強制: **active**（`unsafe_code` を **forbid**（実測 P-18）。Windows の 2 クレートは `deny`＋`undocumented_unsafe_blocks`＋CNF-014。proc-macro の禁止＝CNF-002。`build.rs` の禁止＝CNF-008）
 - 機械強制: **planned**（`macro_rules!` の判断はレビュー事項）
 
 ### RS-011 — 複雑度に上限を置く

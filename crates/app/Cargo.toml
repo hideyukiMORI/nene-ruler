@@ -1,6 +1,6 @@
 [package]
 name = "nene-ruler"
-description = "A tiny transparent screen ruler for X11"
+description = "A tiny transparent screen ruler for X11 and Windows"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -17,8 +17,16 @@ path = "src/main.rs"
 workspace = true
 
 # 🔴 合成ルートだけが全クレートを見る（ARC-002 / ARC-006）。外部 crate はここに書かない。
+#    OS ごとのアダプタと画面は target の節で選ぶ（ADR 0021）。
 [dependencies]
-nene-ruler-adapters-x11 = { path = "../adapters-x11" }
-nene-ruler-ui-x11 = { path = "../ui-x11" }
+nene-ruler-settings-file = { path = "../settings-file" }
 nene-ruler-application = { path = "../application" }
 nene-ruler-core = { path = "../core" }
+
+[target.'cfg(not(windows))'.dependencies]
+nene-ruler-adapters-x11 = { path = "../adapters-x11" }
+nene-ruler-ui-x11 = { path = "../ui-x11" }
+
+[target.'cfg(windows)'.dependencies]
+nene-ruler-adapters-windows = { path = "../adapters-windows" }
+nene-ruler-ui-win32 = { path = "../ui-win32" }

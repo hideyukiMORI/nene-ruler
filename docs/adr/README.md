@@ -36,3 +36,4 @@ ADR は「なぜそう決めたか」「何を却下したか」を書く。
 | [0018](0018-bare-frame-detail.md) | W × H px が枠に収まらない枠では、線を消して文字を窓の中央に出す | 受理（文字の形は置換 → 0019） |
 | [0019](0019-smaller-minimum-and-short-size.md) | 最小の枠を 16 × 16 にし、線を消した表示では短い形 W×H を描く | 受理 |
 | [0020](0020-app-icon-drawn-in-app.md) | アプリのアイコンは 2 つの鉤括弧で、画像ファイルを同梱せずその場で描く | 受理 |
+| [0021](0021-windows-port-direct2d-and-confined-unsafe.md) | Windows 版は Win32 の窓と Direct2D で描き、unsafe は Windows の 2 クレートにだけ許す | 受理 |

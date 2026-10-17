@@ -64,7 +64,7 @@ impl<'p> RulerController<'p> {
             store_failure,
             copy_mark: None,
             environment,
-            scale: UiScale::choose(environment.xft_dpi(), metrics),
+            scale: UiScale::choose(environment.desktop_dpi(), metrics),
             version,
         }
     }
@@ -574,7 +574,7 @@ mod tests {
         let (screen, store) = (screen(), MemoryStore::empty());
         let mut controller = RulerController::new(
             Ports::new(&screen, &store, &NO_CLIPBOARD),
-            Environment::new(Transparency::Composited).with_xft_dpi(Some(192)),
+            Environment::new(Transparency::Composited).with_desktop_dpi(Some(192)),
             ProductVersion::new("0.1.0"),
         );
         let layout = controller.frame().layout();

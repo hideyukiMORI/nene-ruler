@@ -202,18 +202,25 @@ lint が見ないもの、つまり**このリポジトリ固有の規約**を�
 ### CNF-012 — 決定性の入力 API
 
 `crates/` の `.rs` で `std::time` / `SystemTime` / `Instant` / `std::env` / `std::fs` / `std::thread` / `std::process::Command` / `std::net` / `rand::` を拒む。
-`crates/adapters-x11/` は除外。`crates/app/` は `std::env::args` だけを許す。テストにも適用する。
+`crates/adapters-x11/`・`crates/adapters-windows/`・`crates/settings-file/` は除外（ADR 0021）。`crates/app/` は `std::env::args` だけを許す。テストにも適用する。
 
 - 対応する規則: ARC-007 / RS-015
 - 機械強制: **active**（`xtask`。マクロ・別名・間接呼び出しは字句では見えない）
 
 ### CNF-013 — クレート間の依存は許可された向きだけ
 
-`crates/*/Cargo.toml` と `xtask/Cargo.toml` の `[dependencies]` を許可表と照合する。内部クレートは向き、中核と `xtask` は依存 0。
+`crates/*/Cargo.toml` と `xtask/Cargo.toml` の `[dependencies]` と `[target.….dependencies]` を許可表と照合する。内部クレートは向き、中核・`settings-file`・`xtask` は外部クレート 0（ADR 0021）。
 
 - 対応する規則: ARC-002 / ARC-013
 - 機械強制: **active**（`xtask`）
 
+
+### CNF-014 — `unsafe` を許す 2 クレートの lint の表は workspace と同じ
+
+`crates/adapters-windows/Cargo.toml` と `crates/ui-win32/Cargo.toml` の `[lints.rust]` / `[lints.clippy]` が、workspace の `[workspace.lints.rust]` / `[workspace.lints.clippy]` と同じであることを見る。違ってよいのは `unsafe_code = "deny"` だけ（Cargo は継承した表の 1 項目だけを変えられないので、2 クレートは表を写す・ADR 0021）。
+
+- 対応する規則: RS-010 / QLT-003 / QLT-010
+- 機械強制: **active**（`xtask`）
 ---
 
 ## 3. 強制マトリクス
@@ -245,7 +252,7 @@ CNF-009 が「本文に定義があるのにここに行が無い」「状態が
 | RS-007 | active | `as_conversions`（P-06） |
 | RS-008 | active | `missing_docs` 等（P-09） |
 | RS-009 | active | `unsafe_code` の forbid ＋ CNF-002 |
-| RS-010 | active | `unsafe_code`（P-18）・CNF-002・CNF-008 |
+| RS-010 | active | `unsafe_code`（P-18）・CNF-002・CNF-008。Windows の 2 クレートは `deny` と `#[expect]`・`undocumented_unsafe_blocks`・CNF-014（ADR 0021） |
 | RS-011 | active | `cognitive_complexity`（P-11）・`too_many_lines`（P-12） |
 | RS-012 | active | `mod_module_files`（P-10）＋ CNF-003 |
 | RS-013 | active | `disallowed-names`（P-26）＋ CNF-004 |
@@ -285,6 +292,7 @@ CNF-009 が「本文に定義があるのにここに行が無い」「状態が
 | CNF-011 | active | xtask / `cargo test -p xtask` |
 | CNF-012 | active | xtask / `cargo test -p xtask` |
 | CNF-013 | active | xtask / `cargo test -p xtask` |
+| CNF-014 | active | xtask / `cargo test -p xtask` |
 
 ---
 

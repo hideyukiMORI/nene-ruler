@@ -15,6 +15,7 @@ mod check;
 mod documents;
 mod git_conventions;
 mod git_range;
+mod lint_tables;
 mod proof_case;
 mod prove;
 mod rule_id;
@@ -57,6 +58,7 @@ fn inspect(files: &[SourceFile], root: &Path) -> Vec<Violation> {
         })
         .collect();
     violations.extend(check::core_crates_declare_no_std(files));
+    violations.extend(lint_tables::unsafe_crates_mirror_workspace(files));
     violations.extend(documents::inspect(files, root));
     violations
 }
