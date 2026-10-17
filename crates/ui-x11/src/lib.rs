@@ -13,6 +13,7 @@ pub mod event_loop;
 mod flow;
 pub mod key_input;
 pub mod key_map;
+pub mod pointer_shapes;
 pub mod ruler_window;
 pub mod settings_canvas;
 mod settings_flow;
