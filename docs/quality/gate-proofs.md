@@ -1,6 +1,6 @@
 # ゲート発火の証明 — NeNe Ruler
 
-> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）/ Issue #12（第 13 節）/ WSLg の実機（第 14 節・2026-10-17）/ Issue #14（第 15 節）/ Issue #15（第 16 節）/ Issue #20（第 17 節）/ Issue #23（第 18 節）/ Issue #26（第 19 節）/ Issue #28（第 20 節）/ Issue #30（第 21 節）/ Issue #32（第 22 節）/ Issue #34（第 23 節）/ Issue #36（第 24 節）/ Issue #38（第 25 節）/ Issue #40（第 26 節）。以下は実行した結果のみ。
+> 記録: 2026-09-27 / Issue #1、2026-10-15 / Issue #2（第 8 節）、2026-10-16 / Issue #4（第 9 節）/ Issue #6（第 10 節）/ Issue #8（第 11 節）/ Issue #10（第 12 節）/ Issue #12（第 13 節）/ WSLg の実機（第 14 節・2026-10-17）/ Issue #14（第 15 節）/ Issue #15（第 16 節）/ Issue #20（第 17 節）/ Issue #23（第 18 節）/ Issue #26（第 19 節）/ Issue #28（第 20 節）/ Issue #30（第 21 節）/ Issue #32（第 22 節）/ Issue #34（第 23 節）/ Issue #36（第 24 節）/ Issue #38（第 25 節）/ Issue #40（第 26 節）/ Issue #42（第 27 節）。以下は実行した結果のみ。
 > 関連: QLT-007 / QLT-011 / QLT-013 / ADR 0003
 
 ## 1. 環境と範囲
@@ -652,3 +652,15 @@ WSLg の施主の報告（押しても焦点が来ない）も、これと同じ
 
 実際のモーダルと同じ印（飾りなし・`_KDE_NET_WM_WINDOW_TYPE_OVERRIDE`・`WM_TRANSIENT_FOR`）を持つ試験窓を python（ctypes の Xlib）で出し、Windows 側で `SetForegroundWindow` して `XGetInputFocus` を読んだ。
 単独の transient では 5 回とも焦点がその窓に来た（親を前面にしても子へ移る）。transient を 2 つ同時に出した試行では、飾りなしの窓を前面にしても焦点が `None` のことがあった。
+
+## 27. Issue #42 — モーダルの Quit ボタン（2026-10-17）
+
+施主の WSL。Issue #40 の枝の上に積んだ。
+
+| target | 結果 |
+| --- | --- |
+| `make lint` | 0 件 |
+| `make test` | core 52 は成功（`Quit` の当たり判定を足した）。ui-x11 は 37 件中 36（既存の #21・`Quit` の描画のテストを足した） |
+| `make conformance` | 違反なし |
+
+Xvfb: ギアでモーダルを開き、「Always on top」の段の右端の `Quit` (270, 228) を押すと、プロセスが終了コード 0 で終わった。
