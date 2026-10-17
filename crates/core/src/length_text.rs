@@ -16,6 +16,12 @@ impl LengthText {
         Self(format!("{} px", length.px()))
     }
 
+    /// 幅と高さを 1 行で綴る（`100 × 20 px`）。詰めた表示で使う（ADR 0017）。
+    #[must_use]
+    pub fn size(width: Length, height: Length) -> Self {
+        Self(format!("{} \u{d7} {} px", width.px(), height.px()))
+    }
+
     /// 文字列そのもの。表示にもコピーにもこれを使う。
     #[must_use]
     pub fn as_str(&self) -> &str {
@@ -38,5 +44,12 @@ mod tests {
         let text = LengthText::in_pixels(Length::INITIAL_WIDTH);
         assert_eq!(text.as_str(), "400 px");
         assert_eq!(text.chars(), 6);
+    }
+
+    #[test]
+    fn spells_both_lengths_on_one_line() {
+        let text = LengthText::size(Length::new(100).unwrap(), Length::new(40).unwrap());
+        assert_eq!(text.as_str(), "100 \u{d7} 40 px");
+        assert_eq!(text.chars(), 11);
     }
 }

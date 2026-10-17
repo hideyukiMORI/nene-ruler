@@ -86,7 +86,7 @@ const fn glyph_of(target: HitTarget) -> u16 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nene_ruler_core::axis::Axis;
+    use nene_ruler_core::length_label::LengthLabel;
 
     #[test]
     fn each_target_has_its_glyph() {
@@ -100,6 +100,6 @@ mod tests {
             XC_BOTTOM_RIGHT_CORNER
         );
         assert_eq!(glyph_of(HitTarget::Gear), XC_HAND2);
-        assert_eq!(glyph_of(HitTarget::Copy(Axis::Vertical)), XC_HAND2);
+        assert_eq!(glyph_of(HitTarget::Copy(LengthLabel::Size)), XC_HAND2);
     }
 }

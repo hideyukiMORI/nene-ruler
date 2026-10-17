@@ -6,8 +6,8 @@ use cairo::{Context, FontSlant, FontWeight, Format, ImageSurface, Operator};
 use nene_ruler_application::copy_mark::CopyMark;
 use nene_ruler_application::ruler_frame::RulerFrame;
 use nene_ruler_application::transparency::Transparency;
-use nene_ruler_core::axis::Axis;
 use nene_ruler_core::edge::Edge;
+use nene_ruler_core::length_label::LengthLabel;
 use nene_ruler_core::pixel_point::PixelPoint;
 use nene_ruler_core::pixel_rect::PixelRect;
 use nene_ruler_core::rgb::Rgb;
@@ -52,8 +52,9 @@ impl Canvas {
                 fill_rect(context, rect)?;
             }
             draw_tick_labels(context, frame)?;
-            draw_label(context, frame, Axis::Horizontal)?;
-            draw_label(context, frame, Axis::Vertical)?;
+            for label in frame.layout().labels() {
+                draw_label(context, frame, *label)?;
+            }
             draw_notices(context, frame)?;
             draw_gear(context, frame.layout().gear(), frame.ink())
         })
@@ -209,13 +210,13 @@ fn draw_tick_labels(context: &Context, frame: &RulerFrame) -> Result<(), UiFailu
     Ok(())
 }
 
-/// 幅・高さの数字。横軸は上辺の中央、縦軸は左辺の中央に 90 度回して。
+/// 幅・高さ・両方の数字。幅は上辺の中央、高さは左辺の中央に 90 度回して、両方は枠の中央に（ADR 0017）。
 /// コピーの印があれば、成功は反転（インクの箱に透明の文字）、失敗は取り消し線（ADR 0007 の 5）。
-fn draw_label(context: &Context, frame: &RulerFrame, axis: Axis) -> Result<(), UiFailure> {
-    let text = frame.text(axis).as_str();
-    let baseline = frame.layout().label_baseline(axis);
-    let mark = frame.copy_mark().filter(|mark| mark.axis() == axis);
-    let hit = frame.layout().label_hit(axis, frame.text(axis).chars());
+fn draw_label(context: &Context, frame: &RulerFrame, label: LengthLabel) -> Result<(), UiFailure> {
+    let text = frame.text(label).as_str();
+    let baseline = frame.layout().label_baseline(label);
+    let mark = frame.copy_mark().filter(|mark| mark.label() == label);
+    let hit = frame.layout().label_hit(label, frame.text(label).chars());
     if mark.is_some_and(CopyMark::succeeded) {
         fill_rect(context, hit)?;
     }
@@ -226,7 +227,7 @@ fn draw_label(context: &Context, frame: &RulerFrame, axis: Axis) -> Result<(), U
     let centred = -(extents.width() / 2.0_f64 + extents.x_bearing());
     context.save()?;
     translate_to(context, baseline);
-    if axis == Axis::Vertical {
+    if label == LengthLabel::Height {
         context.rotate(-FRAC_PI_2);
     }
     if mark.is_some_and(CopyMark::succeeded) {
@@ -238,13 +239,23 @@ fn draw_label(context: &Context, frame: &RulerFrame, axis: Axis) -> Result<(), U
     context.show_text(text)?;
     context.restore()?;
     if mark.is_some_and(|mark| !mark.succeeded()) {
-        strike_through(context, hit, axis, frame.layout().scale().factor())?;
+        strike_through(context, hit, label, frame.layout().scale().factor())?;
     }
     Ok(())
 }
 
 /// 枠の中の通知（FR-014）。下辺の目盛の上に、下から上へ。
 fn draw_notices(context: &Context, frame: &RulerFrame) -> Result<(), UiFailure> {
+    // 枠の外へは描かない（Issue #48）。狭い枠では通知の文の右が切れる。
+    let inside = frame.layout().frame();
+    context.save()?;
+    context.rectangle(
+        f64::from(inside.x()),
+        f64::from(inside.y()),
+        f64::from(inside.width()),
+        f64::from(inside.height()),
+    );
+    context.clip();
     context.select_font_face(FONT_FAMILY, FontSlant::Normal, FontWeight::Normal);
     context.set_font_size(f64::from(frame.layout().notice_px()));
     for (index, notice) in frame.notices().list().into_iter().enumerate() {
@@ -253,21 +264,22 @@ fn draw_notices(context: &Context, frame: &RulerFrame) -> Result<(), UiFailure> 
         context.move_to(f64::from(baseline.x()), f64::from(baseline.y()));
         context.show_text(notice.describe())?;
     }
+    context.restore()?;
     Ok(())
 }
 
-/// 数字の中央を横切る線（1x で 1 px）。縦軸の数字は縦に走る。
+/// 数字の中央を横切る線（1x で 1 px）。高さの数字は縦に走る。
 fn strike_through(
     context: &Context,
     hit: PixelRect,
-    axis: Axis,
+    label: LengthLabel,
     thickness: u16,
 ) -> Result<(), UiFailure> {
-    let line = match axis {
-        Axis::Horizontal => {
+    let line = match label {
+        LengthLabel::Width | LengthLabel::Size => {
             PixelRect::new(hit.x(), hit.y() + hit.height() / 2, hit.width(), thickness)
         }
-        Axis::Vertical => {
+        LengthLabel::Height => {
             PixelRect::new(hit.x() + hit.width() / 2, hit.y(), thickness, hit.height())
         }
     };
@@ -440,11 +452,11 @@ mod tests {
         use nene_ruler_application::ruler_intent::RulerIntent;
         let board = FakeClipboard(Ok(()));
         let mut controller = controller_with(Transparency::Composited, &board);
-        controller.apply(RulerIntent::CopyText(Axis::Horizontal));
+        controller.apply(RulerIntent::CopyText(LengthLabel::Width));
         let frame = controller.frame();
         let hit = frame
             .layout()
-            .label_hit(Axis::Horizontal, frame.text(Axis::Horizontal).chars());
+            .label_hit(LengthLabel::Width, frame.text(LengthLabel::Width).chars());
         let mut canvas = Canvas::render(&frame, Format::ARgb32).unwrap();
         // 箱の角はインク、文字の無い所も含めて箱の中は透明の文字以外がインク。
         assert_eq!(
@@ -465,11 +477,11 @@ mod tests {
         use nene_ruler_application::ruler_intent::RulerIntent;
         let board = FakeClipboard(Err(ClipboardFailure::Rejected));
         let mut controller = controller_with(Transparency::Composited, &board);
-        controller.apply(RulerIntent::CopyText(Axis::Vertical));
+        controller.apply(RulerIntent::CopyText(LengthLabel::Height));
         let frame = controller.frame();
         let hit = frame
             .layout()
-            .label_hit(Axis::Vertical, frame.text(Axis::Vertical).chars());
+            .label_hit(LengthLabel::Height, frame.text(LengthLabel::Height).chars());
         let mut canvas = Canvas::render(&frame, Format::ARgb32).unwrap();
         let x = hit.x() + hit.width() / 2;
         let column: Vec<[u8; 4]> = (hit.y()..=hit.bottom())
@@ -562,5 +574,31 @@ mod tests {
             .collect();
         assert!(row.iter().any(|alpha| *alpha > 0));
         assert!(canvas.pixel(100, 60).unwrap().is_some_and(|p| p[3] == 0));
+    }
+
+    #[test]
+    fn a_compact_frame_has_no_ticks_and_writes_the_size_in_the_middle() {
+        use nene_ruler_application::ruler_intent::RulerIntent;
+        let board = FakeClipboard(Ok(()));
+        let mut controller = controller_with(Transparency::Composited, &board);
+        // 窓 124 × 64 は枠 100 × 40。
+        controller.apply(RulerIntent::WindowResized {
+            width_px: 124,
+            height_px: 64,
+        });
+        let frame = controller.frame();
+        let mut canvas = Canvas::render(&frame, Format::ARgb32).unwrap();
+        // 上辺の最初の小目盛（x = 4 + 5）があった所は、帯の薄いインクだけ。
+        let alpha = canvas.pixel(9, 6).unwrap().map(|p| p[3]);
+        assert!(alpha.is_some_and(|a| a < 0xFF), "{alpha:?}");
+        // 中央の行に `100 × 40 px` の字のインクがある。
+        let hit = frame
+            .layout()
+            .label_hit(LengthLabel::Size, frame.text(LengthLabel::Size).chars());
+        let row = hit.y() + hit.height() / 2;
+        let inked = (hit.x()..hit.right())
+            .filter(|&x| canvas.pixel(x, row).unwrap().is_some_and(|p| p[3] > 0x80))
+            .count();
+        assert!(inked > 0);
     }
 }

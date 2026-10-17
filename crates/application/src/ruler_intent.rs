@@ -1,6 +1,6 @@
 //! 利用者と WM から届く意図（ARC-011）。
 
-use nene_ruler_core::axis::Axis;
+use nene_ruler_core::length_label::LengthLabel;
 use nene_ruler_core::modal_theme::ModalTheme;
 use nene_ruler_core::rgb::Rgb;
 use nene_ruler_core::window_layer::WindowLayer;
@@ -40,8 +40,8 @@ pub enum RulerIntent {
     HexBackspace,
     /// 入力欄の文字列を色として送った。
     HexSubmit,
-    /// 幅か高さの数字を押した。表示しているその文字列をコピーする（FR-007）。
-    CopyText(Axis),
+    /// 幅・高さ・両方の数字を押した。表示しているその文字列をコピーする（FR-007）。
+    CopyText(LengthLabel),
     /// ポインタが数字から離れた。コピーの印を消す。
     ClearCopyMark,
 }

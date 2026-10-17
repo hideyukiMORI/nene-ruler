@@ -1,6 +1,7 @@
 //! 物差しの状態の唯一の所有者（ARC-004）。
 
 use nene_ruler_core::axis::Axis;
+use nene_ruler_core::frame_detail::FrameDetail;
 use nene_ruler_core::frame_layout::FrameLayout;
 use nene_ruler_core::frame_size::FrameSize;
 use nene_ruler_core::hsv::Hsv;
@@ -96,9 +97,12 @@ impl<'p> RulerController<'p> {
                 self.pick(|picker| picker.with_shade(saturation, value));
             }
             RulerIntent::PickHue(hue) => self.pick(|picker| picker.with_hue(hue)),
-            RulerIntent::CopyText(axis) => {
-                let outcome = self.ports.clipboard().copy(self.text(axis).as_str());
-                self.copy_mark = Some(CopyMark::new(axis, outcome));
+            RulerIntent::CopyText(label) => {
+                let outcome = self
+                    .ports
+                    .clipboard()
+                    .copy(self.texts().text(label).as_str());
+                self.copy_mark = Some(CopyMark::new(label, outcome));
             }
             RulerIntent::ClearCopyMark => self.copy_mark = None,
         }
@@ -107,9 +111,14 @@ impl<'p> RulerController<'p> {
     /// いまの状態から表示フレームを作る。
     #[must_use]
     pub fn frame(&self) -> RulerFrame {
+        let texts = self.texts();
+        let layout =
+            FrameLayout::new(self.size, self.scale).fitted(|label| texts.text(label).chars());
+        // 詰めた表示では通知も描かない（ADR 0017）。
+        let full = layout.detail() == FrameDetail::Full;
         RulerFrame::new(
-            FrameLayout::new(self.size, self.scale),
-            FrameTexts::new(self.text(Axis::Horizontal), self.text(Axis::Vertical)),
+            layout,
+            texts,
             FrameStyle::new(
                 self.settings.ink(),
                 self.settings.layer(),
@@ -117,7 +126,7 @@ impl<'p> RulerController<'p> {
                 self.copy_mark,
             )
             .with_notices(FrameNotices::new(
-                self.environment.transparency() == Transparency::Opaque,
+                full && self.environment.transparency() == Transparency::Opaque,
             )),
         )
     }
@@ -203,9 +212,17 @@ impl<'p> RulerController<'p> {
         Length::clamped(px, max)
     }
 
-    /// 軸の長さを綴る。単位は物理画素だけ（ADR 0012）。
-    fn text(&self, axis: Axis) -> LengthText {
-        LengthText::in_pixels(self.size.along(axis))
+    /// 幅・高さ・両方を綴る。単位は物理画素だけ（ADR 0012）。表示とコピーで同じもの（FR-007）。
+    fn texts(&self) -> FrameTexts {
+        let (width, height) = (
+            self.size.along(Axis::Horizontal),
+            self.size.along(Axis::Vertical),
+        );
+        FrameTexts::new(
+            LengthText::in_pixels(width),
+            LengthText::in_pixels(height),
+            LengthText::size(width, height),
+        )
     }
 }
 
@@ -219,6 +236,7 @@ mod tests {
     use alloc::borrow::ToOwned as _;
     use alloc::string::String;
     use core::cell::RefCell;
+    use nene_ruler_core::length_label::LengthLabel;
     use nene_ruler_core::modal_theme::ModalTheme;
     use nene_ruler_core::rgb::Rgb;
     use nene_ruler_core::rgb_failure::RgbFailure;
@@ -306,8 +324,8 @@ mod tests {
         let (screen, store) = (screen(), MemoryStore::empty());
         let controller = controller(&screen, &store);
         let frame = controller.frame();
-        assert_eq!(frame.text(Axis::Horizontal).as_str(), "400 px");
-        assert_eq!(frame.text(Axis::Vertical).as_str(), "240 px");
+        assert_eq!(frame.text(LengthLabel::Width).as_str(), "400 px");
+        assert_eq!(frame.text(LengthLabel::Height).as_str(), "240 px");
         assert_eq!(frame.ink(), Rgb::INITIAL_INK);
         assert_eq!(frame.layer(), WindowLayer::AlwaysOnTop);
         assert_eq!(frame.transparency(), Transparency::Composited);
@@ -364,7 +382,7 @@ mod tests {
         });
         assert_eq!(controller.frame().layout().size().width().px(), 3840);
         assert_eq!(
-            controller.frame().text(Axis::Horizontal).as_str(),
+            controller.frame().text(LengthLabel::Width).as_str(),
             "3840 px"
         );
     }
@@ -518,10 +536,10 @@ mod tests {
             Environment::new(Transparency::Composited),
             ProductVersion::new("0.1.0"),
         );
-        controller.apply(RulerIntent::CopyText(Axis::Vertical));
+        controller.apply(RulerIntent::CopyText(LengthLabel::Height));
         assert_eq!(board.copied.borrow().as_deref(), Some("240 px"));
         let mark = controller.frame().copy_mark().unwrap();
-        assert_eq!(mark.axis(), Axis::Vertical);
+        assert_eq!(mark.label(), LengthLabel::Height);
         assert!(mark.succeeded());
         controller.apply(RulerIntent::ClearCopyMark);
         assert!(controller.frame().copy_mark().is_none());
@@ -540,7 +558,7 @@ mod tests {
             Environment::new(Transparency::Composited),
             ProductVersion::new("0.1.0"),
         );
-        controller.apply(RulerIntent::CopyText(Axis::Horizontal));
+        controller.apply(RulerIntent::CopyText(LengthLabel::Width));
         let mark = controller.frame().copy_mark().unwrap();
         assert!(!mark.succeeded());
         assert_eq!(mark.failure(), Some(ClipboardFailure::Rejected));
@@ -564,8 +582,14 @@ mod tests {
             width_px: 548,
             height_px: 288,
         });
-        assert_eq!(controller.frame().text(Axis::Horizontal).as_str(), "500 px");
-        assert_eq!(controller.frame().text(Axis::Vertical).as_str(), "240 px");
+        assert_eq!(
+            controller.frame().text(LengthLabel::Width).as_str(),
+            "500 px"
+        );
+        assert_eq!(
+            controller.frame().text(LengthLabel::Height).as_str(),
+            "240 px"
+        );
         controller.apply(RulerIntent::OpenSettings);
         // モーダルは 2x の環境でも 1x（ADR 0014）。
         assert_eq!(
@@ -650,5 +674,28 @@ mod tests {
         controller.apply(RulerIntent::CloseSettings);
         controller.apply(RulerIntent::PickHue(0));
         assert_eq!(controller.frame().ink(), Rgb::new(0, 0, 255));
+    }
+
+    #[test]
+    fn a_small_frame_is_compact_and_copies_both_lengths() {
+        let (screen, store, board) = (screen(), MemoryStore::empty(), clipboard());
+        let mut controller = RulerController::new(
+            Ports::new(&screen, &store, &board),
+            Environment::new(Transparency::Opaque),
+            ProductVersion::new("0.1.0"),
+        );
+        // 窓 124 × 64 は枠 100 × 40（余白 24）。
+        controller.apply(RulerIntent::WindowResized {
+            width_px: 124,
+            height_px: 64,
+        });
+        let frame = controller.frame();
+        assert_eq!(frame.layout().detail(), FrameDetail::Compact);
+        assert_eq!(frame.text(LengthLabel::Size).as_str(), "100 \u{d7} 40 px");
+        // 詰めた表示では、不透明の通知も出さない（ADR 0017）。
+        assert!(frame.notices().list().is_empty());
+        controller.apply(RulerIntent::CopyText(LengthLabel::Size));
+        assert_eq!(board.copied.borrow().as_deref(), Some("100 \u{d7} 40 px"));
+        assert_eq!(controller.frame().layout().detail(), FrameDetail::Compact);
     }
 }

@@ -1,7 +1,7 @@
 //! 当たり判定の意味。
 
 use crate::anchor::Anchor;
-use crate::axis::Axis;
+use crate::length_label::LengthLabel;
 
 /// クリックした場所が何を意味するか。閉じた集合。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -12,6 +12,6 @@ pub enum HitTarget {
     Resize(Anchor),
     /// ギア。設定モーダルを開く（FR-009）。
     Gear,
-    /// 幅または高さの表示。その文字列をコピーする（FR-007）。
-    Copy(Axis),
+    /// 幅・高さ・両方の数字。その文字列をコピーする（FR-007）。
+    Copy(LengthLabel),
 }

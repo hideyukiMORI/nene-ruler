@@ -234,8 +234,8 @@ impl<'d> RulerWindow<'d> {
             HitTarget::Resize(Anchor::TopLeft) => MOVERESIZE_SIZE_TOPLEFT,
             HitTarget::Resize(Anchor::BottomRight) => MOVERESIZE_SIZE_BOTTOMRIGHT,
             HitTarget::Gear => return Ok(Flow::OpenSettings),
-            HitTarget::Copy(axis) => {
-                controller.apply(RulerIntent::CopyText(axis));
+            HitTarget::Copy(label) => {
+                controller.apply(RulerIntent::CopyText(label));
                 self.present(&controller.frame())?;
                 return Ok(Flow::Continue);
             }
@@ -287,7 +287,7 @@ impl<'d> RulerWindow<'d> {
         };
         let hit = frame
             .layout()
-            .label_hit(mark.axis(), frame.text(mark.axis()).chars());
+            .label_hit(mark.label(), frame.text(mark.label()).chars());
         let still_over = position
             .and_then(|(x, y)| PixelPoint::from_event(x, y))
             .is_some_and(|point| hit.contains(point));
