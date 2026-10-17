@@ -16,6 +16,7 @@ use crate::frame_detail::FrameDetail;
 use crate::frame_size::FrameSize;
 use crate::hit_region::HitRegion;
 use crate::hit_target::HitTarget;
+use crate::length::Length;
 use crate::length_label::LengthLabel;
 use crate::pixel_point::PixelPoint;
 use crate::pixel_rect::PixelRect;
@@ -157,6 +158,12 @@ impl FrameLayout {
             self.px(GRAB_PAD_PX) + self.size.width().px() + self.px(BEYOND_PX),
             self.px(GRAB_PAD_PX) + self.size.height().px() + self.px(BEYOND_PX),
         )
+    }
+
+    /// 枠が最小（`Length::MIN_PX`）のときの窓の一辺。WM に伝える最小の大きさと、自前のドラッグの下限（Issue #52）。
+    #[must_use]
+    pub const fn smallest_window(scale: UiScale) -> u16 {
+        (GRAB_PAD_PX + BEYOND_PX) * scale.factor() + Length::MIN_PX
     }
 
     /// 窓の大きさから枠の大きさへ戻す（WM の `ConfigureNotify` を受けたとき）。余白を引く。
@@ -815,5 +822,18 @@ mod tests {
         );
         assert!(hit.right() <= bare.window().right(), "{hit:?}");
         assert_eq!(bare.labels(), &[LengthLabel::Size]);
+    }
+
+    #[test]
+    fn the_smallest_window_holds_the_smallest_frame() {
+        assert_eq!(FrameLayout::smallest_window(UiScale::Single), 64);
+        assert_eq!(FrameLayout::smallest_window(UiScale::Double), 88);
+        assert_eq!(
+            FrameLayout::frame_px_for_window(
+                FrameLayout::smallest_window(UiScale::Double),
+                UiScale::Double
+            ),
+            Length::MIN_PX
+        );
     }
 }
