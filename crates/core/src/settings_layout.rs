@@ -40,6 +40,8 @@ const THEME_ROW_PX: u16 = 168;
 const LAYER_ROW_PX: u16 = 216;
 /// 見出しと段の間。
 const HEADING_GAP_PX: u16 = 8;
+/// 終了ボタンの幅。
+const QUIT_BUTTON_PX: u16 = 56;
 /// 閉じるボタンの一辺と、窓の右上の角からの距離。
 const CLOSE_PX: u16 = 24;
 const CLOSE_INSET_PX: u16 = 8;
@@ -203,6 +205,17 @@ impl SettingsLayout {
         ))
     }
 
+    /// 終了ボタン。「Always on top」の段の右端（Issue #42）。
+    #[must_use]
+    pub const fn quit_button(self) -> PixelRect {
+        self.scaled(PixelRect::new(
+            WIDTH_PX - MARGIN_PX - QUIT_BUTTON_PX,
+            LAYER_ROW_PX,
+            QUIT_BUTTON_PX,
+            BUTTON_HEIGHT_PX,
+        ))
+    }
+
     /// 当たり判定を優先順に。`layer` はいまの重なり順で、押すと反転する。
     /// どれにも当たらない所は、窓を動かす掴み所になる（ADR 0014）。
     #[must_use]
@@ -233,6 +246,7 @@ impl SettingsLayout {
             self.layer_toggle(),
             SettingsControl::Layer(layer.toggled()),
         ));
+        hits.push(SettingsHit::new(self.quit_button(), SettingsControl::Quit));
         hits
     }
 }
@@ -252,7 +266,7 @@ mod tests {
             assert!(hit.rect().right() <= window.right(), "{hit:?}");
             assert!(hit.rect().bottom() <= window.bottom(), "{hit:?}");
         }
-        assert_eq!(hits.len(), 1 + 8 + 1 + 2 + 1);
+        assert_eq!(hits.len(), 1 + 8 + 1 + 2 + 1 + 1);
     }
 
     #[test]
@@ -293,6 +307,10 @@ mod tests {
         assert_eq!(
             control_at(&hits, PixelPoint::new(300, 20)),
             Some(SettingsControl::Close)
+        );
+        assert_eq!(
+            control_at(&hits, PixelPoint::new(270, 228)),
+            Some(SettingsControl::Quit)
         );
         // 題の上は掴み所（部品ではない）。
         assert_eq!(control_at(&hits, PixelPoint::new(40, 20)), None);

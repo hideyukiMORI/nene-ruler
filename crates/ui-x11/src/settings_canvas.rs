@@ -61,6 +61,12 @@ pub fn render_settings(
         draw_hex_field(context, &palette, frame, focus)?;
         draw_theme_buttons(context, &palette, layout, frame.settings().modal_theme())?;
         draw_layer_toggle(context, &palette, layout, frame.settings().layer())?;
+        draw_button(
+            context,
+            &palette,
+            (layout.quit_button(), layout),
+            ("Quit", false),
+        )?;
         if let Some(failure) = frame.store_failure() {
             set_ink(context, Rgb::INITIAL_INK);
             write_at(
@@ -562,5 +568,15 @@ mod tests {
         let inside = field.x() + 4..field.right() - 3;
         assert!(inside.clone().any(|x| column_lit(&mut focused, x)));
         assert!(!inside.into_iter().any(|x| column_lit(&mut unfocused, x)));
+    }
+
+    #[test]
+    fn the_quit_button_is_drawn_as_a_button() {
+        let mut canvas = canvas(&[]);
+        let quit = SINGLE.quit_button();
+        assert_eq!(
+            canvas.pixel(quit.x() + 2, quit.y() + 2).unwrap(),
+            Some([0x2C, 0x2C, 0x2C, 0xFF])
+        );
     }
 }

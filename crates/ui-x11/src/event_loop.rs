@@ -27,13 +27,19 @@ pub fn run(display: &Display, controller: &mut RulerController<'_>) -> Result<()
             .as_ref()
             .is_some_and(|window| window_of(&event) == Some(window.window()));
         if for_settings {
-            if let Some(window) = &mut settings
-                && settings_step(controller, &ruler, window, &event)? == SettingsFlow::Close
-            {
-                controller.apply(RulerIntent::CloseSettings);
-                // `Drop` が送る DestroyWindow は、次の要求まで送信バッファに残る。ここで流す。
-                settings = None;
-                display.connection().flush()?;
+            let flow = match &mut settings {
+                Some(window) => settings_step(controller, &ruler, window, &event)?,
+                None => SettingsFlow::Continue,
+            };
+            match flow {
+                SettingsFlow::Continue | SettingsFlow::Changed => {}
+                SettingsFlow::Close => {
+                    controller.apply(RulerIntent::CloseSettings);
+                    // `Drop` が送る DestroyWindow は、次の要求まで送信バッファに残る。ここで流す。
+                    settings = None;
+                    display.connection().flush()?;
+                }
+                SettingsFlow::Quit => return Ok(()),
             }
         } else {
             match ruler.step(controller, &event)? {

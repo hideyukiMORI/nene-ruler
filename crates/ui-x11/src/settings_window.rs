@@ -252,6 +252,7 @@ impl<'d> SettingsWindow<'d> {
             SettingsControl::Theme(theme) => RulerIntent::ChooseModalTheme(theme),
             SettingsControl::Layer(layer) => RulerIntent::ChooseLayer(layer),
             SettingsControl::Close => return Ok(SettingsFlow::Close),
+            SettingsControl::Quit => return Ok(SettingsFlow::Quit),
         };
         controller.apply(intent);
         Ok(SettingsFlow::Changed)
