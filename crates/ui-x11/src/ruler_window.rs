@@ -16,9 +16,10 @@ use x11rb::protocol::Event;
 use x11rb::protocol::shape;
 use x11rb::protocol::xfixes::{self, ConnectionExt as _};
 use x11rb::protocol::xproto::{
-    AtomEnum, ButtonPressEvent, ClientMessageEvent, ColormapAlloc, ColormapWrapper,
-    ConfigureWindowAux, ConnectionExt as _, CreateGCAux, CreateWindowAux, EventMask,
-    GcontextWrapper, KeyButMask, PropMode, Rectangle, Window, WindowClass, WindowWrapper,
+    AtomEnum, ButtonPressEvent, ChangeWindowAttributesAux, ClientMessageEvent, ColormapAlloc,
+    ColormapWrapper, ConfigureWindowAux, ConnectionExt as _, CreateGCAux, CreateWindowAux, Cursor,
+    EventMask, GcontextWrapper, KeyButMask, PropMode, Rectangle, Window, WindowClass,
+    WindowWrapper,
 };
 use x11rb::rust_connection::RustConnection;
 use x11rb::wrapper::ConnectionExt as _;
@@ -29,6 +30,7 @@ use crate::display::Display;
 use crate::drag::Drag;
 use crate::flow::Flow;
 use crate::key_input::KeyInput;
+use crate::pointer_shapes::PointerShapes;
 use crate::transfer::Transfer;
 use crate::ui_failure::UiFailure;
 use crate::undecorated::{
@@ -53,6 +55,8 @@ pub struct RulerWindow<'d> {
     wm_moves: bool,
     drag: Option<Drag>,
     alt_f4: AltF4Gesture,
+    shapes: PointerShapes<'d>,
+    shown: Cursor,
 }
 
 impl<'d> RulerWindow<'d> {
@@ -112,6 +116,8 @@ impl<'d> RulerWindow<'d> {
             wm_moves,
             drag: None,
             alt_f4: AltF4Gesture::IDLE,
+            shapes: PointerShapes::load(display)?,
+            shown: x11rb::NONE,
         };
         opened.declare_hints(frame.layer())?;
         opened.set_input_shape(&frame.hit_regions())?;
@@ -160,6 +166,7 @@ impl<'d> RulerWindow<'d> {
             return self.pressed(controller, press);
         } else if let Event::MotionNotify(motion) = event {
             self.dragged((motion.root_x, motion.root_y))?;
+            self.shape_pointer(controller, (motion.event_x, motion.event_y))?;
             self.moved_off_the_mark(controller, Some((motion.event_x, motion.event_y)))?;
         } else if let Event::LeaveNotify(_) = event {
             // 中身は入力 shape の外なので、数字から中身へ動くと MotionNotify ではなく LeaveNotify が届く。
@@ -245,6 +252,27 @@ impl<'d> RulerWindow<'d> {
             self.drag = Some(Drag::begin(target, (press.root_x, press.root_y), start));
         }
         Ok(Flow::Continue)
+    }
+
+    /// ポインタの下の当たり判定に合わせて窓のカーソルを差し替える。変わったときだけ X へ送る（Issue #36）。
+    fn shape_pointer(
+        &mut self,
+        controller: &RulerController<'_>,
+        position: (i16, i16),
+    ) -> Result<(), UiFailure> {
+        let target = PixelPoint::from_event(position.0, position.1)
+            .and_then(|point| hit_region::target_at(&controller.frame().hit_regions(), point));
+        let cursor = self.shapes.cursor_for(target);
+        if cursor == self.shown {
+            return Ok(());
+        }
+        self.display.connection().change_window_attributes(
+            self.window.window(),
+            &ChangeWindowAttributesAux::new().cursor(cursor),
+        )?;
+        self.display.connection().flush()?;
+        self.shown = cursor;
+        Ok(())
     }
 
     /// コピーの印があり、ポインタがその数字から離れたら印を消す（ADR 0007 の 5）。
