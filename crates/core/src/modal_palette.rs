@@ -19,7 +19,8 @@ impl ModalPalette {
     pub const fn of(theme: ModalTheme) -> Self {
         match theme {
             ModalTheme::Dark => Self {
-                background: Rgb::new(0x1E, 0x1E, 0x1E),
+                // 施主指定 2026-10-17: 真っ黒。
+                background: Rgb::new(0x00, 0x00, 0x00),
                 text: Rgb::new(0xE6, 0xE6, 0xE6),
                 field: Rgb::new(0x2C, 0x2C, 0x2C),
                 border: Rgb::new(0x55, 0x55, 0x55),
@@ -75,6 +76,10 @@ mod tests {
         assert_ne!(
             ModalPalette::of(ModalTheme::Dark).background(),
             ModalPalette::of(ModalTheme::Light).background()
+        );
+        assert_eq!(
+            ModalPalette::of(ModalTheme::Dark).background(),
+            Rgb::new(0x00, 0x00, 0x00)
         );
     }
 }

@@ -31,16 +31,10 @@ use crate::flow::Flow;
 use crate::key_input::KeyInput;
 use crate::transfer::Transfer;
 use crate::ui_failure::UiFailure;
-use crate::window_geometry::WindowGeometry;
+use crate::undecorated::{
+    self, MOVERESIZE_MOVE, MOVERESIZE_SIZE_BOTTOMRIGHT, MOVERESIZE_SIZE_TOPLEFT, SOURCE_APPLICATION,
+};
 
-/// `_MOTIF_WM_HINTS` の `flags`: 装飾の指定だけを行う。
-const MWM_HINTS_DECORATIONS: u32 = 1 << 1;
-/// `_NET_WM_MOVERESIZE` の向き。
-const MOVERESIZE_SIZE_TOPLEFT: u32 = 0;
-const MOVERESIZE_SIZE_BOTTOMRIGHT: u32 = 4;
-const MOVERESIZE_MOVE: u32 = 8;
-/// `_NET_WM_MOVERESIZE` / `_NET_WM_STATE` の `source_indication`: 通常のアプリケーション。
-const SOURCE_APPLICATION: u32 = 1;
 /// `_NET_WM_STATE` の action。
 const NET_WM_STATE_REMOVE: u32 = 0;
 const NET_WM_STATE_ADD: u32 = 1;
@@ -240,9 +234,14 @@ impl<'d> RulerWindow<'d> {
             }
         };
         if self.wm_moves {
-            self.ask_wm_to_move_resize(press, direction)?;
+            undecorated::ask_wm_to_move_resize(
+                self.display,
+                self.window.window(),
+                press,
+                direction,
+            )?;
         } else {
-            let start = self.geometry()?;
+            let start = undecorated::geometry_of(self.display, self.window.window())?;
             self.drag = Some(Drag::begin(target, (press.root_x, press.root_y), start));
         }
         Ok(Flow::Continue)
@@ -273,7 +272,7 @@ impl<'d> RulerWindow<'d> {
 
     /// 矢印で枠を動かす（FR-015）。WM があれば WM が位置を決め直す。
     fn nudge(&self, nudge: Nudge) -> Result<(), UiFailure> {
-        let geometry = self.geometry()?;
+        let geometry = undecorated::geometry_of(self.display, self.window.window())?;
         self.display.connection().configure_window(
             self.window.window(),
             &ConfigureWindowAux::new()
@@ -303,65 +302,12 @@ impl<'d> RulerWindow<'d> {
         Ok(())
     }
 
-    /// `_NET_WM_MOVERESIZE` を根の窓へ送る。暗黙の grab を外してから。
-    fn ask_wm_to_move_resize(
-        &self,
-        press: &ButtonPressEvent,
-        direction: u32,
-    ) -> Result<(), UiFailure> {
-        let connection = self.display.connection();
-        let root = self.display.screen()?.root;
-        connection.ungrab_pointer(press.time)?;
-        let message = ClientMessageEvent::new(
-            32,
-            self.window.window(),
-            self.display.atoms().net_wm_moveresize,
-            [
-                u32::try_from(i32::from(press.root_x)).unwrap_or(0),
-                u32::try_from(i32::from(press.root_y)).unwrap_or(0),
-                direction,
-                u32::from(press.detail),
-                SOURCE_APPLICATION,
-            ],
-        );
-        connection.send_event(
-            false,
-            root,
-            EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY,
-            message,
-        )?;
-        connection.flush()?;
-        Ok(())
-    }
-
-    /// 窓の根からの位置と大きさ。
-    fn geometry(&self) -> Result<WindowGeometry, UiFailure> {
-        let connection = self.display.connection();
-        let root = self.display.screen()?.root;
-        let geometry = connection.get_geometry(self.window.window())?.reply()?;
-        let origin = connection
-            .translate_coordinates(self.window.window(), root, 0, 0)?
-            .reply()?;
-        Ok(WindowGeometry::new(
-            i32::from(origin.dst_x),
-            i32::from(origin.dst_y),
-            u32::from(geometry.width),
-            u32::from(geometry.height),
-        ))
-    }
-
     /// 装飾なし・最前面・閉じる要求・題を WM へ伝える（FR-001 / FR-013 / FR-015）。
     fn declare_hints(&self, layer: WindowLayer) -> Result<(), UiFailure> {
         let connection = self.display.connection();
         let atoms = self.display.atoms();
         let window = self.window.window();
-        connection.change_property32(
-            PropMode::REPLACE,
-            window,
-            atoms.motif_wm_hints,
-            atoms.motif_wm_hints,
-            &[MWM_HINTS_DECORATIONS, 0, 0, 0, 0],
-        )?;
+        undecorated::declare_undecorated(self.display, window)?;
         let states: &[u32] = match layer {
             WindowLayer::AlwaysOnTop => &[atoms.net_wm_state_above],
             WindowLayer::Normal => &[],
@@ -379,18 +325,6 @@ impl<'d> RulerWindow<'d> {
             atoms.wm_protocols,
             AtomEnum::ATOM,
             &[atoms.wm_delete_window],
-        )?;
-        // Weston の XWM は飾りなしの窓に影を描く。_KDE_NET_WM_WINDOW_TYPE_OVERRIDE が先頭にあれば描かない。
-        // 他の WM は知らない種類を飛ばして NORMAL を読む（ADR 0008）。
-        connection.change_property32(
-            PropMode::REPLACE,
-            window,
-            atoms.net_wm_window_type,
-            AtomEnum::ATOM,
-            &[
-                atoms.kde_net_wm_window_type_override,
-                atoms.net_wm_window_type_normal,
-            ],
         )?;
         connection.change_property8(
             PropMode::REPLACE,

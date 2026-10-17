@@ -14,4 +14,6 @@ pub enum SettingsControl {
     Theme(ModalTheme),
     /// 重なり順の切替。
     Layer(WindowLayer),
+    /// 右上の閉じるボタン（WM の飾りの代わり・ADR 0014）。
+    Close,
 }

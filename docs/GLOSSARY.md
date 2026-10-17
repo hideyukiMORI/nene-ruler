@@ -39,7 +39,7 @@
 | 合成器 | `_NET_WM_CM_S0` を所有し、ARGB の窓を画面に合成するプログラム（Weston・xcompmgr 等） | adapters-x11 / ui-x11 |
 | モーダルの見え | 設定モーダルの背景と文字の配色。ダーク・ライトの閉じた集合（「システムに従う」は置かない・FR-010）。枠の窓には効かない | `ModalTheme`（core） |
 | 配色 | 見えごとの背景・文字・入力欄・枠線・選択の印 | `ModalPalette`（core） |
-| 部品 | 設定モーダルで押せるもの。色見本・入力欄・見え・最前面 | `SettingsControl` / `SettingsLayout`（core） |
+| 部品 | 設定モーダルで押せるもの。色見本・入力欄・見え・最前面・閉じる | `SettingsControl` / `SettingsLayout`（core） |
 | 重なり順 | 常に最前面か、通常の重なり順かの閉じた集合 | `WindowLayer`（core） |
 | 設定 | インク色・モーダルの見え・重なり順の組。保存される値の正本 | `RulerSettings`（core） |
 | 物差しの状態の所有者 | 枠・設定を 1 つ持ち、意図で次の状態へ置き換える | `RulerController`（application） |

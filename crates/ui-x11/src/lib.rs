@@ -19,5 +19,6 @@ mod settings_flow;
 pub mod settings_window;
 mod transfer;
 pub mod ui_failure;
+mod undecorated;
 pub mod window_geometry;
 pub mod window_visual;
