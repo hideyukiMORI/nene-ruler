@@ -8,6 +8,7 @@ use nene_ruler_core::ruler_settings::RulerSettings;
 
 use crate::modal_session::ModalSession;
 use crate::product_version::ProductVersion;
+use crate::settings_store_failure::SettingsStoreFailure;
 
 /// 脚注のコピーライト。版の前に付く。
 const COPYRIGHT: &str = "(c) 2026 Hideyuki Mori / MIT";
@@ -18,16 +19,23 @@ pub struct SettingsFrame {
     settings: RulerSettings,
     session: ModalSession,
     footer: String,
+    store_failure: Option<SettingsStoreFailure>,
 }
 
 impl SettingsFrame {
     /// 値を束ねる。生成は `RulerController::settings_frame` だけが行う。
     #[must_use]
-    pub fn new(settings: RulerSettings, session: ModalSession, version: ProductVersion) -> Self {
+    pub fn new(
+        settings: RulerSettings,
+        session: ModalSession,
+        version: ProductVersion,
+        store_failure: Option<SettingsStoreFailure>,
+    ) -> Self {
         Self {
             settings,
             session,
             footer: format!("NeNe Ruler {} {COPYRIGHT}", version.text()),
+            store_failure,
         }
     }
 
@@ -53,5 +61,11 @@ impl SettingsFrame {
     #[must_use]
     pub fn footer(&self) -> &str {
         &self.footer
+    }
+
+    /// 設定の読み書きが失敗していれば、その理由（FR-014）。
+    #[must_use]
+    pub const fn store_failure(&self) -> Option<SettingsStoreFailure> {
+        self.store_failure
     }
 }

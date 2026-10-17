@@ -130,7 +130,7 @@ impl<'d> SettingsWindow<'d> {
     /// 描き直しに失敗した。
     pub(crate) fn handle(
         &self,
-        controller: &mut RulerController,
+        controller: &mut RulerController<'_>,
         event: &Event,
     ) -> Result<SettingsFlow, UiFailure> {
         if let Event::Expose(expose) = event {
@@ -153,7 +153,7 @@ impl<'d> SettingsWindow<'d> {
     }
 
     /// 露出で描き直す。
-    fn expose(&self, controller: &RulerController) -> Result<(), UiFailure> {
+    fn expose(&self, controller: &RulerController<'_>) -> Result<(), UiFailure> {
         match controller.settings_frame() {
             Some(frame) => self.present(&frame),
             None => Ok(()),
@@ -161,7 +161,7 @@ impl<'d> SettingsWindow<'d> {
     }
 
     /// 左ボタンで押した部品を意図にする。
-    fn pressed(controller: &mut RulerController, press: &ButtonPressEvent) -> SettingsFlow {
+    fn pressed(controller: &mut RulerController<'_>, press: &ButtonPressEvent) -> SettingsFlow {
         if press.detail != BUTTON_LEFT {
             return SettingsFlow::Continue;
         }
@@ -191,7 +191,7 @@ impl<'d> SettingsWindow<'d> {
     }
 
     /// 鍵を入力欄の意図にする。Esc は閉じる。
-    fn typed(controller: &mut RulerController, input: KeyInput) -> SettingsFlow {
+    fn typed(controller: &mut RulerController<'_>, input: KeyInput) -> SettingsFlow {
         let intent = match input {
             KeyInput::Escape => return SettingsFlow::Close,
             KeyInput::Return => RulerIntent::HexSubmit,

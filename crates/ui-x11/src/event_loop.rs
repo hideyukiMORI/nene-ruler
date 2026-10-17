@@ -18,7 +18,7 @@ use crate::ui_failure::UiFailure;
 /// # Errors
 ///
 /// X の要求か cairo が失敗した。
-pub fn run(display: &Display, controller: &mut RulerController) -> Result<(), UiFailure> {
+pub fn run(display: &Display, controller: &mut RulerController<'_>) -> Result<(), UiFailure> {
     let mut ruler = RulerWindow::open(display, &controller.frame())?;
     let mut settings: Option<SettingsWindow<'_>> = None;
     loop {
@@ -49,7 +49,7 @@ pub fn run(display: &Display, controller: &mut RulerController) -> Result<(), Ui
 
 /// モーダル宛のイベント。設定が変わっていれば枠とモーダルを描き直す。
 fn settings_step(
-    controller: &mut RulerController,
+    controller: &mut RulerController<'_>,
     ruler: &RulerWindow<'_>,
     window: &SettingsWindow<'_>,
     event: &Event,
@@ -67,7 +67,7 @@ fn settings_step(
 /// ギアが押された。まだ開いていなければモーダルを開く。
 fn open_settings<'d>(
     display: &'d Display,
-    controller: &mut RulerController,
+    controller: &mut RulerController<'_>,
     ruler: &RulerWindow<'d>,
     current: Option<SettingsWindow<'d>>,
 ) -> Result<Option<SettingsWindow<'d>>, UiFailure> {

@@ -21,3 +21,4 @@ ADR は「なぜそう決めたか」「何を却下したか」を書く。
 | [0003](0003-rust-foundation-and-measured-limits.md) | Rust の検査基盤と実測できた限界を固定する | 受理 |
 | [0004](0004-diff-scoped-verification-and-result-reuse.md) | 差分に必要な検証と成功結果の再利用 | 受理 |
 | [0005](0005-transparent-frame-with-input-shape.md) | 枠は透明な 2 次元の窓。描いたものだけが見え、描いたものだけが触れる | 受理 |
+| [0006](0006-settings-file-v1.md) | 設定は版付きの `key = value` テキストで保存し、読めない版は既定値へ落とさない | 受理 |

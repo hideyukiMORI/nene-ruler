@@ -43,6 +43,15 @@ pub fn render_settings(frame: &SettingsFrame, format: Format) -> Result<Canvas, 
         draw_unit_buttons(context, &palette, frame.settings().unit())?;
         draw_theme_buttons(context, &palette, frame.settings().modal_theme())?;
         draw_layer_toggle(context, &palette, frame.settings().layer())?;
+        if let Some(failure) = frame.store_failure() {
+            set_ink(context, Rgb::INITIAL_INK);
+            write_at(
+                context,
+                SettingsLayout::notice_baseline(),
+                failure.describe(),
+                FOOTER_FONT_PX,
+            )?;
+        }
         set_ink(context, palette.text());
         write_at(
             context,
@@ -270,11 +279,15 @@ fn draw_layer_toggle(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nene_ruler_application::ports::Ports;
     use nene_ruler_application::product_version::ProductVersion;
     use nene_ruler_application::ruler_controller::RulerController;
     use nene_ruler_application::ruler_intent::RulerIntent;
     use nene_ruler_application::screen_metrics_port::ScreenMetricsPort;
+    use nene_ruler_application::settings_store_failure::SettingsStoreFailure;
+    use nene_ruler_application::settings_store_port::SettingsStorePort;
     use nene_ruler_application::transparency::Transparency;
+    use nene_ruler_core::ruler_settings::RulerSettings;
     use nene_ruler_core::screen_metrics::ScreenMetrics;
     use nene_ruler_core::screen_metrics_failure::ScreenMetricsFailure;
 
@@ -286,9 +299,21 @@ mod tests {
         }
     }
 
-    fn canvas(intents: &[RulerIntent]) -> Canvas {
+    struct NoStore(Result<Option<RulerSettings>, SettingsStoreFailure>);
+
+    impl SettingsStorePort for NoStore {
+        fn load(&self) -> Result<Option<RulerSettings>, SettingsStoreFailure> {
+            self.0
+        }
+
+        fn save(&self, _settings: RulerSettings) -> Result<(), SettingsStoreFailure> {
+            Ok(())
+        }
+    }
+
+    fn canvas_with(store: &NoStore, intents: &[RulerIntent]) -> Canvas {
         let mut controller = RulerController::new(
-            &NoScreen,
+            Ports::new(&NoScreen, store),
             Transparency::Composited,
             ProductVersion::new("0.1.0"),
         );
@@ -297,6 +322,26 @@ mod tests {
             controller.apply(*intent);
         }
         render_settings(&controller.settings_frame().unwrap(), Format::ARgb32).unwrap()
+    }
+
+    fn canvas(intents: &[RulerIntent]) -> Canvas {
+        canvas_with(&NoStore(Ok(None)), intents)
+    }
+
+    #[test]
+    fn a_store_failure_is_written_above_the_footer() {
+        let store = NoStore(Err(SettingsStoreFailure::Malformed));
+        let mut failed = canvas_with(&store, &[]);
+        let notice = SettingsLayout::notice_baseline();
+        let row: Vec<[u8; 4]> = (notice.x()..notice.x() + 80)
+            .filter_map(|x| failed.pixel(x, notice.y() - 3).unwrap())
+            .collect();
+        assert!(row.iter().any(|p| p[2] > p[1] && p[2] > 0x80));
+        let mut clean = canvas(&[]);
+        let clean_row: Vec<[u8; 4]> = (notice.x()..notice.x() + 80)
+            .filter_map(|x| clean.pixel(x, notice.y() - 3).unwrap())
+            .collect();
+        assert!(clean_row.iter().all(|p| *p == [0x1E, 0x1E, 0x1E, 0xFF]));
     }
 
     #[test]

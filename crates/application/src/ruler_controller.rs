@@ -12,38 +12,46 @@ use nene_ruler_core::unit::Unit;
 
 use crate::frame_texts::FrameTexts;
 use crate::modal_session::ModalSession;
+use crate::ports::Ports;
 use crate::product_version::ProductVersion;
 use crate::ruler_frame::RulerFrame;
 use crate::ruler_intent::RulerIntent;
-use crate::screen_metrics_port::ScreenMetricsPort;
 use crate::settings_frame::SettingsFrame;
+use crate::settings_store_failure::SettingsStoreFailure;
 use crate::transparency::Transparency;
 
 /// 枠・設定・モーダルの編集状態・物理寸法・透明を 1 つ持ち、意図で次の状態へ置き換える。
 ///
-/// 公開値はすべて不変で、変わるのは `apply` の中だけ（ARC-005）。
+/// 公開値はすべて不変で、変わるのは `apply` の中だけ（ARC-005）。設定が変わるたびに保存ポートへ書く（FR-012）。
 #[derive(Debug)]
-pub struct RulerController {
+pub struct RulerController<'p> {
+    ports: Ports<'p>,
     size: FrameSize,
     settings: RulerSettings,
     modal: Option<ModalSession>,
     metrics: Result<ScreenMetrics, ScreenMetricsFailure>,
+    store_failure: Option<SettingsStoreFailure>,
     transparency: Transparency,
     version: ProductVersion,
 }
 
-impl RulerController {
-    /// 初期の枠と設定で始める。物理寸法はここで一度だけ取り込む（ARC-004 の表）。
-    pub fn new(
-        metrics_port: &dyn ScreenMetricsPort,
-        transparency: Transparency,
-        version: ProductVersion,
-    ) -> Self {
+impl<'p> RulerController<'p> {
+    /// 初期の枠で始める。物理寸法と保存された設定はここで一度だけ取り込む（ARC-004 の表）。
+    /// 設定が読めなければ既定値で始め、理由を持っておく（ARC-009: 黙って落とさない）。
+    #[must_use]
+    pub fn new(ports: Ports<'p>, transparency: Transparency, version: ProductVersion) -> Self {
+        let (settings, store_failure) = match ports.store().load() {
+            Ok(Some(saved)) => (saved, None),
+            Ok(None) => (RulerSettings::INITIAL, None),
+            Err(failure) => (RulerSettings::INITIAL, Some(failure)),
+        };
         Self {
+            ports,
             size: FrameSize::INITIAL,
-            settings: RulerSettings::INITIAL,
+            settings,
             modal: None,
-            metrics: metrics_port.screen_metrics(),
+            metrics: ports.metrics().screen_metrics(),
+            store_failure,
             transparency,
             version,
         }
@@ -59,14 +67,14 @@ impl RulerController {
             RulerIntent::OpenSettings => self.modal = Some(ModalSession::open(self.settings.ink())),
             RulerIntent::CloseSettings => self.modal = None,
             RulerIntent::ChooseInk(ink) => {
-                self.settings = self.settings.with_ink(ink);
+                self.change(self.settings.with_ink(ink));
                 self.modal = Some(ModalSession::open(ink));
             }
-            RulerIntent::ChooseUnit(unit) => self.settings = self.settings.with_unit(unit),
+            RulerIntent::ChooseUnit(unit) => self.change(self.settings.with_unit(unit)),
             RulerIntent::ChooseModalTheme(theme) => {
-                self.settings = self.settings.with_modal_theme(theme);
+                self.change(self.settings.with_modal_theme(theme));
             }
-            RulerIntent::ChooseLayer(layer) => self.settings = self.settings.with_layer(layer),
+            RulerIntent::ChooseLayer(layer) => self.change(self.settings.with_layer(layer)),
             RulerIntent::HexTyped(character) => {
                 self.edit(|session| session.clone().with_entry(session.entry().typed(character)));
             }
@@ -91,15 +99,32 @@ impl RulerController {
     /// モーダルが開いていれば、それを描くための値。
     #[must_use]
     pub fn settings_frame(&self) -> Option<SettingsFrame> {
-        self.modal
-            .as_ref()
-            .map(|session| SettingsFrame::new(self.settings, session.clone(), self.version))
+        self.modal.as_ref().map(|session| {
+            SettingsFrame::new(
+                self.settings,
+                session.clone(),
+                self.version,
+                self.store_failure,
+            )
+        })
     }
 
     /// 物理寸法が取れなかった理由。利用者に示すため（FR-014）。
     #[must_use]
     pub fn metrics_failure(&self) -> Option<ScreenMetricsFailure> {
         self.metrics.err()
+    }
+
+    /// 設定の読み書きが失敗していれば、その理由（FR-014）。
+    #[must_use]
+    pub const fn store_failure(&self) -> Option<SettingsStoreFailure> {
+        self.store_failure
+    }
+
+    /// 設定を置き換えて保存する。保存の失敗は持っておき、成功すれば消す。
+    fn change(&mut self, settings: RulerSettings) {
+        self.settings = settings;
+        self.store_failure = self.ports.store().save(settings).err();
     }
 
     /// 窓の大きさを枠の大きさに写す。
@@ -124,7 +149,7 @@ impl RulerController {
         };
         match session.entry().parse() {
             Ok(ink) => {
-                self.settings = self.settings.with_ink(ink);
+                self.change(self.settings.with_ink(ink));
                 self.modal = Some(ModalSession::open(ink));
             }
             Err(failure) => self.modal = Some(session.clone().rejected(failure)),
@@ -159,6 +184,9 @@ impl RulerController {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::screen_metrics_port::ScreenMetricsPort;
+    use crate::settings_store_port::SettingsStorePort;
+    use core::cell::RefCell;
     use nene_ruler_core::modal_theme::ModalTheme;
     use nene_ruler_core::rgb::Rgb;
     use nene_ruler_core::rgb_failure::RgbFailure;
@@ -172,13 +200,41 @@ mod tests {
         }
     }
 
+    /// 読み込みの結果を固定し、保存された値を覚える偽の保存先。
+    struct MemoryStore {
+        loaded: Result<Option<RulerSettings>, SettingsStoreFailure>,
+        saved: RefCell<Option<RulerSettings>>,
+        save_failure: Option<SettingsStoreFailure>,
+    }
+
+    impl MemoryStore {
+        fn empty() -> Self {
+            Self {
+                loaded: Ok(None),
+                saved: RefCell::new(None),
+                save_failure: None,
+            }
+        }
+    }
+
+    impl SettingsStorePort for MemoryStore {
+        fn load(&self) -> Result<Option<RulerSettings>, SettingsStoreFailure> {
+            self.loaded
+        }
+
+        fn save(&self, settings: RulerSettings) -> Result<(), SettingsStoreFailure> {
+            *self.saved.borrow_mut() = Some(settings);
+            self.save_failure.map_or(Ok(()), Err)
+        }
+    }
+
     fn screen() -> FixedScreen {
         FixedScreen(ScreenMetrics::new(1920, 1080, 480, 270))
     }
 
-    fn controller() -> RulerController {
+    fn controller<'p>(screen: &'p FixedScreen, store: &'p MemoryStore) -> RulerController<'p> {
         RulerController::new(
-            &screen(),
+            Ports::new(screen, store),
             Transparency::Composited,
             ProductVersion::new("0.1.0"),
         )
@@ -186,7 +242,8 @@ mod tests {
 
     #[test]
     fn starts_with_the_initial_frame_in_pixels() {
-        let controller = controller();
+        let (screen, store) = (screen(), MemoryStore::empty());
+        let controller = controller(&screen, &store);
         let frame = controller.frame();
         assert_eq!(frame.text(Axis::Horizontal).as_str(), "400 px");
         assert_eq!(frame.text(Axis::Vertical).as_str(), "240 px");
@@ -194,12 +251,15 @@ mod tests {
         assert_eq!(frame.layer(), WindowLayer::AlwaysOnTop);
         assert_eq!(frame.transparency(), Transparency::Composited);
         assert_eq!(controller.metrics_failure(), None);
+        assert_eq!(controller.store_failure(), None);
         assert!(controller.settings_frame().is_none());
+        assert_eq!(*store.saved.borrow(), None);
     }
 
     #[test]
     fn window_size_becomes_frame_size_within_the_screen() {
-        let mut controller = controller();
+        let (screen, store) = (screen(), MemoryStore::empty());
+        let mut controller = controller(&screen, &store);
         controller.apply(RulerIntent::WindowResized {
             width_px: 524,
             height_px: 324,
@@ -219,12 +279,9 @@ mod tests {
 
     #[test]
     fn without_metrics_the_limit_is_the_absolute_maximum_and_units_fall_back() {
-        let port = FixedScreen(Err(ScreenMetricsFailure::Unavailable));
-        let mut controller = RulerController::new(
-            &port,
-            Transparency::Composited,
-            ProductVersion::new("0.1.0"),
-        );
+        let screen = FixedScreen(Err(ScreenMetricsFailure::Unavailable));
+        let store = MemoryStore::empty();
+        let mut controller = controller(&screen, &store);
         assert_eq!(
             controller.metrics_failure(),
             Some(ScreenMetricsFailure::Unavailable)
@@ -249,7 +306,8 @@ mod tests {
 
     #[test]
     fn units_convert_through_the_metrics() {
-        let mut controller = controller();
+        let (screen, store) = (screen(), MemoryStore::empty());
+        let mut controller = controller(&screen, &store);
         controller.apply(RulerIntent::ChooseUnit(Unit::Mm));
         assert_eq!(
             controller.frame().text(Axis::Horizontal).as_str(),
@@ -261,11 +319,13 @@ mod tests {
 
     #[test]
     fn the_modal_opens_with_the_current_ink_and_accepts_presets() {
-        let mut controller = controller();
+        let (screen, store) = (screen(), MemoryStore::empty());
+        let mut controller = controller(&screen, &store);
         controller.apply(RulerIntent::OpenSettings);
         let frame = controller.settings_frame().unwrap();
         assert_eq!(frame.session().entry().text(), "#E53935");
         assert!(frame.footer().contains("0.1.0"));
+        assert_eq!(frame.store_failure(), None);
         controller.apply(RulerIntent::ChooseInk(Rgb::new(1, 2, 3)));
         assert_eq!(controller.frame().ink(), Rgb::new(1, 2, 3));
         assert_eq!(
@@ -283,7 +343,8 @@ mod tests {
 
     #[test]
     fn typing_a_hex_colour_applies_on_submit_and_rejection_is_visible() {
-        let mut controller = controller();
+        let (screen, store) = (screen(), MemoryStore::empty());
+        let mut controller = controller(&screen, &store);
         controller.apply(RulerIntent::OpenSettings);
         for _ in 0_u8..7 {
             controller.apply(RulerIntent::HexBackspace);
@@ -307,7 +368,8 @@ mod tests {
 
     #[test]
     fn typing_without_the_modal_does_nothing() {
-        let mut controller = controller();
+        let (screen, store) = (screen(), MemoryStore::empty());
+        let mut controller = controller(&screen, &store);
         controller.apply(RulerIntent::HexTyped('1'));
         controller.apply(RulerIntent::HexSubmit);
         assert!(controller.settings_frame().is_none());
@@ -316,7 +378,8 @@ mod tests {
 
     #[test]
     fn theme_and_layer_are_recorded() {
-        let mut controller = controller();
+        let (screen, store) = (screen(), MemoryStore::empty());
+        let mut controller = controller(&screen, &store);
         controller.apply(RulerIntent::OpenSettings);
         controller.apply(RulerIntent::ChooseModalTheme(ModalTheme::Light));
         controller.apply(RulerIntent::ChooseLayer(WindowLayer::Normal));
@@ -331,6 +394,73 @@ mod tests {
 
     #[test]
     fn hit_regions_come_from_the_frame() {
-        assert_eq!(controller().frame().hit_regions().len(), 9);
+        let (screen, store) = (screen(), MemoryStore::empty());
+        assert_eq!(controller(&screen, &store).frame().hit_regions().len(), 9);
+    }
+
+    #[test]
+    fn saved_settings_are_loaded_and_every_change_is_saved() {
+        let saved = RulerSettings::INITIAL
+            .with_ink(Rgb::new(9, 8, 7))
+            .with_unit(Unit::In);
+        let screen = screen();
+        let store = MemoryStore {
+            loaded: Ok(Some(saved)),
+            saved: RefCell::new(None),
+            save_failure: None,
+        };
+        let mut controller = controller(&screen, &store);
+        assert_eq!(controller.frame().ink(), Rgb::new(9, 8, 7));
+        assert_eq!(
+            controller.frame().text(Axis::Horizontal).as_str(),
+            "3.94 in"
+        );
+        controller.apply(RulerIntent::ChooseLayer(WindowLayer::Normal));
+        assert_eq!(
+            *store.saved.borrow(),
+            Some(saved.with_layer(WindowLayer::Normal))
+        );
+        assert_eq!(controller.store_failure(), None);
+    }
+
+    #[test]
+    fn an_unreadable_store_starts_with_defaults_and_is_visible() {
+        let screen = screen();
+        let store = MemoryStore {
+            loaded: Err(SettingsStoreFailure::UnknownVersion),
+            saved: RefCell::new(None),
+            save_failure: None,
+        };
+        let mut controller = controller(&screen, &store);
+        assert_eq!(controller.frame().ink(), Rgb::INITIAL_INK);
+        assert_eq!(
+            controller.store_failure(),
+            Some(SettingsStoreFailure::UnknownVersion)
+        );
+        controller.apply(RulerIntent::OpenSettings);
+        assert_eq!(
+            controller.settings_frame().unwrap().store_failure(),
+            Some(SettingsStoreFailure::UnknownVersion)
+        );
+        // 保存が成功すれば、読めなかった理由は役目を終える。
+        controller.apply(RulerIntent::ChooseUnit(Unit::Mm));
+        assert_eq!(controller.store_failure(), None);
+    }
+
+    #[test]
+    fn a_failed_save_is_visible_but_the_change_stays() {
+        let screen = screen();
+        let store = MemoryStore {
+            loaded: Ok(None),
+            saved: RefCell::new(None),
+            save_failure: Some(SettingsStoreFailure::Unwritable),
+        };
+        let mut controller = controller(&screen, &store);
+        controller.apply(RulerIntent::ChooseInk(Rgb::new(1, 1, 1)));
+        assert_eq!(controller.frame().ink(), Rgb::new(1, 1, 1));
+        assert_eq!(
+            controller.store_failure(),
+            Some(SettingsStoreFailure::Unwritable)
+        );
     }
 }

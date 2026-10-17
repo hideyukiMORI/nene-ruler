@@ -131,7 +131,7 @@ impl<'d> RulerWindow<'d> {
     /// # Errors
     ///
     /// X の要求か cairo が失敗した。
-    pub fn refresh(&self, controller: &RulerController) -> Result<(), UiFailure> {
+    pub fn refresh(&self, controller: &RulerController<'_>) -> Result<(), UiFailure> {
         let frame = controller.frame();
         self.set_input_shape(&frame.hit_regions())?;
         self.set_layer(frame.layer())?;
@@ -141,7 +141,7 @@ impl<'d> RulerWindow<'d> {
     /// 1 つのイベント。X のイベントは開いた集合なので `if let` の連なりで書く（規約 第 4 節）。
     pub(crate) fn step(
         &mut self,
-        controller: &mut RulerController,
+        controller: &mut RulerController<'_>,
         event: &Event,
     ) -> Result<Flow, UiFailure> {
         if let Event::Expose(expose) = event {

@@ -262,9 +262,30 @@ mod tests {
         }
     }
 
+    struct NoStore;
+
+    impl nene_ruler_application::settings_store_port::SettingsStorePort for NoStore {
+        fn load(
+            &self,
+        ) -> Result<
+            Option<nene_ruler_core::ruler_settings::RulerSettings>,
+            nene_ruler_application::settings_store_failure::SettingsStoreFailure,
+        > {
+            Ok(None)
+        }
+
+        fn save(
+            &self,
+            _settings: nene_ruler_core::ruler_settings::RulerSettings,
+        ) -> Result<(), nene_ruler_application::settings_store_failure::SettingsStoreFailure>
+        {
+            Ok(())
+        }
+    }
+
     fn canvas(transparency: Transparency) -> Canvas {
         let controller = RulerController::new(
-            &NoScreen,
+            nene_ruler_application::ports::Ports::new(&NoScreen, &NoStore),
             transparency,
             nene_ruler_application::product_version::ProductVersion::new("0.1.0"),
         );
