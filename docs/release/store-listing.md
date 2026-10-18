@@ -73,7 +73,7 @@ on-screen ruler
 
 ### Screenshot captions
 
-画像は `packaging/windows/capture-store-images.ps1` が施主の Windows で撮った 1920×1080（2026-10-18・版 1.0.0・既定の設定）。背景は架空の画面で、施主のデスクトップは写っていない。
+画像は `packaging/windows/capture-store-images.ps1` が施主の Windows で撮った 1920×1080（2026-10-18・版 1.0.0・既定の設定）。背景はダークモードの配色の架空の画面（施主の希望）で、施主のデスクトップは写っていない。
 
 | 画像 | Caption |
 | --- | --- |

@@ -51,7 +51,7 @@ if ($screen.Width -lt $width -or $screen.Height -lt $height) { throw "主画面�
 $origin = New-Object System.Drawing.Point(($screen.X + [int](($screen.Width - $width) / 2)), ($screen.Y + [int](($screen.Height - $height) / 2)))
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 
-# 架空の画面: 明るい地に、登録の画面のカード（1120×640）と、その中の入力欄（992×56）とボタン（280×64）。
+# 架空の画面: ダークモードの地に、登録の画面のカード（1120×640）と、その中の入力欄（992×56）とボタン（280×64）。
 $card = New-Object System.Drawing.Rectangle(160, 200, 1120, 640)
 $field = New-Object System.Drawing.Rectangle(($card.X + 64), ($card.Y + 214), 992, 56)
 $button = New-Object System.Drawing.Rectangle(($card.X + 64), ($card.Bottom - 136), 280, 64)
@@ -61,26 +61,28 @@ $form.StartPosition = 'Manual'
 $form.ShowInTaskbar = $false
 $form.Location = $origin
 $form.ClientSize = New-Object System.Drawing.Size($width, $height)
-$form.BackColor = [System.Drawing.Color]::FromArgb(0xEE, 0xF0, 0xF3)
+$form.BackColor = [System.Drawing.Color]::FromArgb(0x16, 0x18, 0x1D)
 $form.Add_Paint({
     param($sender, $event)
     $g = $event.Graphics
     $g.SmoothingMode = 'AntiAlias'
     $g.TextRenderingHint = 'ClearTypeGridFit'
-    $g.FillRectangle([System.Drawing.Brushes]::White, $card)
-    $g.DrawRectangle((New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(0xD6, 0xDA, 0xE0))), $card)
+    $g.FillRectangle((New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x22, 0x25, 0x2C))), $card)
+    $g.DrawRectangle((New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(0x33, 0x37, 0x40))), $card)
     $title = New-Object System.Drawing.Font('Segoe UI Semibold', 40, [System.Drawing.GraphicsUnit]::Pixel)
     $label = New-Object System.Drawing.Font('Segoe UI', 22, [System.Drawing.GraphicsUnit]::Pixel)
-    $ink = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x1F, 0x23, 0x28))
-    $muted = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x6A, 0x73, 0x7D))
+    $ink = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0xE8, 0xEA, 0xED))
+    $muted = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x9A, 0xA0, 0xA8))
     $g.DrawString('Create your account', $title, $ink, ($card.X + 64), ($card.Y + 56))
-    $fieldPen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(0xC4, 0xC9, 0xD0))
+    $fieldFill = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x1A, 0x1C, 0x22))
+    $fieldPen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(0x3F, 0x44, 0x4E))
     foreach ($row in 0, 1) {
         $top = $field.Y + $row * 130
         $g.DrawString(@('Email', 'Password')[$row], $label, $muted, $field.X, ($top - 38))
+        $g.FillRectangle($fieldFill, $field.X, $top, $field.Width, $field.Height)
         $g.DrawRectangle($fieldPen, $field.X, $top, $field.Width, $field.Height)
     }
-    $g.FillRectangle((New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x25, 0x63, 0xEB))), $button)
+    $g.FillRectangle((New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x3B, 0x82, 0xF6))), $button)
     $format = New-Object System.Drawing.StringFormat
     $format.Alignment = 'Center'
     $format.LineAlignment = 'Center'
