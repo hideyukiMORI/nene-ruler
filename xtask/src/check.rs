@@ -305,12 +305,15 @@ pub(crate) fn core_crates_declare_no_std(files: &[SourceFile]) -> Vec<Violation>
 /// ビルド時にコードを生成する経路の名前。
 const BUILD_SCRIPT: &str = "build.rs";
 
+/// 唯一許すビルドスクリプト。Windows の exe にアイコンの資源を埋めるだけで、コードは生成しない（ADR 0023）。
+const ICON_BUILD_SCRIPT: &str = "crates/app/build.rs";
+
 /// マニフェストからビルドスクリプトを指す書き方。
 const BUILD_MANIFEST_KEY: &str = concat!("build", " = ");
 
-/// CNF-008 — `build.rs` を置かない（RS-010）。
+/// CNF-008 — `build.rs` を置かない（RS-010）。例外は `ICON_BUILD_SCRIPT` の 1 つだけ（ADR 0023）。
 pub(crate) fn no_build_script(file: &SourceFile) -> Vec<Violation> {
-    if file.is_named(BUILD_SCRIPT) {
+    if file.is_named(BUILD_SCRIPT) && file.path() != ICON_BUILD_SCRIPT {
         return vec![Violation::new(
             "CNF-008",
             file.path(),
@@ -447,6 +450,7 @@ pub(crate) fn no_nondeterministic_input(file: &SourceFile) -> Vec<Violation> {
     let path = file.path();
     let product = path.starts_with("crates/") && file.has_extension("rs");
     if !product
+        || path == ICON_BUILD_SCRIPT
         || NONDETERMINISM_EXEMPT
             .iter()
             .any(|exempt| path.starts_with(exempt))
@@ -806,6 +810,21 @@ mod tests {
     }
 
     #[test]
+    fn cnf008_allows_only_the_icon_build_script() {
+        let icon = fixture("crates/app/build.rs", "fn main() {}\n");
+        assert!(no_build_script(&icon).is_empty());
+        // 同じクレートでも別の置き場、別のクレートの build.rs は今まで通り拒む。
+        for path in [
+            "crates/app/src/build.rs",
+            "crates/ui-win32/build.rs",
+            "build.rs",
+        ] {
+            let other = fixture(path, "fn main() {}\n");
+            assert_eq!(no_build_script(&other).len(), 1, "{path}");
+        }
+    }
+
+    #[test]
     fn cnf008_ignores_a_similar_file_name() {
         let file = fixture("a/src/rebuild.rs", "fn main() {}\n");
         assert!(no_build_script(&file).is_empty());
@@ -908,6 +927,20 @@ mod tests {
             "let home = std::env::var(\"HOME\");\n",
         );
         assert_eq!(no_nondeterministic_input(&file).len(), 1);
+    }
+
+    #[test]
+    fn cnf012_allows_files_and_commands_only_in_the_icon_build_script() {
+        let line = "std::fs::write(out, bytes); std::process::Command::new(windres);\n";
+        assert!(no_nondeterministic_input(&fixture("crates/app/build.rs", line)).is_empty());
+        assert_eq!(
+            no_nondeterministic_input(&fixture("crates/app/src/main.rs", line)).len(),
+            1
+        );
+        assert_eq!(
+            no_nondeterministic_input(&fixture("crates/ui-win32/build.rs", line)).len(),
+            1
+        );
     }
 
     #[test]

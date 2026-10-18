@@ -101,10 +101,10 @@ CNF-009 は active の規則ごとに `| ID |` で始まる行がここにある
 | CNF-004 | 3 | cnf004_allows_context_dependent_name, cnf004_catches_forbidden_module_name, cnf004_catches_forbidden_suffix |
 | CNF-006 | 4 | cnf006_accepts_expect_citing_known_rule, cnf006_catches_reason_without_rule_id, cnf006_catches_unknown_rule_id, cnf006_reads_multiline_expect |
 | CNF-007 | 5 | cnf007_allows_core_crate_with_no_std, cnf007_catches_core_crate_without_no_std, cnf007_catches_no_std_after_real_code, cnf007_ignores_a_binary_crate, cnf007_requires_no_std_of_application_too |
-| CNF-008 | 3 | cnf008_catches_a_build_script, cnf008_catches_a_manifest_pointing_at_one, cnf008_ignores_a_similar_file_name |
+| CNF-008 | 4 | cnf008_allows_only_the_icon_build_script, cnf008_catches_a_build_script, cnf008_catches_a_manifest_pointing_at_one, cnf008_ignores_a_similar_file_name |
 | CNF-010 | 3 | cnf010_accepts_marker_with_issue, cnf010_catches_marker_without_issue, cnf010_ignores_markdown |
 | CNF-011 | 4 | cnf011_catches_continue_on_error, cnf011_catches_forbidden_filename, cnf011_catches_lint_set_to_allow, cnf011_ignores_clean_configuration |
-| CNF-012 | 6 | cnf012_allows_adapters, cnf012_allows_arguments_in_composition_root, cnf012_catches_env_in_ui, cnf012_catches_other_env_in_composition_root, cnf012_catches_time_in_core, cnf012_ignores_xtask |
+| CNF-012 | 7 | cnf012_allows_adapters, cnf012_allows_arguments_in_composition_root, cnf012_allows_files_and_commands_only_in_the_icon_build_script, cnf012_catches_env_in_ui, cnf012_catches_other_env_in_composition_root, cnf012_catches_time_in_core, cnf012_ignores_xtask |
 | CNF-013 | 5 | cnf013_allows_application_depending_on_core_only, cnf013_allows_the_documented_direction, cnf013_catches_a_dependency_in_xtask, cnf013_catches_external_crate_in_core, cnf013_catches_ui_depending_on_adapters |
 | GIT-003 / GIT-002 / GIT-004 | 23 | accepts_the_documented_form, accepts_each_prefix, branch_names, breaking_commit_needs_footer_but_title_does_not, catches_active_without_proof, catches_broken_relative_link, catches_duplicate_definition, catches_missing_matrix_row, catches_missing_state, catches_state_mismatch, catches_template_placeholder, catches_undefined_rule_reference, consistent_documents_pass, extracts_ids_from_prose, first_state_line_wins_over_later_ones, ignores_external_and_anchor_links, pull_request_passes_with_all_fields, pull_request_rejects_draft_missing_close_and_bad_title, rejects_english_description, rejects_missing_issue, rejects_unknown_type_and_bad_scope, rejects_zero_issue_and_long_subject, rejects_wrong_shapes |
 
@@ -903,3 +903,25 @@ dpi 対応にした PowerShell で枠の窓を起動し、窓の中を横 2 px�
 | --- | --- |
 | `cargo test -p xtask` | 78 件成功（置き換えの単体テスト 3 件を足した） |
 | `make prove` | 26 件すべて成功（`target/proofs/results.json`） |
+
+## 40. Issue #68 — アイコンを core に移し、Windows の exe に埋める（2026-10-18）
+
+施主の WSL。PR #70（Issue #69）の枝の上に積んだ。ADR 0023。
+
+### 40.1 ゲート
+
+| target | 結果 |
+| --- | --- |
+| `make fmt-check` / `make lint` / `make lint-windows` / `make doc-check` | 0 件 |
+| `make test`（`--no-fail-fast` で全クレート） | ui-x11 の既存の #21 以外すべて成功。core に 6 件（`app_icon` 4・`icon_file` 2）、xtask に 2 件（CNF-008 / CNF-012 の例外）を足した |
+| `make conformance` | 違反なし（177 ファイル）。例外を足す前は `crates/app/build.rs` に CNF-008 が 1 件、CNF-012 が 3 件出た |
+| `make deny` | 通る（依存は増えていない。build-dependency は内部の core だけ） |
+| `make prove` | 26 件すべて成功 |
+
+### 40.2 exe の資源
+
+`make build-windows` の exe の `.rsrc` を読んだ。`RT_ICON`（3）に 8 枚（1128〜270376 バイト、16〜256 px）、`RT_GROUP_ICON`（14）の番号 1 に 1 つ。exe は約 2.0 MB（埋める前は約 1.67 MB）。
+
+### 40.3 Xvfb（`-listen tcp`・WM 無し）
+
+`xprop -f _NET_WM_ICON 32c` で 16 / 24 / 32 / 48 / 64 / 128 の 6 枚（24652 語）。128 px の角 `00000000`・中央 `ff1a1917`（地）・(50, 34) `fff5f2eb`（生成り）・(78, 93) `ffe53935`（赤）。cairo で描いていた時と同じ色。

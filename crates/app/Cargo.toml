@@ -27,6 +27,10 @@ nene-ruler-core = { path = "../core" }
 nene-ruler-adapters-x11 = { path = "../adapters-x11" }
 nene-ruler-ui-x11 = { path = "../ui-x11" }
 
+# exe に埋めるアイコンの絵（ADR 0023）。build.rs だけが使う。
+[build-dependencies]
+nene-ruler-core = { path = "../core" }
+
 [target.'cfg(windows)'.dependencies]
 nene-ruler-adapters-windows = { path = "../adapters-windows" }
 nene-ruler-ui-win32 = { path = "../ui-win32" }
