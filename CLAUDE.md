@@ -134,8 +134,8 @@ Issue / 規則 ID:
 
 現在のタスクは [docs/todo/current.md](docs/todo/current.md)。GitHub Issue が正で、そこは要約。
 
-2026-09-27: Issue #1（初期化・Phase 0〜2・ADR 0001〜0004）。製品コードは無く、`crates/app` は起動できない理由を返す stub。
-次は Issue #2（最初の縦切り: 4 つのクレートを作り、枠なしの窓に目盛と長さを描いて Xvfb で撮る）。
+2026-10-18: Linux（X11）版の全機能が main にある。Windows 版（ADR 0021）の枠とモーダルが draft PR にあり、施主の実機確認を待っている。
+その後はアイコン・配布の仕組み・v0.1.0。再開の手順は [docs/todo/handover-2026-10-18.md](docs/todo/handover-2026-10-18.md)。
 
 ---
 

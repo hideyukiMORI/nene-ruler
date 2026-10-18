@@ -1,6 +1,6 @@
 # いまのタスク — NeNe Ruler
 
-> GitHub Issue と PR が進行状態の正本。この文書は 2026-10-17 の WSLg の実測への対応（Issue #14 / #15）の要約。
+> GitHub Issue と PR が進行状態の正本。この文書はその要約（2026-10-18 時点）。翌日の再開手順は [handover-2026-10-18](handover-2026-10-18.md)。
 
 ## 状態
 
@@ -24,7 +24,8 @@
 | 縦書きの高さの数字と通知を、左辺の主目盛の数字の右へ寄せる | ✅ Issue #15。PR #16 の枝の上 |
 | HiDPI の倍率 1x / 2x（`Xft.dpi` → RandR の dpi）を枠の飾りとモーダルに掛ける | ✅ Issue #28・ADR 0011・Xvfb で実測（gate-proofs 第 20 節）。施主の WSLg は `Xft.dpi` が無く主画面が 0 mm なので 1x |
 | mm / in と最前面の通知を外し、長さは常に px（施主決定 2026-10-17） | ✅ Issue #30・ADR 0012 |
-| Windows 版の土台: 設定ファイルの切り出し・adapters-windows・ui-win32（Direct2D の枠の窓）・unsafe の例外（CNF-014） | ✅ Issue #60・ADR 0021。施主の Windows で枠が描けた。操作は施主の確認待ち |
+| Windows 版の土台: 設定ファイルの切り出し・adapters-windows・ui-win32（Direct2D の枠の窓）・unsafe の例外（CNF-014） | ✅ Issue #60・ADR 0021。施主の Windows で枠が描けた。枠の操作 6 項目は施主が確かめた（2026-10-18）。PR #61（draft） |
+| Windows の設定モーダル（Direct2D）・枠とモーダルで状態を `RefCell` で共有 | ✅ Issue #62。ギアで開くことを `PostMessage` で確かめた。部品の操作は施主の確認待ち。PR #63（draft） |
 | CI の必須 check（`make ci`）と commit-msg フック | 配線済み。最初の PR で実行証拠を得るまで planned |
 | ruleset（main の保護・squash-only） | 未設定。施主が GitHub で設定したら gate-proofs に記録する |
 
@@ -32,8 +33,8 @@
 
 PR #3〜#59 は 2026-10-18 に main へ squash merge した。Windows 版を作ってから、Windows と Linux の配布物を揃えて v0.1.0 を出す（施主決定 2026-10-18）。
 
-1. Issue #60: Windows 版の土台と枠の窓（ADR 0021）
-2. Windows の設定モーダル・アイコン・最前面の切り替え
+1. 施主の Windows で設定モーダルを試す（handover-2026-10-18 第 2 節の 7 項目）→ PR #61 → #63 を merge（施主の許可の後）
+2. Windows のアイコン（タスクバー・Alt+Tab）
 3. 配布物（Windows: MSI とポータブル zip、Linux: .deb と zip、sha256）とタグで動くリリースの仕組み
 4. v0.1.0 のタグとリリース
 
