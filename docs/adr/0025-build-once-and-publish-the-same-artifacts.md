@@ -23,7 +23,7 @@ NeNe Clock は、タグで作り直す形から「1 回だけ作り、出すと�
 4. MSI は per-machine（Program Files・UAC の確認あり）・スタートメニューのショートカット・メジャーアップグレード。`UpgradeCode` は製品の間ずっと変えない
 5. WiX は 5.0.2 に固定する。6 以降は利用条件（Open Source Maintenance Fee）が変わった可能性があり、確かめていないので上げる前に確かめる
 6. release.yml は、配布の結線（release.yml・`packaging/`・Makefile・build.rs・Cargo.toml）に触る PR と、手動の実行で配る物を作る。出す（`publish_from_run`）ときは、その実行が成功した Release の実行で、commit が main に載っていて、sha256 が一致し、同じタグの Release が無いことを確かめる。既定は dry run
-7. Actions は commit で固定する（checkout は check.yml と同じ commit、upload-artifact は Clock と同じ v7.0.1）。同じ実行の中の受け渡しと出すときの取り出しは `gh run download` で行い、download-artifact は使わない
+7. Actions は commit で固定する（checkout と upload-artifact は Clock と同じ v7.0.1。check.yml の checkout は Node.js 20 の版で非推奨の警告が出るので別の Issue で上げる）。同じ実行の中の受け渡しと出すときの取り出しは `gh run download` で行い、download-artifact は使わない
 
 ## 強制
 
