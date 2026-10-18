@@ -27,6 +27,8 @@
 | Windows 版の土台: 設定ファイルの切り出し・adapters-windows・ui-win32（Direct2D の枠の窓）・unsafe の例外（CNF-014） | ✅ Issue #60・ADR 0021。施主の Windows で枠が描けた。枠の操作 6 項目は施主が確かめた（2026-10-18）。PR #61（draft） |
 | Windows の設定モーダル（Direct2D）・枠とモーダルで状態を `RefCell` で共有 | ✅ Issue #62。部品の操作 7 項目は施主が確かめた（2026-10-18）。PR #63（draft） |
 | 目盛の帯を移動の当たり判定にする（目盛の上ならどこでも掴める・両 OS） | ✅ Issue #66・ADR 0022・Windows の地図と Xvfb で実測、施主の目視 OK（gate-proofs 第 38 節）。PR #67 |
+| アイコンの絵を core に移し、Windows の exe に埋める（唯一の `build.rs`）・X11 も同じ画素 | ✅ Issue #68・ADR 0023・exe の資源と Xvfb で実測、施主の目視 OK（gate-proofs 第 40 節）。PR #71 |
+| `make prove` を直した（複数行の members・許可ライセンスの置き換え） | ✅ Issue #69・26 件成功（gate-proofs 第 39 節）。PR #70 |
 | CI の必須 check（`make ci`）と commit-msg フック | 配線済み。最初の PR で実行証拠を得るまで planned |
 | ruleset（main の保護・squash-only） | 未設定。施主が GitHub で設定したら gate-proofs に記録する |
 
@@ -34,10 +36,9 @@
 
 PR #3〜#59 は 2026-10-18 に main へ squash merge した。Windows 版を作ってから、Windows と Linux の配布物を揃えて v0.1.0 を出す（施主決定 2026-10-18）。
 
-1. 施主の Windows で目盛の帯を試す（Issue #66）→ PR #61 → #63 → #65 → #66 の PR を merge（施主の許可の後）
-2. Windows のアイコン（タスクバー・Alt+Tab）
-3. 配布物（Windows: MSI とポータブル zip、Linux: .deb と zip、sha256）とタグで動くリリースの仕組み
-4. v0.1.0 のタグとリリース
+1. Windows のアイコン（Issue #68・exe に埋める・ADR 0023）を施主が確かめる → PR #70 → #68 の PR を merge（施主の許可の後）
+2. 配布物（Windows: MSI とポータブル zip、Linux: .deb と zip、sha256）とタグで動くリリースの仕組み
+3. v0.1.0 のタグとリリース
 
 ## 残る穴
 

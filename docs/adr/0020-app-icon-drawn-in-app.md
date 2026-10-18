@@ -1,6 +1,6 @@
 # ADR 0020 — アプリのアイコンは 2 つの鉤括弧で、画像ファイルを同梱せずその場で描く
 
-- 状態: 受理
+- 状態: 受理（描き方と Windows の配布物は置換 → [0023](0023-icon-embedded-by-the-only-build-script.md)）
 - 日付: 2026-10-17
 - Issue: #58
 - 影響する規則: ARC-001 / ARC-013。ADR 0002（cairo の ImageSurface）

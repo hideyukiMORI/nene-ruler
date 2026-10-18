@@ -35,6 +35,7 @@ ADR は「なぜそう決めたか」「何を却下したか」を書く。
 | [0017](0017-compact-frame-detail.md) | 数字が読めない小さな枠では、目盛を消して中央に W × H px を出す | 受理 |
 | [0018](0018-bare-frame-detail.md) | W × H px が枠に収まらない枠では、線を消して文字を窓の中央に出す | 受理（文字の形は置換 → 0019） |
 | [0019](0019-smaller-minimum-and-short-size.md) | 最小の枠を 16 × 16 にし、線を消した表示では短い形 W×H を描く | 受理 |
-| [0020](0020-app-icon-drawn-in-app.md) | アプリのアイコンは 2 つの鉤括弧で、画像ファイルを同梱せずその場で描く | 受理 |
+| [0020](0020-app-icon-drawn-in-app.md) | アプリのアイコンは 2 つの鉤括弧で、画像ファイルを同梱せずその場で描く | 受理（描き方と Windows の配布物は置換 → 0023） |
 | [0021](0021-windows-port-direct2d-and-confined-unsafe.md) | Windows 版は Win32 の窓と Direct2D で描き、unsafe は Windows の 2 クレートにだけ許す | 受理 |
 | [0022](0022-tick-band-is-touchable.md) | 目盛の帯を移動の当たり判定にし、目盛の上ならどこでも掴めるようにする | 受理 |
+| [0023](0023-icon-embedded-by-the-only-build-script.md) | アイコンの絵を core に移し、唯一の build.rs で Windows の exe に埋める | 受理 |

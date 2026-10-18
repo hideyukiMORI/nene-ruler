@@ -44,7 +44,7 @@ WINDOWS_EXCLUDE := --exclude nene-ruler-ui-x11 --exclude nene-ruler-adapters-x11
 lint-windows:
 	$(CARGO) clippy --workspace $(WINDOWS_EXCLUDE) --all-targets --locked --target $(WINDOWS_TARGET) -- -D warnings
 
-## build-windows — Windows の exe を作る（mingw-w64 のリンカ）。target/x86_64-pc-windows-gnu/release/nene-ruler.exe
+## build-windows — Windows の exe を作る（mingw-w64 のリンカと windres。アイコンは crates/app/build.rs が埋める・ADR 0023）。target/x86_64-pc-windows-gnu/release/nene-ruler.exe
 build-windows:
 	$(CARGO) build --release --locked -p nene-ruler --target $(WINDOWS_TARGET)
 
@@ -114,6 +114,7 @@ doctor:
 	@command -v import >/dev/null && echo "ImageMagick: ある" || echo "ImageMagick: 無い（apt-get install imagemagick）"
 	@command -v xcompmgr >/dev/null && echo "xcompmgr: ある" || echo "xcompmgr: 無い（apt-get install xcompmgr。透明の確認に要る）"
 	@command -v xdotool >/dev/null && echo "xdotool: ある" || echo "xdotool: 無い（apt-get install xdotool）"
+	@command -v x86_64-w64-mingw32-windres >/dev/null && echo "windres: ある" || echo "windres: 無い（apt-get install mingw-w64。Windows の exe にアイコンを埋めるのに要る・ADR 0023）"
 
 clean:
 	$(CARGO) clean

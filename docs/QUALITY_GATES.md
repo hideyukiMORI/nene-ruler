@@ -173,7 +173,7 @@ lint が見ないもの、つまり**このリポジトリ固有の規約**を�
 
 ### CNF-008 — `build.rs` を置かない
 
-`build.rs` そのものと、マニフェストの `build = ` を拒む。
+`build.rs` そのものと、マニフェストの `build = ` を拒む。例外は `crates/app/build.rs` の 1 つだけ（Windows の exe にアイコンの資源を埋める・ADR 0023）。
 
 - 対応する規則: RS-010
 - 機械強制: **active**（`xtask`）
@@ -202,7 +202,7 @@ lint が見ないもの、つまり**このリポジトリ固有の規約**を�
 ### CNF-012 — 決定性の入力 API
 
 `crates/` の `.rs` で `std::time` / `SystemTime` / `Instant` / `std::env` / `std::fs` / `std::thread` / `std::process::Command` / `std::net` / `rand::` を拒む。
-`crates/adapters-x11/`・`crates/adapters-windows/`・`crates/settings-file/` は除外（ADR 0021）。`crates/app/` は `std::env::args` だけを許す。テストにも適用する。
+`crates/adapters-x11/`・`crates/adapters-windows/`・`crates/settings-file/` と、唯一のビルドスクリプト `crates/app/build.rs`（ADR 0023）は除外（ADR 0021）。`crates/app/` は `std::env::args` だけを許す。テストにも適用する。
 
 - 対応する規則: ARC-007 / RS-015
 - 機械強制: **active**（`xtask`。マクロ・別名・間接呼び出しは字句では見えない）

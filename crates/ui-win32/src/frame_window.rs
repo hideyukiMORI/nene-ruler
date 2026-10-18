@@ -11,7 +11,7 @@ use core::ptr;
 use nene_ruler_application::ruler_controller::RulerController;
 use nene_ruler_core::nudge_direction::NudgeDirection;
 use nene_ruler_core::window_layer::WindowLayer;
-use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
+use windows::Win32::Foundation::{HMODULE, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows::Win32::Graphics::Gdi::{
     GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromWindow, ScreenToClient,
 };
@@ -25,14 +25,15 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CREATESTRUCTW, CreateWindowExW, DefWindowProcW, DispatchMessageW, GWLP_USERDATA, GetMessageW,
-    GetSystemMetrics, GetWindowLongPtrW, GetWindowRect, HTBOTTOMRIGHT, HTCAPTION, HTCLIENT,
-    HTTOPLEFT, HTTRANSPARENT, IDC_ARROW, IDC_HAND, IDC_SIZEALL, IDC_SIZENWSE, LoadCursorW,
-    MINMAXINFO, MSG, PostQuitMessage, RegisterClassW, SM_CXSCREEN, SM_CYSCREEN, SW_SHOW, SetCursor,
-    SetWindowLongPtrW, ShowWindow, TranslateMessage, WINDOW_EX_STYLE, WINDOW_STYLE, WM_CHAR,
-    WM_DESTROY, WM_GETMINMAXINFO, WM_KEYDOWN, WM_KILLFOCUS, WM_LBUTTONDOWN, WM_LBUTTONUP,
-    WM_MOUSEMOVE, WM_NCCALCSIZE, WM_NCCREATE, WM_NCHITTEST, WM_SETCURSOR, WM_SETFOCUS, WM_SIZE,
-    WNDCLASSW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_MINIMIZEBOX, WS_POPUP,
-    WS_SYSMENU, WS_THICKFRAME,
+    GetSystemMetrics, GetWindowLongPtrW, GetWindowRect, HICON, HTBOTTOMRIGHT, HTCAPTION, HTCLIENT,
+    HTTOPLEFT, HTTRANSPARENT, IDC_ARROW, IDC_HAND, IDC_SIZEALL, IDC_SIZENWSE, IMAGE_ICON,
+    LR_DEFAULTCOLOR, LoadCursorW, LoadImageW, MINMAXINFO, MSG, PostQuitMessage, RegisterClassExW,
+    SM_CXICON, SM_CXSCREEN, SM_CXSMICON, SM_CYICON, SM_CYSCREEN, SM_CYSMICON, SW_SHOW,
+    SYSTEM_METRICS_INDEX, SetCursor, SetWindowLongPtrW, ShowWindow, TranslateMessage,
+    WINDOW_EX_STYLE, WINDOW_STYLE, WM_CHAR, WM_DESTROY, WM_GETMINMAXINFO, WM_KEYDOWN, WM_KILLFOCUS,
+    WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_NCCALCSIZE, WM_NCCREATE, WM_NCHITTEST,
+    WM_SETCURSOR, WM_SETFOCUS, WM_SIZE, WNDCLASSEXW, WS_EX_LAYERED, WS_EX_TOOLWINDOW,
+    WS_EX_TOPMOST, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
 };
 use windows::core::{PCWSTR, w};
 
@@ -50,6 +51,8 @@ const FRAME_TITLE: PCWSTR = w!("NeNe Ruler");
 const MODAL_TITLE: PCWSTR = w!("NeNe Ruler Settings");
 /// `WM_MOUSELEAVE`。windows クレートでは Controls の機能にあるので、値だけをここに置く（winuser.h の 0x02A3）。
 const WM_MOUSELEAVE: u32 = 0x02A3;
+/// exe に埋めたアイコンの資源番号（`crates/app/build.rs` の `.rc` と同じ・ADR 0023）。
+const ICON_RESOURCE: usize = 1;
 /// 枠の窓とモーダルの間の隙間。
 const MODAL_GAP: i32 = 8;
 
@@ -121,26 +124,59 @@ pub fn run(controller: &mut RulerController<'_>) -> Result<(), Win32Failure> {
     Ok(())
 }
 
-/// 枠とモーダルの窓の類を登録する。2 度目の登録の失敗は無視する（同じ類）。
+/// 枠とモーダルの窓の類を登録する。アイコンは exe に埋めた資源（タスクバー・Alt+Tab）。
+/// 2 度目の登録の失敗は無視する（同じ類）。
 #[expect(
     unsafe_code,
-    reason = "RS-010: Win32 の RegisterClassW / LoadCursorW を呼ぶ（ADR 0021）"
+    reason = "RS-010: Win32 の RegisterClassExW / LoadCursorW を呼ぶ（ADR 0021）"
 )]
 fn register_classes() -> Result<(), Win32Failure> {
     // SAFETY: 自分のモジュールのハンドルと、系統の共有の矢印を読むだけ。
     let (instance, arrow) = unsafe { (GetModuleHandleW(None)?, LoadCursorW(None, IDC_ARROW)?) };
+    let large = icon(instance, (SM_CXICON, SM_CYICON))?;
+    let small = icon(instance, (SM_CXSMICON, SM_CYSMICON))?;
+    let size = u32::try_from(size_of::<WNDCLASSEXW>())
+        .map_err(|_error| Win32Failure::GeometryOutOfRange)?;
     for (name, cursor) in [(FRAME_CLASS, None), (MODAL_CLASS, Some(arrow))] {
-        let class = WNDCLASSW {
+        let class = WNDCLASSEXW {
+            cbSize: size,
             lpfnWndProc: Some(procedure),
             hInstance: instance.into(),
             lpszClassName: name,
             hCursor: cursor.unwrap_or_default(),
-            ..WNDCLASSW::default()
+            hIcon: large,
+            hIconSm: small,
+            ..WNDCLASSEXW::default()
         };
         // SAFETY: class はこの関数の局所で、登録の間だけ読まれる。
-        let _registered: u16 = unsafe { RegisterClassW(&raw const class) };
+        let _registered: u16 = unsafe { RegisterClassExW(&raw const class) };
     }
     Ok(())
+}
+
+/// exe に埋めたアイコンを、系統の大きさ（大か小）で読む。
+#[expect(
+    unsafe_code,
+    reason = "RS-010: Win32 の LoadImageW / GetSystemMetrics を呼ぶ（ADR 0021）"
+)]
+fn icon(
+    instance: HMODULE,
+    (width, height): (SYSTEM_METRICS_INDEX, SYSTEM_METRICS_INDEX),
+) -> Result<HICON, Win32Failure> {
+    // 資源番号を名前の位置に渡す（MAKEINTRESOURCEW）。指す先は読まれない。
+    let name = PCWSTR(ptr::without_provenance(ICON_RESOURCE));
+    // SAFETY: 自分のモジュールの資源を読むだけ。返る共有でない icon はプロセスの終わりまで使う。
+    let handle = unsafe {
+        LoadImageW(
+            Some(instance.into()),
+            name,
+            IMAGE_ICON,
+            GetSystemMetrics(width),
+            GetSystemMetrics(height),
+            LR_DEFAULTCOLOR,
+        )
+    }?;
+    Ok(HICON(handle.0))
 }
 
 /// 窓を作る。作成の引数に共有の状態のポインタを渡し、`WM_NCCREATE` で窓に結ぶ。

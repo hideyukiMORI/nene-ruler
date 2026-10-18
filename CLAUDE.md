@@ -41,7 +41,7 @@ Claude Code / AI エージェントがこのリポジトリで作業するため
 
 ### 現在時刻・環境・ファイル・スレッドを持てる場所は決まっている
 
-読んでよいのは **`crates/adapters-x11`・`crates/adapters-windows`・`crates/settings-file`** だけ（ARC-007・ADR 0021）。合成ルートは `std::env::args` だけ。中核は `#![no_std]` で構文的に到達できない。
+読んでよいのは **`crates/adapters-x11`・`crates/adapters-windows`・`crates/settings-file`** だけ（ARC-007・ADR 0021）。ほかはビルドの機械で動く `crates/app/build.rs`（アイコンの資源を埋めるだけ・ADR 0023）。合成ルートは `std::env::args` だけ。中核は `#![no_std]` で構文的に到達できない。
 字句検査は CNF-012。**テストが実時刻を読むことも決定性の破壊である。**
 
 ### 網羅性検査を殺す分岐を書かない

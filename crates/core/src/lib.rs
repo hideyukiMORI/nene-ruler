@@ -14,6 +14,7 @@ extern crate alloc;
 extern crate std;
 
 pub mod anchor;
+pub mod app_icon;
 pub mod axis;
 pub mod edge;
 pub mod frame_detail;
@@ -23,6 +24,7 @@ pub mod hex_entry;
 pub mod hit_region;
 pub mod hit_target;
 pub mod hsv;
+pub mod icon_file;
 pub mod length;
 pub mod length_failure;
 pub mod length_label;
