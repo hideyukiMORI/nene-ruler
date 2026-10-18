@@ -91,17 +91,24 @@ fn excerpt_of(output: &str, diagnostic: &str, root: &Path) -> Option<String> {
 /// 根の `Cargo.toml` を、メンバーを `probe` だけに替えて写す。lint の集合は同じ物を使う。
 fn workspace_manifest(root: &Path) -> Result<String, String> {
     let text = fs::read_to_string(root.join("Cargo.toml")).map_err(|e| e.to_string())?;
-    let replaced: Vec<String> = text
-        .lines()
-        .map(|line| {
-            if line.starts_with("members = [") {
-                "members = [\"probe\"]".to_owned()
-            } else {
-                line.to_owned()
-            }
-        })
-        .collect();
-    Ok(replaced.join("\n") + "\n")
+    Ok(probe_members(&text))
+}
+
+/// `members = [` から閉じ括弧の行までを `members = ["probe"]` の 1 行に替える。1 行の形も複数行の形も（Issue #69）。
+fn probe_members(text: &str) -> String {
+    let mut replaced = Vec::new();
+    let mut inside = false;
+    for line in text.lines() {
+        if line.starts_with("members = [") {
+            replaced.push("members = [\"probe\"]");
+            inside = !line.trim_end().ends_with(']');
+        } else if inside {
+            inside = line.trim() != "]";
+        } else {
+            replaced.push(line);
+        }
+    }
+    replaced.join("\n") + "\n"
 }
 
 /// 証明用の最小 workspace を `target/proofs/workspace` に作り直す。
@@ -352,6 +359,24 @@ fn prove_cycle(root: &Path) -> Result<Proof, String> {
     })
 }
 
+/// 証明の workspace で実際に使うライセンス（probe の MIT だけ）。
+const PROBE_LICENSES: &str = "allow = [\"MIT\"]";
+
+/// `deny.toml` のライセンスの許可の行（`allow = [`）を `allow` に替える。並びの中身に依らない（Issue #69）。
+fn license_allow(text: &str, allow: &str) -> String {
+    let replaced: Vec<&str> = text
+        .lines()
+        .map(|line| {
+            if line.starts_with("allow = [") {
+                allow
+            } else {
+                line
+            }
+        })
+        .collect();
+    replaced.join("\n") + "\n"
+}
+
 /// ライセンスの許可制が落ちること（ARC-013）。
 fn prove_deny(root: &Path, fixture: &Path) -> Result<Vec<Proof>, String> {
     let deny = fixture.join("deny.toml");
@@ -373,8 +398,7 @@ fn prove_deny(root: &Path, fixture: &Path) -> Result<Vec<Proof>, String> {
             "license-not-encountered",
         ),
     ] {
-        fs::write(&deny, original.replace("allow = [\"MIT\"]", allow))
-            .map_err(|e| e.to_string())?;
+        fs::write(&deny, license_allow(&original, allow)).map_err(|e| e.to_string())?;
         let (code, output) = run(fixture, "cargo", &arguments)?;
         let excerpt = excerpt_of(&output, diagnostic, root)
             .ok_or_else(|| format!("{id}: cargo-deny did not report `{diagnostic}`:\n{output}"))?;
@@ -389,7 +413,8 @@ fn prove_deny(root: &Path, fixture: &Path) -> Result<Vec<Proof>, String> {
             excerpt,
         });
     }
-    fs::write(&deny, original).map_err(|e| e.to_string())?;
+    // 証明の workspace は MIT の probe だけなので、戻すのは MIT だけの許可（Issue #69）。
+    fs::write(&deny, license_allow(&original, PROBE_LICENSES)).map_err(|e| e.to_string())?;
     let (restored, output) = run(fixture, "cargo", &arguments)?;
     if restored != 0_i32 {
         return Err(format!("cargo-deny restoration failed:\n{output}"));
@@ -430,4 +455,36 @@ pub(crate) fn run_all(root: &Path) -> Result<Vec<Proof>, String> {
     proofs.extend(prove_deny(root, &fixture)?);
     write_results(root, &proofs)?;
     Ok(proofs)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn probe_members_replaces_a_single_line_list() {
+        let text = "[workspace]\nmembers = [\"a\", \"b\"]\n\n[workspace.lints.rust]\n";
+        assert_eq!(
+            probe_members(text),
+            "[workspace]\nmembers = [\"probe\"]\n\n[workspace.lints.rust]\n"
+        );
+    }
+
+    #[test]
+    fn license_allow_replaces_only_the_license_list() {
+        let text = "[licenses]\nallow = [\"MIT\", \"Apache-2.0\"]\n\n[sources]\nallow-registry = [\"x\"]\n";
+        assert_eq!(
+            license_allow(text, PROBE_LICENSES),
+            "[licenses]\nallow = [\"MIT\"]\n\n[sources]\nallow-registry = [\"x\"]\n"
+        );
+    }
+
+    #[test]
+    fn probe_members_replaces_a_multi_line_list() {
+        let text = "[workspace]\nmembers = [\n    \"a\",\n    \"b\",\n]\n\n[workspace.package]\n";
+        assert_eq!(
+            probe_members(text),
+            "[workspace]\nmembers = [\"probe\"]\n\n[workspace.package]\n"
+        );
+    }
 }
