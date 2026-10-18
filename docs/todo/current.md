@@ -29,8 +29,8 @@
 | 目盛の帯を移動の当たり判定にする（目盛の上ならどこでも掴める・両 OS） | ✅ Issue #66・ADR 0022・Windows の地図と Xvfb で実測、施主の目視 OK（gate-proofs 第 38 節）。PR #67 |
 | アイコンの絵を core に移し、Windows の exe に埋める（唯一の `build.rs`）・X11 も同じ画素 | ✅ Issue #68・ADR 0023・exe の資源と Xvfb で実測、施主の目視 OK（gate-proofs 第 40 節）。PR #71 |
 | `make prove` を直した（複数行の members・許可ライセンスの置き換え） | ✅ Issue #69・26 件成功（gate-proofs 第 39 節）。PR #70 |
-| Linux のメニュー用のアイコン（hicolor の PNG・build.rs が core の絵から）・`.desktop`・X11 の `WM_CLASS` | ✅ Issue #72・ADR 0024（gate-proofs 第 41 節）。PR #73（draft） |
-| 配布の仕組み（`make dist`・WiX の MSI・作った成果物をそのまま出す release.yml） | ✅ Issue #74・ADR 0025・手元と PR の上の Actions で実測（gate-proofs 第 42 節）。施主が入れて試す待ち。PR #75（draft） |
+| Linux のメニュー用のアイコン（hicolor の PNG・build.rs が core の絵から）・`.desktop`・X11 の `WM_CLASS` | ✅ Issue #72・ADR 0024（gate-proofs 第 41 節）。`.deb` のメニューの見えは施主が確かめた。PR #73 |
+| 配布の仕組み（`make dist`・WiX の MSI・作った成果物をそのまま出す release.yml） | ✅ Issue #74・ADR 0025・手元と PR の上の Actions で実測、施主が MSI・ポータブル zip・`.deb` を試して OK（gate-proofs 第 42 節）。PR #75 |
 | CI の必須 check（`make ci`）と commit-msg フック | 配線済み。最初の PR で実行証拠を得るまで planned |
 | ruleset（main の保護・squash-only） | 未設定。施主が GitHub で設定したら gate-proofs に記録する |
 
