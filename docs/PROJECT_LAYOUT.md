@@ -119,6 +119,7 @@ application が作った値を描き、操作を意図として渡す（ARC-011�
 | production | `crates/core` / `crates/application` / `crates/adapters-x11` / `crates/ui-x11` / `crates/app` |
 | 単体テスト | 各クレートの `#[cfg(test)]`（ファイル末尾）と `tests/`。OS 資源と表示は使わない |
 | 検査器と証明 | `xtask/`（`cargo test -p xtask` が正例・反例） |
+| 配布の素材 | `packaging/linux/`（`.desktop`）。アイコンの画像は置かない（`crates/app/build.rs` が core の絵から作る・ADR 0024） |
 | 検査設定 | `Cargo.toml` の `[workspace.lints]` / `clippy.toml` / `deny.toml` / `rust-toolchain.toml` / `Makefile` |
 | 生成物 | `target/`（cargo・`make prove` の fixture と `results.json`）/ `out/`（`make screenshot` の PNG） |
 

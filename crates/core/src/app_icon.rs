@@ -36,6 +36,8 @@ pub struct AppIcon {
 impl AppIcon {
     /// X の窓マネージャへ渡す大きさ。256 は `_NET_WM_ICON` が X の 1 要求の上限に近づくので入れない。
     pub const X11_SIZES: [u16; 6] = [16, 24, 32, 48, 64, 128];
+    /// Linux のメニュー用の hicolor の PNG の大きさ（ADR 0024）。
+    pub const LINUX_SIZES: [u16; 7] = [16, 24, 32, 48, 64, 128, 256];
     /// Windows の `.ico` に入れる大きさ。小さいアイコン・大きいアイコンの 100〜250% と、エクスプローラーの特大。
     pub const WINDOWS_SIZES: [u16; 8] = [16, 20, 24, 32, 40, 48, 64, 256];
 
