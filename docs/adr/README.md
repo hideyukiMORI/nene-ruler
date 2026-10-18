@@ -41,3 +41,4 @@ ADR は「なぜそう決めたか」「何を却下したか」を書く。
 | [0023](0023-icon-embedded-by-the-only-build-script.md) | アイコンの絵を core に移し、唯一の build.rs で Windows の exe に埋める | 受理 |
 | [0024](0024-linux-menu-icon-from-the-build-script.md) | Linux のメニュー用のアイコンも唯一の build.rs が core の絵から作り、窓に WM_CLASS を付ける | 受理 |
 | [0025](0025-build-once-and-publish-the-same-artifacts.md) | 配る物は 1 回だけ作り、出すときはその成果物をそのまま添付する | 受理 |
+| [0026](0026-store-msix-wraps-the-same-exe.md) | Microsoft Store を配布経路に足し、配る exe をそのまま MSIX に包む | 受理 |

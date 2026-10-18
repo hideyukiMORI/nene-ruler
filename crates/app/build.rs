@@ -1,7 +1,8 @@
 //! アプリのアイコンを配布物の形にする（ADR 0023 / 0024）。
 //!
 //! 絵の正本は core の `AppIcon`。画像ファイルはリポジトリに置かない。
-//! - Windows: `.ico` と `.rc` を `OUT_DIR` に書き、`windres` で資源のオブジェクトにして exe にリンクする
+//! - Windows: `.ico` と `.rc` を `OUT_DIR` に書き、`windres` で資源のオブジェクトにして exe にリンクする。
+//!   Microsoft Store の MSIX のロゴ 25 枚も `OUT_DIR/msix/Assets/` に書く（`make dist` が拾う・ADR 0026）
 //! - Linux: メニュー用の hicolor の PNG を `OUT_DIR/icons/` に書く。`make dist` が cargo の
 //!   `build-script-executed` の `out_dir` から拾って `.deb` と zip に入れる
 //!
@@ -18,6 +19,19 @@ use nene_ruler_core::png_file::png_file;
 
 /// 資源の定義。アイコンの資源番号 1 は `ui-win32` が窓の類に読む番号と同じ。
 const RESOURCE_SCRIPT: &str = "1 ICON \"nene-ruler.ico\"\n";
+
+/// MSIX のロゴの基準の大きさ（100% のとき）。`NeNe Loupe` と同じ 3 つ。
+const MSIX_LOGOS: [(&str, u16); 3] = [
+    ("Square44x44Logo", 44),
+    ("Square150x150Logo", 150),
+    ("StoreLogo", 50),
+];
+/// MSIX のロゴの倍率（%）。
+const MSIX_SCALES: [u16; 5] = [100, 125, 150, 200, 400];
+/// タスクバーと一覧が使う、倍率に依らない大きさ（`Square44x44Logo` の `targetsize`）。
+const MSIX_TARGET_SIZES: [u16; 5] = [16, 24, 32, 48, 256];
+/// `targetsize` の地なしの 2 つの形（暗い背景用と明るい背景用。同じ絵を入れる）。
+const MSIX_UNPLATED: [&str; 2] = ["unplated", "lightunplated"];
 
 /// cargo への指示は標準出力で渡す（clippy は build.rs の `print_stdout` を見ない）。
 fn main() -> Result<(), String> {
@@ -37,6 +51,7 @@ fn main() -> Result<(), String> {
             "Windows は gnu のターゲットだけを作る（MSVC の rc.exe は未対応・ADR 0023）".to_owned(),
         );
     }
+    write_msix_logos(&out)?;
     let object = embed_icon(&out, &windres()?)?;
     println!("cargo::rustc-link-arg-bins={}", object.display());
     Ok(())
@@ -80,6 +95,35 @@ fn write_hicolor(out: &Path) -> Result<(), String> {
             png_file(&AppIcon::render(size)),
         )
         .map_err(|error| format!("アイコンを書けない: {error}"))?;
+    }
+    Ok(())
+}
+
+/// `out/msix/Assets/` に MSIX のロゴ 25 枚（3 つのロゴ × 倍率 5 つ ＋ targetsize 5 つ × 地なし 2 つ）を書く。
+/// 名前と大きさは `NeNe Loupe` の提出で通ったものと同じ。倍率を掛けた大きさは四捨五入（150 の 125% は 188）。
+fn write_msix_logos(out: &Path) -> Result<(), String> {
+    let assets = out.join("msix/Assets");
+    fs::create_dir_all(&assets).map_err(|error| format!("ロゴの置き場を作れない: {error}"))?;
+    let mut logos = Vec::new();
+    for (name, base) in MSIX_LOGOS {
+        for scale in MSIX_SCALES {
+            logos.push((
+                format!("{name}.scale-{scale}.png"),
+                (base * scale + 50) / 100,
+            ));
+        }
+    }
+    for size in MSIX_TARGET_SIZES {
+        for form in MSIX_UNPLATED {
+            logos.push((
+                format!("Square44x44Logo.targetsize-{size}_altform-{form}.png"),
+                size,
+            ));
+        }
+    }
+    for (file, size) in logos {
+        fs::write(assets.join(file), png_file(&AppIcon::render(size)))
+            .map_err(|error| format!("ロゴを書けない: {error}"))?;
     }
     Ok(())
 }

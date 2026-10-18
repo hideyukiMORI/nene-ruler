@@ -68,15 +68,17 @@ jobs:
             dist/NeNe-Ruler-windows-portable.zip
             dist/NeNe-Ruler-windows-portable.zip.sha256
           if-no-files-found: error
-      # MSI の材料。配らない。
-      - name: Keep the exe for the MSI
+      # MSI と MSIX の材料（exe と MSIX のロゴ）。それ自体は配らない。
+      - name: Keep the exe and the MSIX logos
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: nene-ruler-exe
-          path: dist/nene-ruler.exe
+          path: |
+            dist/nene-ruler.exe
+            dist/msix-assets/
           if-no-files-found: error
 
-  # MSI だけを Windows のランナーで作る。exe は作り直さず、同じ実行の build の成果物を包む。
+  # MSI と Store の MSIX だけを Windows のランナーで作る。exe は作り直さず、同じ実行の build の成果物を包む。
   msi:
     name: msi
     needs: build
@@ -93,7 +95,9 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh run download $env:GITHUB_RUN_ID --repo $env:GITHUB_REPOSITORY --name nene-ruler-exe --dir dist
+        run: |
+          gh run download $env:GITHUB_RUN_ID --repo $env:GITHUB_REPOSITORY --name nene-ruler-exe --dir dist
+          gh run download $env:GITHUB_RUN_ID --repo $env:GITHUB_REPOSITORY --name nene-ruler-windows --dir dist
       # 🔴 WiX は 5 に固定する。6 以降は利用条件（Open Source Maintenance Fee）を確かめてから上げる（ADR 0025）。
       - name: Install WiX
         shell: pwsh
@@ -108,6 +112,19 @@ jobs:
           path: |
             dist/NeNe-Ruler-Setup.msi
             dist/NeNe-Ruler-Setup.msi.sha256
+          if-no-files-found: error
+      # Store の MSIX（ADR 0026）。ポータブル zip の中と同じ exe を包み、署名しない（Store が署名し直す）。
+      - name: Build the Store MSIX with the canonical script
+        shell: pwsh
+        run: ./packaging/windows/build-msix.ps1 -Exe dist/nene-ruler.exe -Assets dist/msix-assets -Portable dist/NeNe-Ruler-windows-portable.zip -OutDir dist
+      # MSIX は Partner Center へ出す物で、GitHub Release には添付しない（Store が署名し直した物が配られる）。
+      - name: Keep the Store MSIX
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nene-ruler-store-msix
+          path: |
+            dist/NeNe-Ruler-store*.msix
+            dist/NeNe-Ruler-store*.msix.sha256
           if-no-files-found: error
 
   # 🔴 ここでは何も作らない。渡された実行の成果物を確かめて、そのまま出す。
@@ -138,11 +155,13 @@ jobs:
           status=$(gh api "repos/$GITHUB_REPOSITORY/compare/$sha...main" -q .status)
           case "$status" in identical|ahead) ;; *) echo "commit $sha is not on main (compare status: $status)"; exit 1;; esac
           gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --dir dist \
-            --name nene-ruler-linux --name nene-ruler-windows --name nene-ruler-msi
+            --name nene-ruler-linux --name nene-ruler-windows --name nene-ruler-msi --name nene-ruler-store-msix
           # 作ったときに書いた .sha256 と、いまの中身が同じであることを確かめる。
-          for directory in dist/nene-ruler-linux dist/nene-ruler-windows dist/nene-ruler-msi; do
+          for directory in dist/nene-ruler-linux dist/nene-ruler-windows dist/nene-ruler-msi dist/nene-ruler-store-msix; do
             (cd "$directory" && for sum in *.sha256; do sha256sum --check --strict "$sum"; done)
           done
+          # Store に出せない版（先頭が 0）の実行は、Release にも出さない（Store と GitHub の版をずらさない・ADR 0026）。
+          [ -f dist/nene-ruler-store-msix/NeNe-Ruler-store.msix ] || { echo "that run has no submittable MSIX"; exit 1; }
           version=$(gh api "repos/$GITHUB_REPOSITORY/contents/Cargo.toml?ref=$sha" -q .content | base64 --decode | sed -n 's/^version = "\(.*\)"$/\1/p' | head -n 1)
           [ -n "$version" ] || { echo "no version in Cargo.toml at $sha"; exit 1; }
           tag="v$version"
