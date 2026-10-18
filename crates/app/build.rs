@@ -100,6 +100,7 @@ fn write_hicolor(out: &Path) -> Result<(), String> {
 }
 
 /// `out/msix/Assets/` に MSIX のロゴ 25 枚（3 つのロゴ × 倍率 5 つ ＋ targetsize 5 つ × 地なし 2 つ）を書く。
+/// Partner Center のアプリ タイル アイコン（300×300）は `out/store/` に書く。
 /// 名前と大きさは `NeNe Loupe` の提出で通ったものと同じ。倍率を掛けた大きさは四捨五入（150 の 125% は 188）。
 fn write_msix_logos(out: &Path) -> Result<(), String> {
     let assets = out.join("msix/Assets");
@@ -121,6 +122,14 @@ fn write_msix_logos(out: &Path) -> Result<(), String> {
             ));
         }
     }
+    // Partner Center に入れるアプリ タイル アイコン（パッケージには入れない）。
+    let store = out.join("store");
+    fs::create_dir_all(&store).map_err(|error| format!("タイルの置き場を作れない: {error}"))?;
+    fs::write(
+        store.join("store-logo-300.png"),
+        png_file(&AppIcon::render(300)),
+    )
+    .map_err(|error| format!("タイルを書けない: {error}"))?;
     for (file, size) in logos {
         fs::write(assets.join(file), png_file(&AppIcon::render(size)))
             .map_err(|error| format!("ロゴを書けない: {error}"))?;
