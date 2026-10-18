@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  NeNe Ruler の MSI（ADR 0025）。WiX 5。build-msi.ps1 が版と exe を渡す。
+  🔴 UpgradeCode は製品の間ずっと変えない。変えると古い版を上書きできず、2 つ並んで入る。
+  per-machine（Program Files・UAC の確認あり）。exe のアイコンは crates/app/build.rs が埋めたもの（ADR 0023）。
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="NeNe Ruler"
+           Manufacturer="hideyukiMORI"
+           Version="$(var.Version)"
+           UpgradeCode="5F13933A-8EB5-4152-9719-C334AAD187F7"
+           Scope="perMachine"
+           Language="1033">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of NeNe Ruler is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="NeNeRuler.exe" SourceFile="$(var.Exe)" />
+    <Property Id="ARPPRODUCTICON" Value="NeNeRuler.exe" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/hideyukiMORI/nene-ruler" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="NeNe Ruler" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+
+    <Feature Id="Main">
+      <Component Directory="INSTALLFOLDER">
+        <File Id="NeNeRulerExe" Source="$(var.Exe)" Name="nene-ruler.exe" KeyPath="yes">
+          <Shortcut Id="StartMenuShortcut"
+                    Directory="ProgramMenuFolder"
+                    Name="NeNe Ruler"
+                    WorkingDirectory="INSTALLFOLDER"
+                    Icon="NeNeRuler.exe"
+                    Advertise="yes" />
+        </File>
+      </Component>
+      <Component Directory="INSTALLFOLDER">
+        <File Id="License" Source="$(var.License)" Name="LICENSE.txt" KeyPath="yes" />
+      </Component>
+    </Feature>
+  </Package>
+</Wix>

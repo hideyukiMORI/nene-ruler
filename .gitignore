@@ -1,6 +1,7 @@
 # ビルド成果物と実測の出力。アンカーして誤爆を防ぐ
 /target/
 /out/
+/dist/
 **/*.rs.bk
 # エディタ・OS
 .DS_Store
