@@ -30,7 +30,7 @@ NeNe Clock は、タグで作り直す形から「1 回だけ作り、出すと�
 - **active**: 手元の `make dist` で 4 つと sha256 ができ、`dpkg-deb -I / -c` と zip の中身が正しい（gate-proofs 第 42 節）
 - **active**: PR の上で release.yml の build と msi が通る（同節）
 - **planned**: 施主の機械で MSI と `.deb` を入れて動く（QLT-013）
-- **planned**: `publish_from_run` の確かめ（最初の v0.1.0 で dry run から実行する）
+- **active**: `publish_from_run` の確かめ（v0.1.0 で dry run → 本番を通した・gate-proofs 第 43 節）
 
 ## 結果
 

@@ -991,3 +991,16 @@ dpi 対応にした PowerShell で枠の窓を起動し、窓の中を横 2 px�
 ### 42.4 施主の機械でポータブル zip と `.deb` を試す
 
 施主が、Windows のポータブル zip を展開して `nene-ruler.exe` が起動すること、WSL に `.deb` を `apt install` で入れてスタートメニューから起動できることを確かめた（2026-10-18「3 つとも大丈夫」）。MSI（第 42.3 節）と合わせて、配る 4 つのうち 3 つを施主の機械で試した。Linux の zip は試していない。
+
+## 43. v0.1.0 を出す（2026-10-18）
+
+ADR 0025 の手順で、施主に版とリリースノートを見せて OK をもらってから出した。
+
+| 実行 | 何を | 結果 |
+| --- | --- | --- |
+| 39101655811 | main（`6e391cd`）で release.yml を手動で実行し、配る物を作る | build・msi が成功 |
+| 39101864683 | `publish_from_run=39101655811`・`dry_run=true` | 成功。Release の実行・成功・main の commit・4 つの sha256 の一致・同じタグが無いことを確かめ、`dry run: nothing was tagged or published` |
+| 39101887481 | 同じ実行を `dry_run=false` で出す | 成功。Release `v0.1.0`（タグは `6e391cd`）に 4 つと 4 つの `.sha256` |
+
+出した後、`gh release edit` でリリースノートの先頭に施主に見せた要約を足した（自動の PR の一覧はその下に残した）。
+これで ADR 0025 の `publish_from_run` の確かめ（planned）は、実際の 1 回で通った。
