@@ -981,3 +981,9 @@ dpi 対応にした PowerShell で枠の窓を起動し、窓の中を横 2 px�
 
 - 1 回目は checkout（check.yml と同じ commit）に Node.js 20 の非推奨の警告が出た。v7.0.1 に上げた 2 回目は 0 件。check.yml は Issue #76
 - 2 回目の成果物を `gh run download` で取り、4 つの `.sha256` を Linux の `sha256sum --check --strict` で照合して OK（Windows で書いた MSI の `.sha256` も LF で照合できた）
+
+### 42.3 施主の Windows で MSI を入れる（実行 39100643145 の成果物）
+
+- 14:35:02 にインストールが成功（MsiInstaller 11707 / 1033）。スタートメニューに鉤括弧のアイコンで出た
+- 続けて「Please wait while Windows configures NeNe Ruler」のまま止まって見えた。`consent.exe` が「NeNe-Ruler-Setup.msi がアクセス許可を要求しています」で待っていた（UAC の確認がほかの窓の後ろにあった）。msi を開き直した分の再構成（1035）が 3 回、どれも成功
+- 再構成がスタートメニューからの起動（宣伝されたショートカットの自動修復）でないことを確かめるため、施主がスタートメニューから起動し直した。問題なく起動し、14:36:12 より後の MsiInstaller の事象は 0 件
