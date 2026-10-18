@@ -468,7 +468,7 @@ mod tests {
     #[test]
     fn hit_regions_come_from_the_frame() {
         let (screen, store) = (screen(), MemoryStore::empty());
-        assert_eq!(controller(&screen, &store).frame().hit_regions().len(), 9);
+        assert_eq!(controller(&screen, &store).frame().hit_regions().len(), 9 + 4);
     }
 
     #[test]
