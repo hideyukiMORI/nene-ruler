@@ -16,11 +16,21 @@ crates/app（nene-ruler・bin）
     合成ルート。ポートに実装を結び、UI を起動する。端末出力・引数・終了コードを持つ唯一の場所
 
 crates/ui-x11（nene-ruler-ui-x11）
-    画面。x11rb で窓を持ち、cairo の ImageSurface に描いて転送する。状態を描き、意図を発行する
+    Linux の画面。x11rb で窓を持ち、cairo の ImageSurface に描いて転送する。状態を描き、意図を発行する
+
+crates/ui-win32（nene-ruler-ui-win32）
+    Windows の画面。Win32 の透明な窓に Direct2D / DirectWrite で描く。unsafe を書ける 2 クレートの 1 つ（ADR 0021）
 
 crates/adapters-x11（nene-ruler-adapters-x11）
-    物理寸法（RandR）・クリップボード（選択）・設定の保存・現在時刻を実装する。
-    現在時刻・乱数・環境・ファイルを読める唯一の製品モジュール
+    Linux のアダプタ。画面の大きさ（RandR）・クリップボード（選択）を実装する
+
+crates/adapters-windows（nene-ruler-adapters-windows）
+    Windows のアダプタ。主モニタの大きさと dpi・クリップボードを実装する。unsafe を書ける 2 クレートの 1 つ（ADR 0021）
+
+crates/settings-file（nene-ruler-settings-file）
+    設定ファイル（版 1）の形と置き場（Linux は XDG、Windows は %APPDATA%）。標準ライブラリだけ・外部クレート 0
+
+    アダプタ 2 つと settings-file だけが、現在時刻・乱数・環境・ファイルを読める製品モジュール（ARC-007 / CNF-012）
 
 crates/application（nene-ruler-application）
     ポートの宣言、表示値の生成、状態の所有者、結果型。#![no_std]
@@ -46,14 +56,23 @@ core
 application
     -> core
 
+settings-file
+    -> application, core（外部なし）
+
 adapters-x11
-    -> application, core（外部: x11rb・XDG のパス解決に要る最小の crate は ADR で）
+    -> application, core（外部: x11rb）
+
+adapters-windows
+    -> application, core（外部: windows。Windows でだけ）
 
 ui-x11
     -> application, core（外部: x11rb, cairo-rs）
 
+ui-win32
+    -> application, core（外部: windows, windows-numerics。Windows でだけ）
+
 app
-    -> すべて（明示的な合成のためだけに）
+    -> すべて（明示的な合成のためだけに）。X11 のクレートは Windows 以外、Windows のクレートは Windows でだけ（target の節）
 ```
 
 ここに無い依存はすべて禁止である。とくに:

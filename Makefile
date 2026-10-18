@@ -6,7 +6,7 @@
 #    全件は限定した検証で影響を覆えない理由を REASON= に添えたときだけ回す（QLT-001 / ADR 0021 の継承）。
 CARGO ?= cargo
 
-.PHONY: all check ci fmt fmt-check lint test conformance validate-git coverage deny doc-check build prove screenshot doctor clean
+.PHONY: all check ci fmt fmt-check lint lint-windows build-windows test conformance validate-git coverage deny doc-check build prove screenshot doctor clean
 
 all: doctor
 
@@ -35,6 +35,18 @@ fmt-check:
 ## 🔴 --locked は Cargo.lock が更新される状態でのゲート通過を拒む（QLT-011）。
 lint:
 	$(CARGO) clippy --workspace --all-targets --locked -- -D warnings
+
+## lint-windows — Windows 版のクレートを Windows のターゲットで検査する（ADR 0021）。
+## 🔴 Linux の make lint では Windows のコードは cfg で外れて見えない。Windows のコードはここでだけ検査される。
+## X11 のクレートは Windows では組み立てない（cairo が無い）ので外す。
+WINDOWS_TARGET := x86_64-pc-windows-gnu
+WINDOWS_EXCLUDE := --exclude nene-ruler-ui-x11 --exclude nene-ruler-adapters-x11
+lint-windows:
+	$(CARGO) clippy --workspace $(WINDOWS_EXCLUDE) --all-targets --locked --target $(WINDOWS_TARGET) -- -D warnings
+
+## build-windows — Windows の exe を作る（mingw-w64 のリンカ）。target/x86_64-pc-windows-gnu/release/nene-ruler.exe
+build-windows:
+	$(CARGO) build --release --locked -p nene-ruler --target $(WINDOWS_TARGET)
 
 test:
 	$(CARGO) test --workspace --locked

@@ -413,7 +413,7 @@ mod tests {
         let controller = RulerController::new(
             nene_ruler_application::ports::Ports::new(&NoScreen, &NoStore, &board),
             nene_ruler_application::environment::Environment::new(Transparency::Composited)
-                .with_xft_dpi(Some(192)),
+                .with_desktop_dpi(Some(192)),
             nene_ruler_application::product_version::ProductVersion::new("0.1.0"),
         );
         let frame = controller.frame();

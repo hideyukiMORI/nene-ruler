@@ -1,4 +1,4 @@
-//! 設定ファイルの読み書き。置き場は XDG（FR-012 / ADR 0006）。
+//! 設定ファイルの読み書き。置き場は Linux が XDG、Windows が `%APPDATA%`（FR-012 / ADR 0006 / ADR 0021）。
 
 use std::env;
 use std::fs;
@@ -17,7 +17,7 @@ const FILE_NAME: &str = "settings.v1.txt";
 /// 置き換えの前に書く一時ファイルの名。
 const TEMPORARY_NAME: &str = "settings.v1.txt.tmp";
 
-/// `$XDG_CONFIG_HOME/nene-ruler/settings.v1.txt` を読み書きする保存先。
+/// `$XDG_CONFIG_HOME/nene-ruler/settings.v1.txt`（Windows は `%APPDATA%\nene-ruler\settings.v1.txt`）を読み書きする保存先。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileSettingsStore {
     path: PathBuf,
@@ -34,6 +34,19 @@ impl FileSettingsStore {
             .filter(|value| !value.is_empty())
             .map(PathBuf::from)
             .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))
+            .ok_or(SettingsStoreFailure::NoConfigDirectory)?;
+        Ok(Self::at(base.join(DIRECTORY).join(FILE_NAME)))
+    }
+
+    /// Windows の置き場。`%APPDATA%\nene-ruler\settings.v1.txt`（ADR 0021）。
+    ///
+    /// # Errors
+    ///
+    /// `APPDATA` が無いか空。
+    pub fn in_app_data() -> Result<Self, SettingsStoreFailure> {
+        let base = env::var_os("APPDATA")
+            .filter(|value| !value.is_empty())
+            .map(PathBuf::from)
             .ok_or(SettingsStoreFailure::NoConfigDirectory)?;
         Ok(Self::at(base.join(DIRECTORY).join(FILE_NAME)))
     }

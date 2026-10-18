@@ -36,11 +36,12 @@ Claude Code / AI エージェントがこのリポジトリで作業するため
 ### 抑制は二段構え。`#[allow]` は書けない
 
 `forbid` の lint（`unwrap` / `as` / `_` / `unsafe` / `#[allow]` そのもの）は抑制できない（E0453）。抑制したくなった時点で設計の問題。
+例外は Windows の 2 クレート（`adapters-windows` / `ui-win32`）の `unsafe` だけで、`deny` に下げてある。lint の表は workspace の写しで、ずれると CNF-014 が落とす（ADR 0021）。Windows のコードは `make lint-windows` でしか検査されない。
 `deny` の lint は `#[expect(lint, reason = "<規則 ID>: <理由>")]` だけで抑制でき、発火しなくなれば落ちる。規則 ID は規範文書に実在しないと CNF-006 が落とす（RS-019）。
 
-### 現在時刻・環境・ファイル・スレッドを持てる場所は 1 つしかない
+### 現在時刻・環境・ファイル・スレッドを持てる場所は決まっている
 
-読んでよいのは **`crates/adapters-x11`** だけ（ARC-007）。合成ルートは `std::env::args` だけ。中核は `#![no_std]` で構文的に到達できない。
+読んでよいのは **`crates/adapters-x11`・`crates/adapters-windows`・`crates/settings-file`** だけ（ARC-007・ADR 0021）。合成ルートは `std::env::args` だけ。中核は `#![no_std]` で構文的に到達できない。
 字句検査は CNF-012。**テストが実時刻を読むことも決定性の破壊である。**
 
 ### 網羅性検査を殺す分岐を書かない

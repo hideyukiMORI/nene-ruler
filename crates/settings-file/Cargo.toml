@@ -1,0 +1,17 @@
+[package]
+name = "nene-ruler-settings-file"
+description = "NeNe Ruler の設定ファイル（版 1 の key = value）の形と置き場。標準ライブラリだけで、Linux と Windows で共有する"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+# 🔴 内部は application と core だけ（ARC-002 / CNF-013）。外部 crate は持たない（標準ライブラリだけ）。
+[dependencies]
+nene-ruler-application = { path = "../application" }
+nene-ruler-core = { path = "../core" }

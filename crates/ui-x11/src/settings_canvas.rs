@@ -496,7 +496,7 @@ mod tests {
         let mut controller = RulerController::new(
             Ports::new(&NoScreen, store, &NoClipboard),
             nene_ruler_application::environment::Environment::new(Transparency::Composited)
-                .with_xft_dpi(xft_dpi),
+                .with_desktop_dpi(xft_dpi),
             ProductVersion::new("0.1.0"),
         );
         controller.apply(RulerIntent::OpenSettings);

@@ -2,27 +2,31 @@
 
 use crate::transparency::Transparency;
 
-/// 透明に描けるかと、`Xft.dpi` が何か。
+/// 透明に描けるかと、デスクトップの dpi（X11 は `Xft.dpi`、Windows はモニタの dpi）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Environment {
     transparency: Transparency,
-    xft_dpi: Option<u32>,
+    desktop_dpi: Option<u32>,
 }
 
 impl Environment {
-    /// 透明に描けるかから作る。`Xft.dpi` は無いものとして始める。
+    /// 透明に描けるかから作る。デスクトップの dpi は無いものとして始める。
     #[must_use]
     pub const fn new(transparency: Transparency) -> Self {
         Self {
             transparency,
-            xft_dpi: None,
+            desktop_dpi: None,
         }
     }
 
-    /// `Xft.dpi`（ルート窓の `RESOURCE_MANAGER`）を添える。UI の倍率の第一の元（FR-016・ADR 0011）。
+    /// デスクトップの dpi を添える。UI の倍率の第一の元（FR-016・ADR 0011 / 0021）。
+    /// X11 はルート窓の `RESOURCE_MANAGER` の `Xft.dpi`、Windows はモニタの dpi。
     #[must_use]
-    pub const fn with_xft_dpi(self, xft_dpi: Option<u32>) -> Self {
-        Self { xft_dpi, ..self }
+    pub const fn with_desktop_dpi(self, desktop_dpi: Option<u32>) -> Self {
+        Self {
+            desktop_dpi,
+            ..self
+        }
     }
 
     /// 透明に描けるか。
@@ -31,9 +35,9 @@ impl Environment {
         self.transparency
     }
 
-    /// `Xft.dpi`。設定されていなければ `None`。
+    /// デスクトップの dpi。分からなければ `None`。
     #[must_use]
-    pub const fn xft_dpi(self) -> Option<u32> {
-        self.xft_dpi
+    pub const fn desktop_dpi(self) -> Option<u32> {
+        self.desktop_dpi
     }
 }

@@ -429,8 +429,12 @@ const NONDETERMINISTIC_NAMES: [&str; 9] = [
     "rand::",
 ];
 
-/// 決定性の禁止を適用しない唯一の製品モジュール（ARC-007）。
-const NONDETERMINISM_EXEMPT: &str = "crates/adapters-x11/";
+/// 決定性の禁止を適用しない製品モジュール（ARC-007）。OS の資源に触れるアダプタと、設定ファイルの置き場（ADR 0021）。
+const NONDETERMINISM_EXEMPT: [&str; 3] = [
+    "crates/adapters-x11/",
+    "crates/adapters-windows/",
+    "crates/settings-file/",
+];
 
 /// 合成ルート。コマンドライン引数だけは読める（ARC-006）。
 const COMPOSITION_ROOT: &str = "crates/app/";
@@ -438,11 +442,15 @@ const COMPOSITION_ROOT: &str = "crates/app/";
 /// 合成ルートに許す唯一の入力。
 const ARGUMENTS_INPUT: &str = "std::env::args";
 
-/// CNF-012 — 製品クレートは `adapters-x11` 以外で時刻・環境・ファイルへ到達しない（ARC-007）。
+/// CNF-012 — 製品クレートはアダプタと設定ファイルの外で時刻・環境・ファイルへ到達しない（ARC-007）。
 pub(crate) fn no_nondeterministic_input(file: &SourceFile) -> Vec<Violation> {
     let path = file.path();
     let product = path.starts_with("crates/") && file.has_extension("rs");
-    if !product || path.starts_with(NONDETERMINISM_EXEMPT) {
+    if !product
+        || NONDETERMINISM_EXEMPT
+            .iter()
+            .any(|exempt| path.starts_with(exempt))
+    {
         return Vec::new();
     }
     let in_root = path.starts_with(COMPOSITION_ROOT);
@@ -456,7 +464,7 @@ pub(crate) fn no_nondeterministic_input(file: &SourceFile) -> Vec<Violation> {
                 "CNF-012",
                 path,
                 number,
-                format!("`{name}` は adapters-x11 の外で読まない（ARC-007）"),
+                format!("`{name}` はアダプタと設定ファイルの外で読まない（ARC-007）"),
             ))
         })
         .collect()
@@ -464,11 +472,19 @@ pub(crate) fn no_nondeterministic_input(file: &SourceFile) -> Vec<Violation> {
 
 /// クレート間で許された依存（ARC-002）。鍵はディレクトリ名、値は依存してよいパッケージ名。
 /// 🔴 core と application は依存 0。外部クレートを足すのは ADR と deny.toml の仕事（ARC-013）。
-const ALLOWED_DEPENDENCIES: [(&str, &[&str]); 6] = [
+const ALLOWED_DEPENDENCIES: [(&str, &[&str]); 9] = [
     ("crates/core/", &[]),
     ("crates/application/", &["nene-ruler-core"]),
     (
+        "crates/settings-file/",
+        &["nene-ruler-application", "nene-ruler-core"],
+    ),
+    (
         "crates/adapters-x11/",
+        &["nene-ruler-application", "nene-ruler-core"],
+    ),
+    (
+        "crates/adapters-windows/",
         &["nene-ruler-application", "nene-ruler-core"],
     ),
     (
@@ -476,10 +492,17 @@ const ALLOWED_DEPENDENCIES: [(&str, &[&str]); 6] = [
         &["nene-ruler-application", "nene-ruler-core"],
     ),
     (
+        "crates/ui-win32/",
+        &["nene-ruler-application", "nene-ruler-core"],
+    ),
+    (
         "crates/app/",
         &[
+            "nene-ruler-settings-file",
             "nene-ruler-adapters-x11",
+            "nene-ruler-adapters-windows",
             "nene-ruler-ui-x11",
+            "nene-ruler-ui-win32",
             "nene-ruler-application",
             "nene-ruler-core",
         ],
@@ -487,17 +510,22 @@ const ALLOWED_DEPENDENCIES: [(&str, &[&str]); 6] = [
     ("xtask/", &[]),
 ];
 
+/// 外部クレートを持たないクレート（中核と、標準ライブラリだけの設定ファイル）。
+const NO_EXTERNAL_CRATES: [&str; 2] = ["crates/application/", "crates/settings-file/"];
+
 /// 内部クレートの接頭辞。
 const INTERNAL_PREFIX: &str = "nene-ruler-";
 
-/// マニフェストの `[dependencies]` 節にある依存名を列挙する。
+/// マニフェストの `[dependencies]` 節と `[target.….dependencies]` 節にある依存名を列挙する。
+/// 🔴 OS ごとの依存（ADR 0021）を素通りさせないため、target の節も読む。
 fn dependency_names(file: &SourceFile) -> Vec<(usize, String)> {
     let mut inside = false;
     let mut found = Vec::new();
     for (number, line) in file.numbered_lines() {
         let trimmed = line.trim();
         if trimmed.starts_with('[') {
-            inside = trimmed == "[dependencies]";
+            inside = trimmed == "[dependencies]"
+                || (trimmed.starts_with("[target.") && trimmed.ends_with(".dependencies]"));
             continue;
         }
         if !inside || trimmed.is_empty() || trimmed.starts_with('#') {
@@ -524,7 +552,7 @@ pub(crate) fn dependencies_follow_graph(file: &SourceFile) -> Vec<Violation> {
     else {
         return Vec::new();
     };
-    let pure = allowed.is_empty() || directory == "crates/application/";
+    let pure = allowed.is_empty() || NO_EXTERNAL_CRATES.contains(&directory);
     dependency_names(file)
         .into_iter()
         .filter(|(_, name)| {
@@ -927,5 +955,34 @@ mod tests {
     fn cnf013_catches_a_dependency_in_xtask() {
         let file = fixture("xtask/Cargo.toml", "[dependencies]\nserde = \"1\"\n");
         assert_eq!(dependencies_follow_graph(&file).len(), 1);
+    }
+
+    #[test]
+    fn cnf012_allows_the_windows_adapters_and_the_settings_file() {
+        for path in [
+            "crates/adapters-windows/src/clipboard.rs",
+            "crates/settings-file/src/file_settings_store.rs",
+        ] {
+            let file = fixture(path, "use std::env;\n");
+            assert!(no_nondeterministic_input(&file).is_empty(), "{path}");
+        }
+    }
+
+    #[test]
+    fn cnf013_reads_target_specific_dependencies() {
+        let file = fixture(
+            "crates/ui-win32/Cargo.toml",
+            "[target.'cfg(windows)'.dependencies]\nnene-ruler-adapters-windows = { path = \"../adapters-windows\" }\n",
+        );
+        assert_eq!(rules(&dependencies_follow_graph(&file)), vec!["CNF-013"]);
+    }
+
+    #[test]
+    fn cnf013_keeps_the_settings_file_free_of_external_crates() {
+        let file = fixture(
+            "crates/settings-file/Cargo.toml",
+            "[dependencies]\nserde = \"1\"\n",
+        );
+        assert_eq!(rules(&dependencies_follow_graph(&file)), vec!["CNF-013"]);
     }
 }
