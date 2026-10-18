@@ -101,7 +101,7 @@ checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
 
 [[package]]
 name = "nene-ruler"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "nene-ruler-adapters-windows",
  "nene-ruler-adapters-x11",
@@ -114,7 +114,7 @@ dependencies = [
 
 [[package]]
 name = "nene-ruler-adapters-windows"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "nene-ruler-application",
  "nene-ruler-core",
@@ -123,7 +123,7 @@ dependencies = [
 
 [[package]]
 name = "nene-ruler-adapters-x11"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "nene-ruler-application",
  "nene-ruler-core",
@@ -132,18 +132,18 @@ dependencies = [
 
 [[package]]
 name = "nene-ruler-application"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "nene-ruler-core",
 ]
 
 [[package]]
 name = "nene-ruler-core"
-version = "0.1.0"
+version = "1.0.0"
 
 [[package]]
 name = "nene-ruler-settings-file"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "nene-ruler-application",
  "nene-ruler-core",
@@ -151,7 +151,7 @@ dependencies = [
 
 [[package]]
 name = "nene-ruler-ui-win32"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "nene-ruler-application",
  "nene-ruler-core",
@@ -161,7 +161,7 @@ dependencies = [
 
 [[package]]
 name = "nene-ruler-ui-x11"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "cairo-rs",
  "nene-ruler-application",
@@ -477,4 +477,4 @@ checksum = "acf4d1bc32aa46eec18caa634ec3cf4c05bfa151f12b93b510b15190f69a1ca8"
 
 [[package]]
 name = "xtask"
-version = "0.1.0"
+version = "1.0.0"
