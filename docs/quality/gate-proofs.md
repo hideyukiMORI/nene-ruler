@@ -889,3 +889,17 @@ dpi 対応にした PowerShell で枠の窓を起動し、窓の中を横 2 px�
 ### 38.4 施主の目視
 
 施主が Windows で、目盛の隙間でも移動のポインタが出て掴めることを確かめた（2026-10-18「うん、いいと思う」）。
+
+## 39. Issue #69 — `make prove` が回らなくなっていた（2026-10-18）
+
+施主の WSL。Issue #68（アイコンの埋め込み）でゲートを触るので `make prove` を回したら、main でも落ちた。
+
+| 原因 | いつから | 直し方 |
+| --- | --- | --- |
+| 仮の workspace の `members` を 1 行だけ置き換えていた。根の `Cargo.toml` の `members` が複数行になり、2 行目以降が残って TOML が壊れた | PR #61（97a6776） | `members = [` から閉じ括弧の行までを 1 行に替える（`probe_members`） |
+| P-24 / P-25 が `deny.toml` の `allow = ["MIT"]` という文字列を置き換えていた。許可が 4 つの並びになって置き換えが空振りし、使っていないライセンスで落ちた | PR #2（cc84442） | `allow = [` で始まる行を替える（`license_allow`）。戻すときは probe の MIT だけにする |
+
+| target | 結果 |
+| --- | --- |
+| `cargo test -p xtask` | 78 件成功（置き換えの単体テスト 3 件を足した） |
+| `make prove` | 26 件すべて成功（`target/proofs/results.json`） |
