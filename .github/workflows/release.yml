@@ -76,6 +76,7 @@ jobs:
           path: |
             dist/nene-ruler.exe
             dist/msix-assets/
+            dist/store-logo-300.png
           if-no-files-found: error
 
   # MSI と Store の MSIX だけを Windows のランナーで作る。exe は作り直さず、同じ実行の build の成果物を包む。
@@ -125,6 +126,7 @@ jobs:
           path: |
             dist/NeNe-Ruler-store*.msix
             dist/NeNe-Ruler-store*.msix.sha256
+            dist/store-logo-300.png
           if-no-files-found: error
 
   # 🔴 ここでは何も作らない。渡された実行の成果物を確かめて、そのまま出す。

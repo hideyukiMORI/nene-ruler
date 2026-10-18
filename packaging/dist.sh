@@ -6,6 +6,7 @@
 #   dist/NeNe-Ruler-windows-portable.zip  Windows のポータブル
 #   dist/nene-ruler.exe                   MSI と MSIX の材料（Windows のランナーが包む。それ自体は配らない）
 #   dist/msix-assets/                     MSIX のロゴ 25 枚（build.rs が core の絵から作った物・ADR 0026）
+#   dist/store-logo-300.png               Partner Center に入れるアプリ タイル アイコン（同じく build.rs から）
 #   dist/*.sha256                         配る 3 つの sha256（sha256sum --check の形）
 #
 # アイコンの画像はリポジトリに無い。crates/app/build.rs が core の絵から OUT_DIR に書いたものを、
@@ -76,6 +77,7 @@ windows_out_dir=$(cargo build --release --locked -p nene-ruler --target x86_64-p
 msix_assets=$windows_out_dir/msix/Assets
 [ "$(find "$msix_assets" -name '*.png' | wc -l)" -eq 25 ] || { echo "dist: build.rs の MSIX のロゴが 25 枚でない（$msix_assets）" >&2; exit 1; }
 cp -r "$msix_assets" "$dist/msix-assets"
+cp "$windows_out_dir/store/store-logo-300.png" "$dist/store-logo-300.png"
 windows_binary=target/x86_64-pc-windows-gnu/release/nene-ruler.exe
 cp "$windows_binary" "$dist/nene-ruler.exe"
 x86_64-w64-mingw32-strip "$dist/nene-ruler.exe"

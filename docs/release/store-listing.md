@@ -73,7 +73,13 @@ on-screen ruler
 
 ### Screenshot captions
 
-スクリーンショットは施主の Windows で撮る（未）。撮ったあと、ここに画像と説明を足す。
+画像は `packaging/windows/capture-store-images.ps1` が施主の Windows で撮った 1920×1080（2026-10-18・版 1.0.0・既定の設定）。背景はダークモードの配色の架空の画面（施主の希望）で、施主のデスクトップは写っていない。
+
+| 画像 | Caption |
+| --- | --- |
+| `docs/images/store/store-1-measure-card.png` | `Lay the frame over anything on your screen and read its width and height in physical pixels.` |
+| `docs/images/store/store-2-measure-field.png` | `Small frames show the size in the middle. Click a number to copy it.` |
+| `docs/images/store/store-3-settings.png` | `Settings: ink colour from swatches, a picker or a hex code, dark or light look, always on top.` |
 
 ## 日本語（ja-JP）
 
@@ -140,7 +146,13 @@ NeNe Ruler は、Windows 用の小さな画面定規です。四辺に目盛の�
 
 ### スクリーンショットの説明
 
-英語の節と同じく、撮ったあとに足す。
+| 画像 | 説明 |
+| --- | --- |
+| `docs/images/store/store-1-measure-card.png` | `画面の上のものに枠を重ね、幅と高さを物理ピクセルで読めます。` |
+| `docs/images/store/store-2-measure-field.png` | `小さな枠では中央に大きさを表示。数字をクリックするとコピーできます。` |
+| `docs/images/store/store-3-settings.png` | `設定: インクの色（見本・ピッカー・16 進）、ダーク／ライト、常に最前面。` |
+
+画像は 3 枚とも英語の表示で、言語ごとに作り分けていない（Loupe と同じ）。
 
 ## そのほかの入力
 
@@ -155,7 +167,7 @@ NeNe Ruler は、Windows 用の小さな画面定規です。四辺に目盛の�
 | `runFullTrust` が必要な理由・認定の注意書き | 下の「申請オプションに貼る文面」 | 施主の確認待ち |
 | 公開の保留オプション | 「認定されたらすぐに公開する」 | GitHub の `v1.0.0` は認定の後に、提出したのと同じ実行の成果物で出す（ADR 0026） |
 | デバイス ファミリ | 「Windows 10/11 Desktop」だけ | 包んだ Win32 のアプリ |
-| アプリ タイル アイコン | 300×300 の PNG | 用意する（core の絵から） |
+| アプリ タイル アイコン | 300×300 の PNG（`store-logo-300.png`） | release.yml の成果物 `nene-ruler-store-msix` に入る（build.rs が core の絵から作る・Issue #88） |
 
 ## 申請オプションに貼る文面
 
