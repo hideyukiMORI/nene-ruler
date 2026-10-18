@@ -31,18 +31,19 @@
 | `make prove` を直した（複数行の members・許可ライセンスの置き換え） | ✅ Issue #69・26 件成功（gate-proofs 第 39 節）。PR #70 |
 | Linux のメニュー用のアイコン（hicolor の PNG・build.rs が core の絵から）・`.desktop`・X11 の `WM_CLASS` | ✅ Issue #72・ADR 0024（gate-proofs 第 41 節）。`.deb` のメニューの見えは施主が確かめた。PR #73 |
 | 配布の仕組み（`make dist`・WiX の MSI・作った成果物をそのまま出す release.yml） | ✅ Issue #74・ADR 0025・手元と PR の上の Actions で実測、施主が MSI・ポータブル zip・`.deb` を試して OK（gate-proofs 第 42 節）。PR #75 |
+| Microsoft Store（MSIX・身元・ロゴ・PRIVACY・掲載文・画像・版 1.0.0） | ✅ Issue #80 / #82 / #84 / #86 / #88・ADR 0026。2026-10-18 に申請（Issue #90・認定中） |
 | v0.1.0 | ✅ 2026-10-18・[Release](https://github.com/hideyukiMORI/nene-ruler/releases/tag/v0.1.0)・タグは `6e391cd`。main の実行 39101655811 の成果物をそのまま出した（gate-proofs 第 43 節） |
 | CI の必須 check（`make ci`）と commit-msg フック | 配線済み。最初の PR で実行証拠を得るまで planned |
 | ruleset（main の保護・squash-only） | 未設定。施主が GitHub で設定したら gate-proofs に記録する |
 
 ## 次に行うこと
 
-v0.1.0 を 2026-10-18 に出した（Windows の MSI とポータブル zip、Linux の `.deb` と zip）。次は施主と決める。
+v0.1.0 を 2026-10-18 に GitHub で出した。続けて 1.0.0 を Microsoft Store に申請した（Submission 1・認定中・Issue #90）。
 
-- Microsoft Store（MSIX・施主決定 2026-10-17 の最終の目標）。Clock の MSIX の作り方を参考に Issue を立てる
-- Issue #76: check.yml の checkout を Node.js 24 の版に上げる
-- Issue #21（画素テストのフォント依存）・#25（WSLg の起動直後の描画）
-- Linux の zip は施主の機械でまだ試していない
+1. 認定を待つ（通常数時間・最大 3 営業日）。差し戻しが来たら文面を読んで直し、版を上げて出し直す
+2. 公開されたら（施主が Partner Center の「Microsoft Store で取り扱い中」を貼る）、**同じ実行 39109585664** の成果物を `publish_from_run` で GitHub の `v1.0.0` に出す（dry run → 本番・ADR 0025 / 0026）
+3. README と PRIVACY.md の Store 版の記述を、公開後の実測（設定の置き場）に合わせる
+4. Issue #76（check.yml の checkout）・#21・#25。Linux の zip は施主の機械でまだ試していない
 
 ## 残る穴
 
