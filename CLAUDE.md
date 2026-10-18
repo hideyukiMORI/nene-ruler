@@ -134,8 +134,8 @@ Issue / 規則 ID:
 
 現在のタスクは [docs/todo/current.md](docs/todo/current.md)。GitHub Issue が正で、そこは要約。
 
-2026-10-18: Linux（X11）版の全機能が main にある。Windows 版（ADR 0021）の枠とモーダルが draft PR にあり、施主の実機確認を待っている。
-その後はアイコン・配布の仕組み・v0.1.0。再開の手順は [docs/todo/handover-2026-10-18.md](docs/todo/handover-2026-10-18.md)。
+2026-10-18: Windows 版と Linux（X11）版の全機能が main にあり、v0.1.0 を出した（MSI・ポータブル zip・`.deb`・Linux の zip）。
+配る物は `make dist` と release.yml で 1 回だけ作り、その実行の成果物をそのまま出す（ADR 0025）。次は Microsoft Store。
 
 ---
 

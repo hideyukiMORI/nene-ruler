@@ -2,13 +2,13 @@
 
 A tiny frameless screen ruler for Windows and X11. Rust, no UI toolkit: Win32 + Direct2D on Windows, `x11rb` + `cairo` on Linux.
 
-> **Status (2026-10-18):** both builds have every feature below and are being prepared for v0.1.0.
+> **Status (2026-10-18):** v0.1.0 is out for Windows and Linux.
 > The Windows build has been tried by hand on Windows 11 (frame, settings window, icon); the Linux build on Xvfb (`make screenshot`) and WSLg.
 > Lengths are always physical pixels. Settings are saved to `~/.config/nene-ruler/settings.v1.txt` or `%APPDATA%\nene-ruler\settings.v1.txt`.
 
 ## Download
 
-From [Releases](https://github.com/hideyukiMORI/nene-ruler/releases) (from v0.1.0 on). Each file has a `.sha256` next to it.
+From [Releases](https://github.com/hideyukiMORI/nene-ruler/releases). Each file has a `.sha256` next to it.
 
 | File | For |
 | --- | --- |

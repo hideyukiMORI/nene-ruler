@@ -1,6 +1,6 @@
 # いまのタスク — NeNe Ruler
 
-> GitHub Issue と PR が進行状態の正本。この文書はその要約（2026-10-18 時点）。翌日の再開手順は [handover-2026-10-18](handover-2026-10-18.md)。
+> GitHub Issue と PR が進行状態の正本。この文書はその要約（2026-10-18 時点）。v0.1.0 を出した。
 
 ## 状態
 
@@ -24,22 +24,25 @@
 | 縦書きの高さの数字と通知を、左辺の主目盛の数字の右へ寄せる | ✅ Issue #15。PR #16 の枝の上 |
 | HiDPI の倍率 1x / 2x（`Xft.dpi` → RandR の dpi）を枠の飾りとモーダルに掛ける | ✅ Issue #28・ADR 0011・Xvfb で実測（gate-proofs 第 20 節）。施主の WSLg は `Xft.dpi` が無く主画面が 0 mm なので 1x |
 | mm / in と最前面の通知を外し、長さは常に px（施主決定 2026-10-17） | ✅ Issue #30・ADR 0012 |
-| Windows 版の土台: 設定ファイルの切り出し・adapters-windows・ui-win32（Direct2D の枠の窓）・unsafe の例外（CNF-014） | ✅ Issue #60・ADR 0021。施主の Windows で枠が描けた。枠の操作 6 項目は施主が確かめた（2026-10-18）。PR #61（draft） |
-| Windows の設定モーダル（Direct2D）・枠とモーダルで状態を `RefCell` で共有 | ✅ Issue #62。部品の操作 7 項目は施主が確かめた（2026-10-18）。PR #63（draft） |
+| Windows 版の土台: 設定ファイルの切り出し・adapters-windows・ui-win32（Direct2D の枠の窓）・unsafe の例外（CNF-014） | ✅ Issue #60・ADR 0021。施主の Windows で枠が描けた。枠の操作 6 項目は施主が確かめた（2026-10-18）。PR #61 |
+| Windows の設定モーダル（Direct2D）・枠とモーダルで状態を `RefCell` で共有 | ✅ Issue #62。部品の操作 7 項目は施主が確かめた（2026-10-18）。PR #63 |
 | 目盛の帯を移動の当たり判定にする（目盛の上ならどこでも掴める・両 OS） | ✅ Issue #66・ADR 0022・Windows の地図と Xvfb で実測、施主の目視 OK（gate-proofs 第 38 節）。PR #67 |
 | アイコンの絵を core に移し、Windows の exe に埋める（唯一の `build.rs`）・X11 も同じ画素 | ✅ Issue #68・ADR 0023・exe の資源と Xvfb で実測、施主の目視 OK（gate-proofs 第 40 節）。PR #71 |
 | `make prove` を直した（複数行の members・許可ライセンスの置き換え） | ✅ Issue #69・26 件成功（gate-proofs 第 39 節）。PR #70 |
 | Linux のメニュー用のアイコン（hicolor の PNG・build.rs が core の絵から）・`.desktop`・X11 の `WM_CLASS` | ✅ Issue #72・ADR 0024（gate-proofs 第 41 節）。`.deb` のメニューの見えは施主が確かめた。PR #73 |
 | 配布の仕組み（`make dist`・WiX の MSI・作った成果物をそのまま出す release.yml） | ✅ Issue #74・ADR 0025・手元と PR の上の Actions で実測、施主が MSI・ポータブル zip・`.deb` を試して OK（gate-proofs 第 42 節）。PR #75 |
+| v0.1.0 | ✅ 2026-10-18・[Release](https://github.com/hideyukiMORI/nene-ruler/releases/tag/v0.1.0)・タグは `6e391cd`。main の実行 39101655811 の成果物をそのまま出した（gate-proofs 第 43 節） |
 | CI の必須 check（`make ci`）と commit-msg フック | 配線済み。最初の PR で実行証拠を得るまで planned |
 | ruleset（main の保護・squash-only） | 未設定。施主が GitHub で設定したら gate-proofs に記録する |
 
 ## 次に行うこと
 
-PR #3〜#59 は 2026-10-18 に main へ squash merge した。Windows 版を作ってから、Windows と Linux の配布物を揃えて v0.1.0 を出す（施主決定 2026-10-18）。
+v0.1.0 を 2026-10-18 に出した（Windows の MSI とポータブル zip、Linux の `.deb` と zip）。次は施主と決める。
 
-1. 施主が MSI・ポータブル zip・`.deb` を入れて試す → PR #73 → #75 を merge（施主の許可の後）
-2. v0.1.0: main で release.yml を手動で実行して配る物を作り、施主に版番号とリリースノートを見せてから `publish_from_run`（dry run → 本番）
+- Microsoft Store（MSIX・施主決定 2026-10-17 の最終の目標）。Clock の MSIX の作り方を参考に Issue を立てる
+- Issue #76: check.yml の checkout を Node.js 24 の版に上げる
+- Issue #21（画素テストのフォント依存）・#25（WSLg の起動直後の描画）
+- Linux の zip は施主の機械でまだ試していない
 
 ## 残る穴
 
