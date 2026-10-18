@@ -208,6 +208,34 @@ impl FrameLayout {
         )
     }
 
+    /// 1 辺の目盛の帯。線から主目盛の先まで、上辺と左辺は目盛の数字まで。目盛の上ならどこでも掴める（ADR 0022）。
+    /// 目盛を描かない描き方では無い。
+    #[must_use]
+    pub fn tick_band(self, edge: Edge) -> Option<PixelRect> {
+        if self.detail != FrameDetail::Full {
+            return None;
+        }
+        let frame = self.frame();
+        let reach = self.px(TickKind::Major.length_px());
+        let numbered = LINE_PX + self.px(TickKind::Major.length_px() + TEXT_GAP_PX);
+        Some(match edge {
+            Edge::Top => PixelRect::new(
+                frame.x(),
+                frame.y(),
+                frame.width(),
+                numbered + TICK_LABEL_PX,
+            ),
+            Edge::Bottom => PixelRect::new(frame.x(), frame.bottom() - reach, frame.width(), reach),
+            Edge::Left => PixelRect::new(
+                frame.x(),
+                frame.y(),
+                numbered + self.left_numbers_width(),
+                frame.height(),
+            ),
+            Edge::Right => PixelRect::new(frame.right() - reach, frame.y(), reach, frame.height()),
+        })
+    }
+
     /// 1 辺の目盛の矩形。線から内側へ伸びる。
     pub fn ticks(self, edge: Edge) -> impl Iterator<Item = PixelRect> {
         let frame = self.frame();
@@ -442,7 +470,7 @@ impl FrameLayout {
         rects
     }
 
-    /// 当たり判定を優先順に。鉤括弧 → ギア → 数字 → 線の帯。
+    /// 当たり判定を優先順に。鉤括弧 → ギア → 数字 → 線の帯 → 目盛の帯。
     #[must_use]
     pub fn hit_regions<F: Fn(LengthLabel) -> u16>(self, chars: F) -> Vec<HitRegion> {
         let mut regions = Vec::new();
@@ -461,6 +489,12 @@ impl FrameLayout {
         }
         for edge in Edge::ALL {
             regions.push(HitRegion::new(self.line_band(edge), HitTarget::Move));
+        }
+        for band in Edge::ALL
+            .into_iter()
+            .filter_map(|edge| self.tick_band(edge))
+        {
+            regions.push(HitRegion::new(band, HitTarget::Move));
         }
         regions
     }
@@ -616,6 +650,64 @@ mod tests {
             Some(HitTarget::Move)
         );
         assert_eq!(target_at(&regions, PixelPoint::new(200, 120)), None);
+    }
+
+    #[test]
+    fn tick_bands_cover_the_ticks_and_their_numbers() {
+        assert_eq!(
+            layout().tick_band(Edge::Top),
+            Some(PixelRect::new(4, 4, 400, 24))
+        );
+        assert_eq!(
+            layout().tick_band(Edge::Bottom),
+            Some(PixelRect::new(4, 231, 400, 12))
+        );
+        assert_eq!(
+            layout().tick_band(Edge::Left),
+            Some(PixelRect::new(4, 4, 33, 240))
+        );
+        assert_eq!(
+            layout().tick_band(Edge::Right),
+            Some(PixelRect::new(391, 4, 12, 240))
+        );
+        assert_eq!(
+            doubled().tick_band(Edge::Top),
+            Some(PixelRect::new(8, 8, 400, 38))
+        );
+        for edge in Edge::ALL {
+            let band = layout().tick_band(edge);
+            assert!(layout().ticks(edge).all(|tick| band.is_some_and(|band| {
+                band.contains(PixelPoint::new(tick.x(), tick.y()))
+                    && band.contains(PixelPoint::new(tick.right(), tick.bottom()))
+            })));
+        }
+    }
+
+    #[test]
+    fn tick_bands_move_between_the_ticks_but_yield_to_the_rest() {
+        let regions = layout().hit_regions(|_label| 6);
+        // 上辺の目盛の隙間と、目盛の数字の隙間。
+        for point in [PixelPoint::new(61, 12), PixelPoint::new(61, 24)] {
+            assert_eq!(target_at(&regions, point), Some(HitTarget::Move));
+        }
+        assert_eq!(
+            target_at(&regions, PixelPoint::new(20, 130)),
+            Some(HitTarget::Move)
+        );
+        assert_eq!(
+            target_at(&regions, PixelPoint::new(395, 130)),
+            Some(HitTarget::Move)
+        );
+        assert_eq!(
+            target_at(&regions, PixelPoint::new(200, 236)),
+            Some(HitTarget::Move)
+        );
+        assert_eq!(
+            target_at(&regions, PixelPoint::new(10, 10)),
+            Some(HitTarget::Resize(Anchor::TopLeft))
+        );
+        assert_eq!(target_at(&regions, PixelPoint::new(200, 29)), None);
+        assert_eq!(target_at(&regions, PixelPoint::new(38, 130)), None);
     }
 
     /// 左辺の主目盛の数字が占める矩形の見積り（字の高さは 1x で 9 px）。
@@ -791,6 +883,11 @@ mod tests {
             assert_eq!(compact.tick_labels(edge).count(), 0);
         }
         assert_eq!(compact.ink_rects().len(), 4 + 4);
+        assert!(
+            Edge::ALL
+                .iter()
+                .all(|edge| compact.tick_band(*edge).is_none())
+        );
         let regions = compact.hit_regions(chars_for(100, 40));
         let centre = PixelPoint::new(4 + 50, 4 + 20);
         assert_eq!(

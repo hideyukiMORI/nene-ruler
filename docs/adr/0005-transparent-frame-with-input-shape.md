@@ -1,6 +1,6 @@
 # ADR 0005 — 枠は透明な 2 次元の窓。描いたものだけが見え、描いたものだけが触れる
 
-- 状態: 受理
+- 状態: 受理（触れる矩形に目盛の帯を足す → [0022](0022-tick-band-is-touchable.md)）
 - 日付: 2026-10-15
 - Issue: #2
 - 影響する規則: ARC-004 / ARC-005 / ARC-011 / RS-002 / QLT-013。仕様 FR-002〜FR-006 / FR-009 / FR-010 / FR-017 / FR-018
@@ -33,7 +33,7 @@
 
 1. **窓**: `TrueColor` / depth 32 の visual と専用の colormap で `CreateWindow`。`border_pixel = 0`・`background_pixel = 0`（透明）。WM の管理は変えない（FR-001・ADR 0002 の 2）
 2. **描画**: `ImageSurface`（ARGB32・premultiplied）に、インク色でアルファ 1 の線・目盛・数字・鉤括弧・ギアだけを描く。`PutImage`（ZPixmap・depth 32）で転送する（ADR 0002 の 4）
-3. **当たり判定**: core が物理画素で「触れる矩形の集合」（線の帯・アンカー・ギア・数字）を計算し、ui-x11 が `XFixesCreateRegion` → `XFixesSetWindowShapeRegion(ShapeInput)` に写す。中身の矩形は入力 shape に**含めない**ので、クリックは下の窓へ届く
+3. **当たり判定**: core が物理画素で「触れる矩形の集合」（線の帯・アンカー・ギア・数字。目盛の帯は ADR 0022 で足した）を計算し、ui-x11 が `XFixesCreateRegion` → `XFixesSetWindowShapeRegion(ShapeInput)` に写す。中身の矩形は入力 shape に**含めない**ので、クリックは下の窓へ届く
 4. **操作**: 線の帯で `ButtonPress` → `_NET_WM_MOVERESIZE`（`_NET_WM_MOVERESIZE_MOVE`）。アンカーで `ButtonPress` → `_NET_WM_MOVERESIZE`（`SIZE_TOPLEFT` / `SIZE_BOTTOMRIGHT`）。対応しない WM では自前の `ConfigureWindow` に落ちる（ADR 0002 の 3）
 5. **合成器の検出**: 起動時に `_NET_WM_CM_S0`（画面 0）の `GetSelectionOwner`。所有者が無ければ、同じ `ImageSurface` の背景をインク色の補色（明るさで黒か白）で塗って不透明にし、FR-014 の経路で示す。透明にできるかどうかは `Transparency`（閉じた `enum`）として application が持つ
 6. **仕様の改訂**: FR-006（向き）を撤回。FR-010 の「テーマ」を「インク色」と「モーダルの見え」に分ける。FR-017（透明と当たり判定）・FR-018（単色）を足す。`Orientation` / `ThemePalette` は作らない

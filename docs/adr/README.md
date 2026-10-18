@@ -20,7 +20,7 @@ ADR は「なぜそう決めたか」「何を却下したか」を書く。
 | [0002](0002-x11rb-and-cairo-without-a-toolkit.md) | X11 は x11rb、描画は cairo の ImageSurface。UI ツールキットを使わない | 受理 |
 | [0003](0003-rust-foundation-and-measured-limits.md) | Rust の検査基盤と実測できた限界を固定する | 受理 |
 | [0004](0004-diff-scoped-verification-and-result-reuse.md) | 差分に必要な検証と成功結果の再利用 | 受理 |
-| [0005](0005-transparent-frame-with-input-shape.md) | 枠は透明な 2 次元の窓。描いたものだけが見え、描いたものだけが触れる | 受理 |
+| [0005](0005-transparent-frame-with-input-shape.md) | 枠は透明な 2 次元の窓。描いたものだけが見え、描いたものだけが触れる | 受理（触れる矩形に目盛の帯を足す → 0022） |
 | [0006](0006-settings-file-v1.md) | 設定は版付きの `key = value` テキストで保存し、読めない版は既定値へ落とさない | 受理（`unit` の鍵は置換 → 0012） |
 | [0007](0007-clipboard-owner-thread-in-adapters.md) | CLIPBOARD は adapters-x11 が専用の接続と 1 本のスレッドで所有する | 受理 |
 | [0008](0008-wslg-layered-window-hit-and-shadow.md) | WSLg では描いた画素が当たり判定になる。帯はアルファ 1 で描き、影は窓の種類で消し、Alt+F4 は自分で読む | 受理（文脈 3 と決定 4 は置換 → 0009、決定 5 は置換 → 0012） |
@@ -37,3 +37,4 @@ ADR は「なぜそう決めたか」「何を却下したか」を書く。
 | [0019](0019-smaller-minimum-and-short-size.md) | 最小の枠を 16 × 16 にし、線を消した表示では短い形 W×H を描く | 受理 |
 | [0020](0020-app-icon-drawn-in-app.md) | アプリのアイコンは 2 つの鉤括弧で、画像ファイルを同梱せずその場で描く | 受理 |
 | [0021](0021-windows-port-direct2d-and-confined-unsafe.md) | Windows 版は Win32 の窓と Direct2D で描き、unsafe は Windows の 2 クレートにだけ許す | 受理 |
+| [0022](0022-tick-band-is-touchable.md) | 目盛の帯を移動の当たり判定にし、目盛の上ならどこでも掴めるようにする | 受理 |
