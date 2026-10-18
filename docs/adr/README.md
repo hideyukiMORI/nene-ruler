@@ -39,3 +39,4 @@ ADR は「なぜそう決めたか」「何を却下したか」を書く。
 | [0021](0021-windows-port-direct2d-and-confined-unsafe.md) | Windows 版は Win32 の窓と Direct2D で描き、unsafe は Windows の 2 クレートにだけ許す | 受理 |
 | [0022](0022-tick-band-is-touchable.md) | 目盛の帯を移動の当たり判定にし、目盛の上ならどこでも掴めるようにする | 受理 |
 | [0023](0023-icon-embedded-by-the-only-build-script.md) | アイコンの絵を core に移し、唯一の build.rs で Windows の exe に埋める | 受理 |
+| [0024](0024-linux-menu-icon-from-the-build-script.md) | Linux のメニュー用のアイコンも唯一の build.rs が core の絵から作り、窓に WM_CLASS を付ける | 受理 |

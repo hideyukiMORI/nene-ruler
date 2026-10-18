@@ -36,6 +36,7 @@ pub mod nudge;
 pub mod nudge_direction;
 pub mod pixel_point;
 pub mod pixel_rect;
+pub mod png_file;
 pub mod rgb;
 pub mod rgb_failure;
 pub mod ruler_settings;

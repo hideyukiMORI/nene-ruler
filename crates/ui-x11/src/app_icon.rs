@@ -1,4 +1,4 @@
-//! アプリのアイコンを `_NET_WM_ICON` として窓に付ける（ADR 0020 / 0023）。
+//! アプリの印を窓に付ける。アイコン（`_NET_WM_ICON`・ADR 0020 / 0023）と、メニューの項目と窓を結ぶ `WM_CLASS`（ADR 0024）。
 //!
 //! 絵の正本は core の `AppIcon`。ここは画素を X の値の並びに写すだけ。
 
@@ -22,7 +22,11 @@ pub fn net_wm_icon() -> Vec<u32> {
     words
 }
 
-/// 窓に `_NET_WM_ICON` を付ける。
+/// `WM_CLASS` の値（インスタンス名と類名・NUL 区切り）。`packaging/linux/nene-ruler.desktop` の
+/// `StartupWMClass` と同じ名前で、デスクトップがメニューの項目（とそのアイコン）を窓に結ぶ。
+const WM_CLASS: &[u8] = b"nene-ruler\0nene-ruler\0";
+
+/// 窓に `_NET_WM_ICON` と `WM_CLASS` を付ける。
 ///
 /// # Errors
 ///
@@ -34,6 +38,13 @@ pub(crate) fn declare(display: &Display, window: Window) -> Result<(), UiFailure
         display.atoms().net_wm_icon,
         AtomEnum::CARDINAL,
         &net_wm_icon(),
+    )?;
+    display.connection().change_property8(
+        PropMode::REPLACE,
+        window,
+        AtomEnum::WM_CLASS,
+        AtomEnum::STRING,
+        WM_CLASS,
     )?;
     Ok(())
 }

@@ -929,3 +929,28 @@ dpi 対応にした PowerShell で枠の窓を起動し、窓の中を横 2 px�
 ### 40.4 施主の目視
 
 施主が Windows で、エクスプローラーの exe・タスクバー・Alt+Tab に 2 つの鉤括弧のアイコンが出ることを確かめた（2026-10-18「OK」）。
+
+## 41. Issue #72 — Linux のメニュー用のアイコンと WM_CLASS（2026-10-18）
+
+施主の WSL。ADR 0024。
+
+### 41.1 ゲート
+
+| target | 結果 |
+| --- | --- |
+| `make fmt-check` / `make lint` / `make lint-windows` / `make doc-check` | 0 件 |
+| `make test`（`--no-fail-fast` で全クレート） | ui-x11 の既存の #21 以外すべて成功。core に `png_file` の 4 件を足した |
+| `make conformance` | 違反なし（179 ファイル） |
+| `make deny` | 通る |
+
+### 41.2 書いた PNG を外の道具で読む
+
+`cargo build --release --message-format=json` の `build-script-executed`（`nene-ruler` の `crates/app`）の `out_dir` の下に、`icons/hicolor/{16,24,32,48,64,128,256}x…/apps/nene-ruler.png` の 7 枚ができた。
+
+- `file`: `PNG image data, 256 x 256, 8-bit/color RGBA, non-interlaced`
+- Python の `zlib`（`-I`）で全塊の CRC を照合し、IDAT を展開した。7 枚とも角 `00000000`・中央 `1a1917ff`（地）。256 px は 262488 バイト
+- 256 px を目で見た。暗い角丸の地に、左上の生成りと右下の赤の鉤括弧
+
+### 41.3 Xvfb の WM_CLASS
+
+`xprop WM_CLASS` → `WM_CLASS(STRING) = "nene-ruler", "nene-ruler"`。`xdotool search --class nene-ruler` が枠の窓を返す（前は何も返さなかった）。

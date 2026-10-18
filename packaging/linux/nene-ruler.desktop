@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=NeNe Ruler
+Comment=A tiny transparent screen ruler
+Comment[ja]=透明な画面定規
+Exec=nene-ruler
+Icon=nene-ruler
+Terminal=false
+Categories=Utility;Graphics;
+StartupWMClass=nene-ruler
