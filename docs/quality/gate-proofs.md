@@ -1004,3 +1004,19 @@ ADR 0025 の手順で、施主に版とリリースノートを見せて OK を�
 
 出した後、`gh release edit` でリリースノートの先頭に施主に見せた要約を足した（自動の PR の一覧はその下に残した）。
 これで ADR 0025 の `publish_from_run` の確かめ（planned）は、実際の 1 回で通った。
+
+## 44. Issue #80 — Store に出す MSIX（2026-10-18）
+
+施主の WSL と GitHub Actions。PR #79 の枝の上に積んだ。ADR 0026。身元は施主が Partner Center で予約した値。
+
+| 確かめたこと | 結果 |
+| --- | --- |
+| `make lint` / `make lint-windows` / `make conformance` | 0 件・違反なし |
+| 手元の `make dist` | `dist/msix-assets` に 25 枚。`Square150x150Logo` は 150 / 188 / 225 / 300 / 600、`Square44x44Logo` は 44 / 55 / 66 / 88 / 176、`StoreLogo` は 50〜200、`targetsize` は 16〜256（Loupe と同じ大きさ） |
+| PR の上の release.yml（実行 39105299324） | build・msi が成功。msi のジョブが MSI に続けて MSIX を作った。版が 0.1.0 なので `NeNe-Ruler-store-NOT-SUBMITTABLE.msix` と警告（`MSIX の版 0.1.0.0 は先頭が 0 なので Store に出せない`） |
+| 成果物の MSIX を手元で開く | `.sha256` が一致。中身は `AppxManifest.xml`・`AppxBlockMap.xml`・`[Content_Types].xml`・`nene-ruler.exe`・`resources.pri`・`Assets/` の 25 枚 |
+| マニフェストの身元 | `Name="HideyukiMori.NeNeRuler"`・`Publisher="CN=C37230AA-B52D-403B-9BFD-E7980F088422"`・`PublisherDisplayName` は `Hideyuki Mori`。`store-identity.json`（Partner Center の値）と同じ。`EntryPoint="Windows.FullTrustApplication"`・`runFullTrust`・`MinVersion="10.0.19041.0"` |
+| exe | MSIX の中の exe の SHA-256 は `50417DAF…`。スクリプトがポータブル zip の中の exe と同じことを確かめて通った |
+| `resources.pri` | 25 枚の名前がすべて索引に載っている |
+
+入れた状態の見え方と WACK はまだ（版を 1.0.0 に上げた後、施主の機械で）。
