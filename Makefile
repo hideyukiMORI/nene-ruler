@@ -6,7 +6,7 @@
 #    全件は限定した検証で影響を覆えない理由を REASON= に添えたときだけ回す（QLT-001 / ADR 0021 の継承）。
 CARGO ?= cargo
 
-.PHONY: all check ci fmt fmt-check lint lint-windows build-windows test conformance validate-git coverage deny doc-check build prove screenshot doctor clean
+.PHONY: all check ci fmt fmt-check lint lint-windows build-windows test conformance validate-git coverage deny doc-check build prove screenshot dist doctor clean
 
 all: doctor
 
@@ -114,7 +114,16 @@ doctor:
 	@command -v import >/dev/null && echo "ImageMagick: ある" || echo "ImageMagick: 無い（apt-get install imagemagick）"
 	@command -v xcompmgr >/dev/null && echo "xcompmgr: ある" || echo "xcompmgr: 無い（apt-get install xcompmgr。透明の確認に要る）"
 	@command -v xdotool >/dev/null && echo "xdotool: ある" || echo "xdotool: 無い（apt-get install xdotool）"
+	@command -v dpkg-shlibdeps >/dev/null && command -v jq >/dev/null && command -v zip >/dev/null && echo "make dist の道具: ある" || echo "make dist の道具: 足りない（apt-get install dpkg-dev jq zip）"
 	@command -v x86_64-w64-mingw32-windres >/dev/null && echo "windres: ある" || echo "windres: 無い（apt-get install mingw-w64。Windows の exe にアイコンを埋めるのに要る・ADR 0023）"
+
+## dist — 配る物を dist/ に作る（Linux の .deb と zip、Windows のポータブル zip と MSI の材料の exe、sha256）。
+## MSI は Windows のランナーが packaging/windows/build-msi.ps1 で作る。手順の正本は packaging/dist.sh（ADR 0025）。
+dist:
+	@for tool in jq zip dpkg-deb dpkg-shlibdeps x86_64-w64-mingw32-strip; do \
+	  command -v $$tool >/dev/null || { echo "dist: $$tool が無い（make doctor）"; exit 2; }; done
+	packaging/dist.sh
 
 clean:
 	$(CARGO) clean
+	rm -rf dist

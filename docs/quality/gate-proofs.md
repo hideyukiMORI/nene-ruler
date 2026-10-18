@@ -954,3 +954,40 @@ dpi 対応にした PowerShell で枠の窓を起動し、窓の中を横 2 px�
 ### 41.3 Xvfb の WM_CLASS
 
 `xprop WM_CLASS` → `WM_CLASS(STRING) = "nene-ruler", "nene-ruler"`。`xdotool search --class nene-ruler` が枠の窓を返す（前は何も返さなかった）。
+
+## 42. Issue #74 — 配布の仕組み（2026-10-18）
+
+施主の WSL と GitHub Actions。PR #73 の枝の上に積んだ。ADR 0025。
+
+### 42.1 手元の `make dist`
+
+`dist/` に `nene-ruler_amd64.deb`（309 KB）・`nene-ruler-linux-x86_64.zip`・`NeNe-Ruler-windows-portable.zip`・`nene-ruler.exe`（MSI の材料・strip 後 1.4 MB）と 3 つの `.sha256` ができ、`sha256sum -c` がすべて OK。
+
+| 確かめたこと | 結果 |
+| --- | --- |
+| `dpkg-deb -I` | `Version: 0.1.0`・`Depends: libc6 (>= 2.34), libcairo2 (>= 1.4.10), libgcc-s1 (>= 4.2)`（`dpkg-shlibdeps` が決めた）・`Installed-Size: 1224` |
+| `dpkg-deb -c` | `/usr/bin/nene-ruler`・`/usr/share/applications/nene-ruler.desktop`・`/usr/share/doc/nene-ruler/copyright`・`/usr/share/icons/hicolor/{16..256}/apps/nene-ruler.png` の 7 枚。持ち主は root |
+| zip の中身 | Linux: 本体・`.desktop`・`icons/hicolor/…`・LICENSE・README。Windows: `nene-ruler.exe`・LICENSE・README |
+| exe | strip の後も `.rsrc` が残る（アイコン）。依存する DLL は Windows の標準だけ（mingw の実行時ライブラリを同梱しなくてよい） |
+
+最初の版は Linux の zip で `icons/` の下の `hicolor` が抜けていたので直した。
+
+### 42.2 PR の上の release.yml
+
+| 実行 | build（ubuntu-24.04） | msi（windows-2025・WiX 5.0.2） | release |
+| --- | --- | --- | --- |
+| 39100486456 | 成功 | 成功（`msi: NeNe Ruler 0.1.0`） | 飛ばした（PR） |
+| 39100643145（checkout を v7.0.1 に上げた後） | 成功 | 成功 | 飛ばした（PR） |
+
+- 1 回目は checkout（check.yml と同じ commit）に Node.js 20 の非推奨の警告が出た。v7.0.1 に上げた 2 回目は 0 件。check.yml は Issue #76
+- 2 回目の成果物を `gh run download` で取り、4 つの `.sha256` を Linux の `sha256sum --check --strict` で照合して OK（Windows で書いた MSI の `.sha256` も LF で照合できた）
+
+### 42.3 施主の Windows で MSI を入れる（実行 39100643145 の成果物）
+
+- 14:35:02 にインストールが成功（MsiInstaller 11707 / 1033）。スタートメニューに鉤括弧のアイコンで出た
+- 続けて「Please wait while Windows configures NeNe Ruler」のまま止まって見えた。`consent.exe` が「NeNe-Ruler-Setup.msi がアクセス許可を要求しています」で待っていた（UAC の確認がほかの窓の後ろにあった）。msi を開き直した分の再構成（1035）が 3 回、どれも成功
+- 再構成がスタートメニューからの起動（宣伝されたショートカットの自動修復）でないことを確かめるため、施主がスタートメニューから起動し直した。問題なく起動し、14:36:12 より後の MsiInstaller の事象は 0 件
+
+### 42.4 施主の機械でポータブル zip と `.deb` を試す
+
+施主が、Windows のポータブル zip を展開して `nene-ruler.exe` が起動すること、WSL に `.deb` を `apt install` で入れてスタートメニューから起動できることを確かめた（2026-10-18「3 つとも大丈夫」）。MSI（第 42.3 節）と合わせて、配る 4 つのうち 3 つを施主の機械で試した。Linux の zip は試していない。

@@ -1,20 +1,28 @@
 # NeNe Ruler
 
-A tiny frameless screen ruler for X11. Rust, `x11rb` + `cairo`, no UI toolkit.
+A tiny frameless screen ruler for Windows and X11. Rust, no UI toolkit: Win32 + Direct2D on Windows, `x11rb` + `cairo` on Linux.
 
-> **Status (2026-10-16):** Issues #2, #4, #6, #8, #10 and #12. `cargo run` opens a transparent frame with ticks,
-> moves when you drag a line and resizes when you drag an anchor; the gear opens a settings window for ink colour, theme and always-on-top.
-> Settings are saved to `~/.config/nene-ruler/settings.v1.txt`; clicking a number copies it to the clipboard.
-> Arrow keys nudge the frame by 1 px (10 px with Shift). Lengths are always physical pixels (mm / in were dropped). With no compositor the frame falls back to opaque and says so.
-> HiDPI is 1x or 2x, from `Xft.dpi` or the RandR dpi.
-> Verified on Xvfb (`make screenshot`) and once on WSLg (see `docs/quality/wslg-2026-10-17.md`). Nothing to download.
+> **Status (2026-10-18):** both builds have every feature below and are being prepared for v0.1.0.
+> The Windows build has been tried by hand on Windows 11 (frame, settings window, icon); the Linux build on Xvfb (`make screenshot`) and WSLg.
+> Lengths are always physical pixels. Settings are saved to `~/.config/nene-ruler/settings.v1.txt` or `%APPDATA%\nene-ruler\settings.v1.txt`.
 
-## What it will be
+## Download
+
+From [Releases](https://github.com/hideyukiMORI/nene-ruler/releases) (from v0.1.0 on). Each file has a `.sha256` next to it.
+
+| File | For |
+| --- | --- |
+| `NeNe-Ruler-Setup.msi` | Windows 11 (x64; Windows 10 is untested). Installs to Program Files and adds a Start menu entry. Not code-signed, so SmartScreen may ask once |
+| `NeNe-Ruler-windows-portable.zip` | Windows without installing. Unzip and run `nene-ruler.exe` |
+| `nene-ruler_amd64.deb` | Ubuntu / Debian (amd64), WSLg included: `sudo apt install ./nene-ruler_amd64.deb` |
+| `nene-ruler-linux-x86_64.zip` | Other Linux on x86_64. Needs `libcairo2` and a compositor for transparency |
+
+## What it is
 
 - A transparent rectangle floating over the screen: four lines with tick marks, the width and height written on them in physical pixels.
-- Everything except the lines, the numbers, the two bracket-shaped anchors and the gear is transparent and lets clicks through.
-- Drag a line to move, drag an anchor to resize, click a number to copy it. One ink colour, chosen in the settings window.
-- Always on top if the window manager supports it (WSLg does not; a native Windows build is planned). Settings are saved with a version (`settings.v1.txt`, plain `key = value`).
+- Everything except the lines with their ticks, the numbers, the two bracket-shaped anchors and the gear is transparent and lets clicks through.
+- Drag a line or its ticks to move, drag an anchor to resize, click a number to copy it. One ink colour, chosen in the settings window.
+- Always on top on Windows and on window managers that support it (WSLg does not). Settings are saved with a version (`settings.v1.txt`, plain `key = value`).
 - Runs on Xorg and XWayland (WSLg included). Measures physical pixels.
 
 The requirements are in [SPECIFICATION.md](SPECIFICATION.md) (Japanese).

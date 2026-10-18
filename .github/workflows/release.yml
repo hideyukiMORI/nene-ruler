@@ -1,0 +1,157 @@
+# 配る物を作り、出す（ADR 0025）。手順の正本は make dist（packaging/dist.sh）と packaging/windows/build-msi.ps1。
+# ここは各ランナーでそれを呼び、できた物を置くだけ。品質の判断は持たない（QLT-005）。
+name: Release
+
+# 🔑 配る物は 1 回だけ作る。GitHub Release は作り直さず、作った実行の成果物をそのまま添付する（NeNe Clock の ADR 0022 と同じ）。
+#    だからタグでは起動しない。タグは release ジョブが、その実行の commit に打つ。
+on:
+  workflow_dispatch:
+    inputs:
+      publish_from_run:
+        description: "この実行 ID の成果物を GitHub Release に出す（作り直さない）。空なら配る物を作るだけ"
+        required: false
+        default: ""
+      dry_run:
+        description: "true なら確かめるだけで、タグも Release も作らない"
+        type: boolean
+        required: false
+        default: true
+  # 配布の結線に触る PR では、マージ前に配る物ができることを確かめる。
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
+      - "packaging/**"
+      - "Makefile"
+      - "crates/app/build.rs"
+      - "Cargo.toml"
+
+permissions:
+  contents: read
+
+jobs:
+  # exe は Linux の上で gnu のターゲットで作る（手元と同じ作り方・ADR 0021 / 0023）。
+  build:
+    name: build
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish_from_run == '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the build and packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libcairo2-dev gcc-mingw-w64-x86-64 binutils-mingw-w64-x86-64 dpkg-dev jq zip
+      # 版とターゲットは rust-toolchain.toml が決める。ここでは何も指定しない（QLT-011）。
+      - name: Show toolchain
+        run: |
+          rustc --version
+          cargo --version
+      - name: Build the distributables with the canonical target
+        run: make dist
+      - name: Keep the Linux distributables
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nene-ruler-linux
+          path: |
+            dist/nene-ruler_amd64.deb
+            dist/nene-ruler_amd64.deb.sha256
+            dist/nene-ruler-linux-x86_64.zip
+            dist/nene-ruler-linux-x86_64.zip.sha256
+          if-no-files-found: error
+      - name: Keep the Windows portable zip
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nene-ruler-windows
+          path: |
+            dist/NeNe-Ruler-windows-portable.zip
+            dist/NeNe-Ruler-windows-portable.zip.sha256
+          if-no-files-found: error
+      # MSI の材料。配らない。
+      - name: Keep the exe for the MSI
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nene-ruler-exe
+          path: dist/nene-ruler.exe
+          if-no-files-found: error
+
+  # MSI だけを Windows のランナーで作る。exe は作り直さず、同じ実行の build の成果物を包む。
+  msi:
+    name: msi
+    needs: build
+    runs-on: windows-2025
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Take the exe of this run
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download $env:GITHUB_RUN_ID --repo $env:GITHUB_REPOSITORY --name nene-ruler-exe --dir dist
+      # 🔴 WiX は 5 に固定する。6 以降は利用条件（Open Source Maintenance Fee）を確かめてから上げる（ADR 0025）。
+      - name: Install WiX
+        shell: pwsh
+        run: dotnet tool install --global wix --version 5.0.2
+      - name: Build the MSI with the canonical script
+        shell: pwsh
+        run: ./packaging/windows/build-msi.ps1 -Exe dist/nene-ruler.exe -OutDir dist
+      - name: Keep the MSI
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nene-ruler-msi
+          path: |
+            dist/NeNe-Ruler-Setup.msi
+            dist/NeNe-Ruler-Setup.msi.sha256
+          if-no-files-found: error
+
+  # 🔴 ここでは何も作らない。渡された実行の成果物を確かめて、そのまま出す。
+  release:
+    name: release
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_from_run != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Publish the artifacts of the submitted run, unchanged
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.publish_from_run }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          case "$RUN_ID" in ''|*[!0-9]*) echo "publish_from_run must be a run id (digits only): $RUN_ID"; exit 1;; esac
+          run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")
+          path=$(jq -r .path <<<"$run"); conclusion=$(jq -r .conclusion <<<"$run"); sha=$(jq -r .head_sha <<<"$run")
+          echo "run $RUN_ID: $path / $conclusion / $sha"
+          [ "$path" = ".github/workflows/release.yml" ] || { echo "that run is not a Release run"; exit 1; }
+          [ "$conclusion" = "success" ] || { echo "that run did not succeed"; exit 1; }
+          # main に載っている commit だけを出す（PR の枝で作った物を出さない）。
+          status=$(gh api "repos/$GITHUB_REPOSITORY/compare/$sha...main" -q .status)
+          case "$status" in identical|ahead) ;; *) echo "commit $sha is not on main (compare status: $status)"; exit 1;; esac
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --dir dist \
+            --name nene-ruler-linux --name nene-ruler-windows --name nene-ruler-msi
+          # 作ったときに書いた .sha256 と、いまの中身が同じであることを確かめる。
+          for directory in dist/nene-ruler-linux dist/nene-ruler-windows dist/nene-ruler-msi; do
+            (cd "$directory" && for sum in *.sha256; do sha256sum --check --strict "$sum"; done)
+          done
+          version=$(gh api "repos/$GITHUB_REPOSITORY/contents/Cargo.toml?ref=$sha" -q .content | base64 --decode | sed -n 's/^version = "\(.*\)"$/\1/p' | head -n 1)
+          [ -n "$version" ] || { echo "no version in Cargo.toml at $sha"; exit 1; }
+          tag="v$version"
+          echo "would publish $tag at $sha:"; ls -l dist/*
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then echo "release $tag already exists"; exit 1; fi
+          if [ "$DRY_RUN" != "false" ]; then echo "dry run: nothing was tagged or published"; exit 0; fi
+          gh release create "$tag" --target "$sha" \
+            dist/nene-ruler-msi/NeNe-Ruler-Setup.msi dist/nene-ruler-msi/NeNe-Ruler-Setup.msi.sha256 \
+            dist/nene-ruler-windows/NeNe-Ruler-windows-portable.zip dist/nene-ruler-windows/NeNe-Ruler-windows-portable.zip.sha256 \
+            dist/nene-ruler-linux/nene-ruler_amd64.deb dist/nene-ruler-linux/nene-ruler_amd64.deb.sha256 \
+            dist/nene-ruler-linux/nene-ruler-linux-x86_64.zip dist/nene-ruler-linux/nene-ruler-linux-x86_64.zip.sha256 \
+            --repo "$GITHUB_REPOSITORY" --title "NeNe Ruler $tag" --generate-notes
