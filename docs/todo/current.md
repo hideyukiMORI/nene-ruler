@@ -39,12 +39,11 @@
 
 ## 次に行うこと
 
-1.0.0 が 2026-10-19 に Microsoft Store で公開され、同じ日に同じ実行 39109585664 の成果物で GitHub の `v1.0.0` を出した。README の Download に Store のリンクを足した。
+1.0.0 が 2026-10-19 に Microsoft Store で公開され、同じ日に同じ実行 39109585664 の成果物で GitHub の `v1.0.0` を出した。README の Download に Store のリンクを足し、Store 版の設定の置き場を実測して PRIVACY.md と README に書いた（Issue #96・gate-proofs 第 48 節）。
 
-1. 施主の Windows に Store 版を入れ、設定の置き場を測って PRIVACY.md と README の Store 版の記述を合わせる（Loupe の実測では本物の場所のフォルダの有無で分かれた）
-2. v1.0.0 のリリースノートの先頭に要約を足す（施主に案を見せてから `gh release edit`・v0.1.0 と同じ）
-3. 掲載文の英語の `colour` を `color` に直す（パッケージを変えない掲載文だけの申請）
-4. Issue #76（check.yml の checkout）・#21・#25。Linux の zip は施主の機械でまだ試していない
+1. v1.0.0 のリリースノートの先頭に要約を足す（施主に案を見せてから `gh release edit`・v0.1.0 と同じ）
+2. 掲載文の英語の `colour` を `color` に直す（パッケージを変えない掲載文だけの申請）
+3. Issue #76（check.yml の checkout）・#21・#25。Linux の zip は施主の機械でまだ試していない
 
 ## 残る穴
 

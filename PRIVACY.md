@@ -1,6 +1,6 @@
 # Privacy Policy — NeNe Ruler
 
-Last updated: 2026-10-18 · Publisher: Hideyuki Mori
+Last updated: 2026-10-19 · Publisher: Hideyuki Mori
 
 **NeNe Ruler does not collect, store or transmit any personal information. It never connects to
 a network.**
@@ -25,10 +25,13 @@ nothing about you or about what you measured.
 
 - Windows (installer and portable ZIP): `%APPDATA%\nene-ruler\settings.v1.txt`.
 - Linux: `$XDG_CONFIG_HOME/nene-ruler/settings.v1.txt`, or `~/.config/nene-ruler/settings.v1.txt`.
-- Microsoft Store version: Windows may keep the file inside the application's own package
-  storage instead of the location above, and removes it when you uninstall the application.
+- Microsoft Store version: if the folder `%APPDATA%\nene-ruler` already exists (for example,
+  left by the installer or portable version), the file is written there, as above. Otherwise
+  Windows keeps it in the application's own package storage,
+  `%LOCALAPPDATA%\Packages\HideyukiMori.NeNeRuler_3sft4ch5kzywy\LocalCache\Roaming\nene-ruler\settings.v1.txt`.
 
-The file stays on your device until you delete it or uninstall the application.
+The file stays on your device until you delete it. The file in the package storage is also
+removed when you uninstall the Store version; the file in `%APPDATA%` is not.
 
 ## Network
 
@@ -51,7 +54,7 @@ Questions: open an issue at <https://github.com/hideyukiMORI/nene-ruler/issues>.
 
 # プライバシーポリシー（日本語）
 
-最終更新: 2026-10-18 · 発行者: Hideyuki Mori
+最終更新: 2026-10-19 · 発行者: Hideyuki Mori
 
 **NeNe Ruler は個人情報を収集・保存・送信しません。ネットワークには一切接続しません。**
 
@@ -71,9 +74,9 @@ Questions: open an issue at <https://github.com/hideyukiMORI/nene-ruler/issues>.
 
 - Windows（インストーラー版と ZIP 版）: `%APPDATA%\nene-ruler\settings.v1.txt`
 - Linux: `$XDG_CONFIG_HOME/nene-ruler/settings.v1.txt`、無ければ `~/.config/nene-ruler/settings.v1.txt`
-- Microsoft Store 版: Windows が上の場所の代わりにアプリ専用の保存場所に置くことがあり、その場合はアンインストールすると消えます。
+- Microsoft Store 版: `%APPDATA%\nene-ruler` のフォルダが既にある場合（インストーラー版や ZIP 版が残したもの等）は、上と同じそこに書きます。無い場合は、Windows がアプリ専用の保存場所 `%LOCALAPPDATA%\Packages\HideyukiMori.NeNeRuler_3sft4ch5kzywy\LocalCache\Roaming\nene-ruler\settings.v1.txt` に置きます。
 
-削除するかアンインストールするまで、ファイルは端末に残ります。
+削除するまで、ファイルは端末に残ります。アプリ専用の保存場所のファイルは、Store 版をアンインストールすると消えます。`%APPDATA%` のファイルは消えません。
 
 ## ネットワーク
 

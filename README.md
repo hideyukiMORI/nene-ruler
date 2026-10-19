@@ -5,6 +5,7 @@ A tiny frameless screen ruler for Windows and X11. Rust, no UI toolkit: Win32 + 
 > **Status (2026-10-19):** v1.0.0 is out for Windows (Microsoft Store and GitHub) and Linux.
 > The Windows build has been tried by hand on Windows 11 (frame, settings window, icon); the Linux build on Xvfb (`make screenshot`) and WSLg.
 > Lengths are always physical pixels. Settings are saved to `~/.config/nene-ruler/settings.v1.txt` or `%APPDATA%\nene-ruler\settings.v1.txt`.
+> The Store version uses that folder only if it already exists; otherwise Windows keeps the file in the app's package storage and removes it on uninstall (see [PRIVACY.md](PRIVACY.md)).
 
 ## Download
 

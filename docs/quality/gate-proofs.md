@@ -1063,3 +1063,17 @@ ADR 0025 / 0026 の手順で、Store に出したのと同じ実行の成果物�
 | 39245998175 | 同じ実行を `dry_run=false` で出す | 成功。Release `v1.0.0`（Latest・タグは `6f402f9`）に 4 つと 4 つの `.sha256`。MSIX は添付しない |
 
 リリースノートは自動の PR の一覧のまま。要約は施主に見せてから足す。
+
+## 48. Issue #96 — Store 版の設定の置き場（2026-10-19）
+
+施主の Windows。hub が `explorer.exe 'shell:AppsFolder\HideyukiMori.NeNeRuler_3sft4ch5kzywy!NeNeRuler'` で Store 版を起動し、
+`Get-Process` でパスが `C:\Program Files\WindowsApps\HideyukiMori.NeNeRuler_1.0.0.0_x64__3sft4ch5kzywy\nene-ruler.exe` であることを確かめてから、施主がインクの色を変えて Esc で閉じた。
+施主の機械には MSI 版も入っており、スタートメニューからの起動はどちらの版か区別できないので数えていない。
+
+| 実の `%APPDATA%\nene-ruler` | 書かれた場所 | 他方 |
+| --- | --- | --- |
+| ある（MSI 版の残り） | 実の `%APPDATA%\nene-ruler\settings.v1.txt`（20:57:22・`ink=#E53935`） | パッケージの LocalCache には何も作られない |
+| 無い（`nene-ruler.bak` へ退避） | `%LOCALAPPDATA%\Packages\HideyukiMori.NeNeRuler_3sft4ch5kzywy\LocalCache\Roaming\nene-ruler\settings.v1.txt`（20:58:29・`ink=#1E88E5`） | 実の `%APPDATA%\nene-ruler` は作られない |
+
+起動しただけではフォルダは作られない。Loupe と同じく、フォルダが既にあるかどうかで置き場が分かれる。
+後始末: 2 つ目でできたファイルは消し、`.bak` は元の名前に戻した。
