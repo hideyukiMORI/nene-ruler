@@ -4,17 +4,19 @@ use nene_ruler_application::settings_store_failure::SettingsStoreFailure;
 use nene_ruler_core::modal_theme::ModalTheme;
 use nene_ruler_core::rgb::Rgb;
 use nene_ruler_core::ruler_settings::RulerSettings;
+use nene_ruler_core::unit::Unit;
 use nene_ruler_core::window_layer::WindowLayer;
 
 /// この型が読み書きする版。
 const VERSION: &str = "1";
 
-/// `version = 1` のファイル 1 つ分。鍵は 3 つで、すべて必須。
+/// `version = 1` のファイル 1 つ分。鍵は 4 つで、`unit` だけは無くてもよい（1.0.0 のファイルに無い）。
 ///
-/// 以前の `unit` の行（`px` / `mm` / `in`）は、読むときは値を確かめて捨て、書くときは書かない（ADR 0012）。
+/// `unit` は `px` / `css_px`。以前の `mm` / `in` は `px` として読む（ADR 0012 → 0027）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SettingsFileV1 {
     ink: Rgb,
+    unit: Unit,
     modal_theme: ModalTheme,
     layer: WindowLayer,
 }
@@ -25,6 +27,7 @@ impl SettingsFileV1 {
     pub const fn from_settings(settings: RulerSettings) -> Self {
         Self {
             ink: settings.ink(),
+            unit: settings.unit(),
             modal_theme: settings.modal_theme(),
             layer: settings.layer(),
         }
@@ -35,6 +38,7 @@ impl SettingsFileV1 {
     pub const fn into_settings(self) -> RulerSettings {
         RulerSettings::INITIAL
             .with_ink(self.ink)
+            .with_unit(self.unit)
             .with_modal_theme(self.modal_theme)
             .with_layer(self.layer)
     }
@@ -43,9 +47,10 @@ impl SettingsFileV1 {
     #[must_use]
     pub fn render(self) -> String {
         format!(
-            "version = {VERSION}\nink = {}\nmodal_theme = {}\nlayer = {}\n",
+            "version = {VERSION}\nink = {}\nmodal_theme = {}\nunit = {}\nlayer = {}\n",
             self.ink.hex(),
             theme_word(self.modal_theme),
+            unit_word(self.unit),
             layer_word(self.layer),
         )
     }
@@ -58,6 +63,7 @@ impl SettingsFileV1 {
     pub fn parse(text: &str) -> Result<Self, SettingsStoreFailure> {
         let mut version = None;
         let mut ink = None;
+        let mut unit = None;
         let mut modal_theme = None;
         let mut layer = None;
         for line in text.lines().map(str::trim) {
@@ -75,7 +81,7 @@ impl SettingsFileV1 {
                         Some(Rgb::parse(value).map_err(|_error| SettingsStoreFailure::Malformed)?);
                 }
                 "modal_theme" => modal_theme = Some(parse_theme(value)?),
-                "unit" => check_retired_unit(value)?,
+                "unit" => unit = Some(parse_unit(value)?),
                 "layer" => layer = Some(parse_layer(value)?),
                 _unknown => return Err(SettingsStoreFailure::Malformed),
             }
@@ -87,6 +93,7 @@ impl SettingsFileV1 {
         }
         Ok(Self {
             ink: ink.ok_or(SettingsStoreFailure::Malformed)?,
+            unit: unit.unwrap_or(Unit::Px),
             modal_theme: modal_theme.ok_or(SettingsStoreFailure::Malformed)?,
             layer: layer.ok_or(SettingsStoreFailure::Malformed)?,
         })
@@ -98,6 +105,14 @@ const fn theme_word(theme: ModalTheme) -> &'static str {
     match theme {
         ModalTheme::Dark => "dark",
         ModalTheme::Light => "light",
+    }
+}
+
+/// 単位の語。
+const fn unit_word(unit: Unit) -> &'static str {
+    match unit {
+        Unit::Px => "px",
+        Unit::CssPx => "css_px",
     }
 }
 
@@ -117,10 +132,11 @@ fn parse_theme(value: &str) -> Result<ModalTheme, SettingsStoreFailure> {
     }
 }
 
-/// 外した `unit` の行。値は以前の 3 つのどれかでなければ壊れたファイルとみなす（ADR 0012）。
-fn check_retired_unit(value: &str) -> Result<(), SettingsStoreFailure> {
+/// 単位。以前の `mm` / `in`（ADR 0012 で外した）は物理画素として読む。それ以外は壊れたファイル。
+fn parse_unit(value: &str) -> Result<Unit, SettingsStoreFailure> {
     match value {
-        "px" | "mm" | "in" => Ok(()),
+        "px" | "mm" | "in" => Ok(Unit::Px),
+        "css_px" => Ok(Unit::CssPx),
         _other => Err(SettingsStoreFailure::Malformed),
     }
 }
@@ -140,6 +156,7 @@ mod tests {
     fn sample() -> RulerSettings {
         RulerSettings::INITIAL
             .with_ink(Rgb::new(0x00, 0xAA, 0x55))
+            .with_unit(Unit::CssPx)
             .with_modal_theme(ModalTheme::Light)
             .with_layer(WindowLayer::Normal)
     }
@@ -149,7 +166,7 @@ mod tests {
         let text = SettingsFileV1::from_settings(sample()).render();
         assert_eq!(
             text,
-            "version = 1\nink = #00AA55\nmodal_theme = light\nlayer = normal\n"
+            "version = 1\nink = #00AA55\nmodal_theme = light\nunit = css_px\nlayer = normal\n"
         );
     }
 
@@ -169,18 +186,32 @@ mod tests {
 
     #[test]
     fn tolerates_blank_lines_comments_spacing_and_order() {
-        let text = "\n# hand edited\nlayer=normal\n  unit =  in\nmodal_theme = dark\nink = #112233\nversion = 1\n";
+        let text = "\n# hand edited\nlayer=normal\n  unit =  css_px\nmodal_theme = dark\nink = #112233\nversion = 1\n";
         let parsed = SettingsFileV1::parse(text).unwrap().into_settings();
         assert_eq!(parsed.ink(), Rgb::new(0x11, 0x22, 0x33));
+        assert_eq!(parsed.unit(), Unit::CssPx);
     }
 
     #[test]
-    fn reads_a_retired_unit_line_and_drops_it_on_write() {
-        // 施主の今のファイルの形。mm / in は外したので、読めて、書き戻すと unit の行が消える。
-        let old = "version = 1\nink = #00AA55\nmodal_theme = light\nunit = mm\nlayer = normal\n";
+    fn a_file_without_a_unit_line_is_physical_pixels() {
+        // 1.0.0 が書いたファイルの形。unit が無ければ px で、書き戻すと unit = px が足される。
+        let old = "version = 1\nink = #00AA55\nmodal_theme = light\nlayer = normal\n";
         let parsed = SettingsFileV1::parse(old).unwrap();
-        assert_eq!(parsed.into_settings(), sample());
-        assert!(!parsed.render().contains("unit"));
+        assert_eq!(parsed.into_settings(), sample().with_unit(Unit::Px));
+        assert!(parsed.render().contains("unit = px\n"));
+    }
+
+    #[test]
+    fn retired_millimetres_and_inches_read_as_physical_pixels() {
+        // ADR 0012 より前のファイル（施主の手元にあった形）。mm / in は px として読む。
+        for word in ["mm", "in", "px"] {
+            let old = format!(
+                "version = 1\nink = #00AA55\nmodal_theme = light\nunit = {word}\nlayer = normal\n"
+            );
+            let parsed = SettingsFileV1::parse(&old).unwrap();
+            assert_eq!(parsed.into_settings().unit(), Unit::Px, "{word}");
+            assert!(parsed.render().contains("unit = px\n"));
+        }
     }
 
     #[test]

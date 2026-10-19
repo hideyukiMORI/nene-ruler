@@ -511,6 +511,7 @@ mod tests {
     use crate::hit_region::target_at;
     use crate::length::Length;
     use crate::length_text::LengthText;
+    use crate::measure::Measure;
 
     fn layout() -> FrameLayout {
         FrameLayout::new(FrameSize::INITIAL, UiScale::Single)
@@ -848,9 +849,9 @@ mod tests {
     fn chars_for(width: u16, height: u16) -> impl Fn(LengthLabel) -> u16 {
         let (width, height) = (Length::new(width).unwrap(), Length::new(height).unwrap());
         move |label| match label {
-            LengthLabel::Width => LengthText::in_pixels(width).chars(),
-            LengthLabel::Height => LengthText::in_pixels(height).chars(),
-            LengthLabel::Size => LengthText::size(width, height).chars(),
+            LengthLabel::Width => LengthText::single(width, Measure::PHYSICAL).chars(),
+            LengthLabel::Height => LengthText::single(height, Measure::PHYSICAL).chars(),
+            LengthLabel::Size => LengthText::size(width, height, Measure::PHYSICAL).chars(),
         }
     }
 
@@ -925,7 +926,11 @@ mod tests {
     fn the_short_size_fits_the_smallest_window() {
         let bare = fitted(16, 16);
         // 文字は窓の横の中央に置く。短い形（`16×16`・5 文字）は 1x の最小の窓（40 px）に収まる。
-        let short = LengthText::short_size(Length::new(16).unwrap(), Length::new(16).unwrap());
+        let short = LengthText::short_size(
+            Length::new(16).unwrap(),
+            Length::new(16).unwrap(),
+            Measure::PHYSICAL,
+        );
         let hit = bare.label_hit(LengthLabel::Size, short.chars());
         assert_eq!(hit.width(), 35);
         assert_eq!(

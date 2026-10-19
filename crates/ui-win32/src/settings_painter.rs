@@ -8,6 +8,7 @@ use nene_ruler_core::modal_theme::ModalTheme;
 use nene_ruler_core::pixel_rect::PixelRect;
 use nene_ruler_core::rgb::Rgb;
 use nene_ruler_core::settings_layout::SettingsLayout;
+use nene_ruler_core::unit::Unit;
 use nene_ruler_core::window_layer::WindowLayer;
 use windows::Win32::Graphics::Direct2D::ID2D1Brush;
 use windows_numerics::Vector2;
@@ -44,7 +45,7 @@ pub fn paint_settings(
     pen.paint(layout.window(), |pen| draw(pen, frame, focus))
 }
 
-/// 背景・縁線・×・題と見出し・色見本・入力欄・ピッカー・見え・最前面・Quit・通知・脚注。
+/// 背景・縁線・×・題と見出し・色見本・入力欄・ピッカー・単位・見え・最前面・Quit・通知・脚注。
 fn draw(pen: &Pen, frame: &SettingsFrame, focus: ModalFocus) -> Result<(), Win32Failure> {
     let palette = frame.palette();
     let layout = frame.layout();
@@ -59,6 +60,7 @@ fn draw(pen: &Pen, frame: &SettingsFrame, focus: ModalFocus) -> Result<(), Win32
     draw_presets(pen, &palette, layout, frame.settings().ink())?;
     draw_hex_field(pen, &palette, frame, focus)?;
     draw_picker(pen, layout, frame.session().picker())?;
+    draw_unit_row(pen, &palette, frame, &text)?;
     for theme in ModalTheme::ALL {
         let selected = theme == frame.settings().modal_theme();
         draw_button(
@@ -261,6 +263,31 @@ fn draw_picker(pen: &Pen, layout: SettingsLayout, picker: Hsv) -> Result<(), Win
         &pen.brush(white, 1.0)?,
     );
     Ok(())
+}
+
+/// 単位のボタン列と、右の換算の説明（FR-008・ADR 0027）。
+fn draw_unit_row(
+    pen: &Pen,
+    palette: &ModalPalette,
+    frame: &SettingsFrame,
+    text: &ID2D1Brush,
+) -> Result<(), Win32Failure> {
+    let layout = frame.layout();
+    for unit in Unit::ALL {
+        let selected = unit == frame.settings().unit();
+        draw_button(
+            pen,
+            palette,
+            (layout.unit_button(unit), unit.label()),
+            selected,
+        )?;
+    }
+    pen.write(
+        (frame.ratio_note(), layout.ratio_baseline()),
+        (BODY_FONT_PX, TextAlign::Left),
+        text,
+    )
+    .map(|_end| ())
 }
 
 /// 選ばれている・いないで地の色を変えたボタン。

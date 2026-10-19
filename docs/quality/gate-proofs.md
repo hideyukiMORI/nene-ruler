@@ -1077,3 +1077,33 @@ ADR 0025 / 0026 の手順で、Store に出したのと同じ実行の成果物�
 
 起動しただけではフォルダは作られない。Loupe と同じく、フォルダが既にあるかどうかで置き場が分かれる。
 後始末: 2 つ目でできたファイルは消し、`.bak` は元の名前に戻した。
+
+## 49. Issue #100 — 単位を戻し、CSS 画素に切り替える（2026-10-19）
+
+同じコンテナ。`make lint` / `make fmt-check` / `make test` / `make conformance` / `make doc-check` が 0 件で通り、`make coverage` は core ＋ application で regions 98.74%・functions 97.16%・lines 98.25%。
+ui-win32 と adapters-windows は `cargo clippy --target x86_64-pc-windows-gnu -- -D warnings` が 0 件（`make lint-windows` そのものは windres が無いので app の build.rs で止まる・ADR 0023）。
+
+### 49.1 Xvfb（`Xft.dpi: 144`・合成器あり・WM 無し・`XDG_CONFIG_HOME` は空のディレクトリ）
+
+`xprop -root -format RESOURCE_MANAGER 8s -set RESOURCE_MANAGER 'Xft.dpi:<TAB>144'` で `xrdb` の代わりをし、`./target/debug/nene-ruler` を起動した。UI の倍率は 2x（ADR 0011）。
+
+| 操作 | 命令 | 結果 | PNG |
+| --- | --- | --- | --- |
+| 起動 | | `400 px` / `240 px` | |
+| ギアを押す | `mousemove 432 272 click 1` | モーダル 320 × 424。Ink の下に `Unit` の段（`px` が選ばれ、`CSS px`、右に `1 CSS px = 1.5 px`）、その下に Settings window・Always on top | |
+| `CSS px` を押す | `mousemove 652 276 click 1`（モーダルを (520, 0) へ動かしてから） | ボタンの選択が移る。枠の数字が `266.7 CSS px` / `160 CSS px` になる。ファイルは `version = 1` / `ink = #E53935` / `modal_theme = dark` / `unit = css_px` / `layer = always_on_top` の 5 行 | [modal](screenshots/2026-10-19-xvfb-css-px-modal-144dpi.png) |
+| `px` → `CSS px` | `mousemove 576 276 click 1` / `652 276` | `400 px` に戻り、また `266.7 CSS px` に | |
+| Esc | `key Escape` | モーダルが消え、枠は `266.7 CSS px` / `160 CSS px` のまま | |
+| 右下の鉤括弧で引く | `mousedown 1` (405, 245) → `mouseup 1` (505, 285) | 枠 500 × 280 で `333.3 CSS px` / `186.7 CSS px`。目盛の数字は物理画素のまま（50・100・…・450） | [frame](screenshots/2026-10-19-xvfb-css-px-frame-500x280-144dpi.png) |
+| Esc → 再起動 | | `unit = css_px` を読んで `266.7 CSS px` / `160 CSS px` で始まる（FR-012）。終了コード 0 | |
+
+### 49.2 Xvfb（`Xft.dpi` 無し・同じ設定ファイル）
+
+`xprop -root -remove RESOURCE_MANAGER` のあと起動。UI の倍率は 1x。
+
+| 操作 | 結果 | PNG |
+| --- | --- | --- |
+| 起動 | `CSS px` が選ばれたまま `400 CSS px` / `240 CSS px`。dpi が無いので物理画素と同じ数 | |
+| ギアを押す（`mousemove 417 257 click 1`） | 右の説明が `1 CSS px = 1 px` | [modal-1x](screenshots/2026-10-19-xvfb-css-px-modal-1x.png) |
+
+**planned のまま**: 施主の Windows（150%）でブラウザの開発者ツールと数字を突き合わせること（ADR 0027）。

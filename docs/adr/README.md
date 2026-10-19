@@ -21,13 +21,13 @@ ADR は「なぜそう決めたか」「何を却下したか」を書く。
 | [0003](0003-rust-foundation-and-measured-limits.md) | Rust の検査基盤と実測できた限界を固定する | 受理 |
 | [0004](0004-diff-scoped-verification-and-result-reuse.md) | 差分に必要な検証と成功結果の再利用 | 受理 |
 | [0005](0005-transparent-frame-with-input-shape.md) | 枠は透明な 2 次元の窓。描いたものだけが見え、描いたものだけが触れる | 受理（触れる矩形に目盛の帯を足す → 0022） |
-| [0006](0006-settings-file-v1.md) | 設定は版付きの `key = value` テキストで保存し、読めない版は既定値へ落とさない | 受理（`unit` の鍵は置換 → 0012） |
+| [0006](0006-settings-file-v1.md) | 設定は版付きの `key = value` テキストで保存し、読めない版は既定値へ落とさない | 受理（`unit` の鍵は置換 → 0012 → 0027） |
 | [0007](0007-clipboard-owner-thread-in-adapters.md) | CLIPBOARD は adapters-x11 が専用の接続と 1 本のスレッドで所有する | 受理 |
 | [0008](0008-wslg-layered-window-hit-and-shadow.md) | WSLg では描いた画素が当たり判定になる。帯はアルファ 1 で描き、影は窓の種類で消し、Alt+F4 は自分で読む | 受理（文脈 3 と決定 4 は置換 → 0009、決定 5 は置換 → 0012） |
 | [0009](0009-alt-f4-on-the-f4-release.md) | Alt+F4 は、この窓が Alt の押下を受けていれば F4 の離しでも閉じる | 受理 |
 | [0010](0010-coverage-floor-in-regions.md) | カバレッジの下限は region で測る | 受理 |
 | [0011](0011-integer-ui-scale.md) | UI の倍率は 1x / 2x の整数で、飾りにだけ掛ける | 受理（主目盛の数字の大きさは置換 → 0013、モーダルの倍率は置換 → 0014、幅と高さの数字は置換 → 0015） |
-| [0012](0012-px-only-and-no-layer-notice.md) | 長さは px だけで綴り、最前面が効かないことは示さない | 受理 |
+| [0012](0012-px-only-and-no-layer-notice.md) | 長さは px だけで綴り、最前面が効かないことは示さない | 受理（単位の廃止は置換 → 0027） |
 | [0013](0013-tick-numbers-keep-their-size.md) | 主目盛の数字は倍率に関わらず 9 px で描く | 受理 |
 | [0014](0014-frameless-single-scale-modal.md) | モーダルは 1x・飾りなしで、閉じるボタンと移動を自前で持つ | 受理 |
 | [0015](0015-length-numbers-keep-their-size.md) | 幅と高さの数字も倍率に関わらず 11 px で描く | 受理 |
@@ -42,3 +42,4 @@ ADR は「なぜそう決めたか」「何を却下したか」を書く。
 | [0024](0024-linux-menu-icon-from-the-build-script.md) | Linux のメニュー用のアイコンも唯一の build.rs が core の絵から作り、窓に WM_CLASS を付ける | 受理 |
 | [0025](0025-build-once-and-publish-the-same-artifacts.md) | 配る物は 1 回だけ作り、出すときはその成果物をそのまま添付する | 受理 |
 | [0026](0026-store-msix-wraps-the-same-exe.md) | Microsoft Store を配布経路に足し、配る exe をそのまま MSIX に包む | 受理 |
+| [0027](0027-css-pixel-unit.md) | 単位を戻し、物理画素と CSS 画素（dpi / 96 で割った値）を切り替える | 受理 |
