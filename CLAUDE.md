@@ -134,7 +134,7 @@ Issue / 規則 ID:
 
 現在のタスクは [docs/todo/current.md](docs/todo/current.md)。GitHub Issue が正で、そこは要約。
 
-2026-10-18: Windows 版と Linux（X11）版の全機能が main にあり、GitHub で v0.1.0 を出した。版 1.0.0 を Microsoft Store に申請し、認定を待っている（ADR 0026）。
+2026-10-19: Windows 版と Linux（X11）版の全機能が main にある。版 1.0.0 が Microsoft Store で公開され、同じ実行の成果物で GitHub の v1.0.0 を出した（ADR 0026）。
 配る物は `make dist` と release.yml で 1 回だけ作り、その実行の成果物をそのまま出す（ADR 0025）。再開の手順は [docs/todo/handover-2026-10-18.md](docs/todo/handover-2026-10-18.md)。
 
 ---

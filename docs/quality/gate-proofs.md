@@ -1051,3 +1051,15 @@ ADR 0025 の手順で、施主に版とリリースノートを見せて OK を�
 WACK は回していない（施主の判断 2026-10-18・推し: 同じ形の Loupe は WACK の高 DPI の警告 1 件があっても認定された。Store の認定で同じ種類の検査が走る）。
 
 認定の後、GitHub の `v1.0.0` は **同じ実行 39109585664** の成果物を `publish_from_run` で出す（ADR 0025 / 0026）。
+
+## 47. v1.0.0 を出す（2026-10-19）
+
+1.0.0（Submission 1・Issue #90）が 2026-10-19 に Microsoft Store の認定を通り、公開された（施主申告・<https://apps.microsoft.com/detail/9N6JVHKL9LM3>）。
+ADR 0025 / 0026 の手順で、Store に出したのと同じ実行の成果物を作り直さずに出した。タグは手で打っていない。
+
+| 実行 | 何を | 結果 |
+| --- | --- | --- |
+| 39245956568 | `publish_from_run=39109585664`・`dry_run=true` | 成功。5 つの sha256（MSIX を含む）が `OK`、`would publish v1.0.0 at 6f402f9446cffab0e5fda13eeba2c9b6a4dc92a2`、`dry run: nothing was tagged or published` |
+| 39245998175 | 同じ実行を `dry_run=false` で出す | 成功。Release `v1.0.0`（Latest・タグは `6f402f9`）に 4 つと 4 つの `.sha256`。MSIX は添付しない |
+
+リリースノートは自動の PR の一覧のまま。要約は施主に見せてから足す。
