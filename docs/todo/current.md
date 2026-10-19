@@ -1,6 +1,6 @@
 # いまのタスク — NeNe Ruler
 
-> GitHub Issue と PR が進行状態の正本。この文書はその要約（2026-10-18 時点）。再開の手順は [handover-2026-10-18](handover-2026-10-18.md)。
+> GitHub Issue と PR が進行状態の正本。この文書はその要約（2026-10-19 時点）。再開の手順は [handover-2026-10-18](handover-2026-10-18.md)。
 
 ## 状態
 
@@ -31,18 +31,19 @@
 | `make prove` を直した（複数行の members・許可ライセンスの置き換え） | ✅ Issue #69・26 件成功（gate-proofs 第 39 節）。PR #70 |
 | Linux のメニュー用のアイコン（hicolor の PNG・build.rs が core の絵から）・`.desktop`・X11 の `WM_CLASS` | ✅ Issue #72・ADR 0024（gate-proofs 第 41 節）。`.deb` のメニューの見えは施主が確かめた。PR #73 |
 | 配布の仕組み（`make dist`・WiX の MSI・作った成果物をそのまま出す release.yml） | ✅ Issue #74・ADR 0025・手元と PR の上の Actions で実測、施主が MSI・ポータブル zip・`.deb` を試して OK（gate-proofs 第 42 節）。PR #75 |
-| Microsoft Store（MSIX・身元・ロゴ・PRIVACY・掲載文・画像・版 1.0.0） | ✅ Issue #80 / #82 / #84 / #86 / #88・ADR 0026。2026-10-18 に申請（Issue #90・認定中） |
+| Microsoft Store（MSIX・身元・ロゴ・PRIVACY・掲載文・画像・版 1.0.0） | ✅ Issue #80 / #82 / #84 / #86 / #88・ADR 0026。2026-10-18 に申請（Issue #90）、2026-10-19 に認定・公開（[Store](https://apps.microsoft.com/detail/9N6JVHKL9LM3)） |
 | v0.1.0 | ✅ 2026-10-18・[Release](https://github.com/hideyukiMORI/nene-ruler/releases/tag/v0.1.0)・タグは `6e391cd`。main の実行 39101655811 の成果物をそのまま出した（gate-proofs 第 43 節） |
+| v1.0.0 | ✅ 2026-10-19・[Release](https://github.com/hideyukiMORI/nene-ruler/releases/tag/v1.0.0)・タグは `6f402f9`。Store に出したのと同じ実行 39109585664 の成果物をそのまま出した（gate-proofs 第 47 節） |
 | CI の必須 check（`make ci`）と commit-msg フック | 配線済み。最初の PR で実行証拠を得るまで planned |
 | ruleset（main の保護・squash-only） | 未設定。施主が GitHub で設定したら gate-proofs に記録する |
 
 ## 次に行うこと
 
-v0.1.0 を 2026-10-18 に GitHub で出した。続けて 1.0.0 を Microsoft Store に申請した（Submission 1・認定中・Issue #90）。
+1.0.0 が 2026-10-19 に Microsoft Store で公開され、同じ日に同じ実行 39109585664 の成果物で GitHub の `v1.0.0` を出した。README の Download に Store のリンクを足した。
 
-1. 認定を待つ（通常数時間・最大 3 営業日）。差し戻しが来たら文面を読んで直し、版を上げて出し直す
-2. 公開されたら（施主が Partner Center の「Microsoft Store で取り扱い中」を貼る）、**同じ実行 39109585664** の成果物を `publish_from_run` で GitHub の `v1.0.0` に出す（dry run → 本番・ADR 0025 / 0026）
-3. README と PRIVACY.md の Store 版の記述を、公開後の実測（設定の置き場）に合わせる
+1. 施主の Windows に Store 版を入れ、設定の置き場を測って PRIVACY.md と README の Store 版の記述を合わせる（Loupe の実測では本物の場所のフォルダの有無で分かれた）
+2. v1.0.0 のリリースノートの先頭に要約を足す（施主に案を見せてから `gh release edit`・v0.1.0 と同じ）
+3. 掲載文の英語の `colour` を `color` に直す（パッケージを変えない掲載文だけの申請）
 4. Issue #76（check.yml の checkout）・#21・#25。Linux の zip は施主の機械でまだ試していない
 
 ## 残る穴
