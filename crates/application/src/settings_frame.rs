@@ -69,7 +69,7 @@ impl SettingsFrame {
         ModalPalette::of(self.settings.modal_theme())
     }
 
-    /// 単位のボタンの右に出す換算の説明（`1 CSS px = 1.5 px`・ADR 0027）。
+    /// 単位のボタンの下に出す換算の説明（`1 logical px = 1.5 physical px`・ADR 0027）。
     #[must_use]
     pub fn ratio_note(&self) -> &str {
         &self.ratio_note

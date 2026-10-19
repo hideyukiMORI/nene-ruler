@@ -13,7 +13,7 @@ a network.**
 | --- | --- | --- |
 | Screen size and scale | The application reads the size of your screen and its scale (DPI) to limit how large the frame can grow and to choose 1x or 2x drawing. It does not read what is on the screen. | Kept in memory only. Never written to disk. Never sent anywhere. |
 | Clipboard | When you click a number on the frame, the application places that text (for example `400 × 240 px`) on the clipboard. It does not read the clipboard. | Your clipboard, on your device. |
-| Settings | Four choices are saved: the ink colour, the length unit (px or CSS px), the look of the settings window (dark or light) and always-on-top. | One small text file on your device (see below). |
+| Settings | Four choices are saved: the ink colour, the length unit (physical or logical px), the look of the settings window (dark or light) and always-on-top. | One small text file on your device (see below). |
 
 The application has no accounts, no telemetry, no analytics, no advertising, no crash reporting,
 no automatic update check of its own, and no third-party services.
@@ -64,7 +64,7 @@ Questions: open an issue at <https://github.com/hideyukiMORI/nene-ruler/issues>.
 | --- | --- | --- |
 | 画面の大きさと拡大率 | 枠の大きさの上限と、1x / 2x の描き分けのために、画面の大きさと拡大率（DPI）を読みます。画面に映っているものは読みません。 | メモリの中だけ。ディスクに書きません。どこにも送りません。 |
 | クリップボード | 枠の数字をクリックすると、その文字列（例: `400 × 240 px`）をクリップボードに置きます。クリップボードの中身は読みません。 | お使いの端末のクリップボード。 |
-| 設定 | インクの色・長さの単位（px／CSS px）・設定画面の見え（ダーク／ライト）・常に最前面の 4 つを保存します。 | お使いの端末の小さなテキストファイル 1 つ（下記）。 |
+| 設定 | インクの色・長さの単位（物理画素／論理画素）・設定画面の見え（ダーク／ライト）・常に最前面の 4 つを保存します。 | お使いの端末の小さなテキストファイル 1 つ（下記）。 |
 
 アカウント、利用状況の送信、解析、広告、クラッシュ報告、アプリ独自の更新確認、第三者のサービスはありません。
 

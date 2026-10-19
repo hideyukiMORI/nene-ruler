@@ -42,4 +42,4 @@ ADR は「なぜそう決めたか」「何を却下したか」を書く。
 | [0024](0024-linux-menu-icon-from-the-build-script.md) | Linux のメニュー用のアイコンも唯一の build.rs が core の絵から作り、窓に WM_CLASS を付ける | 受理 |
 | [0025](0025-build-once-and-publish-the-same-artifacts.md) | 配る物は 1 回だけ作り、出すときはその成果物をそのまま添付する | 受理 |
 | [0026](0026-store-msix-wraps-the-same-exe.md) | Microsoft Store を配布経路に足し、配る exe をそのまま MSIX に包む | 受理 |
-| [0027](0027-css-pixel-unit.md) | 単位を戻し、物理画素と CSS 画素（dpi / 96 で割った値）を切り替える | 受理 |
+| [0027](0027-logical-pixel-unit.md) | 単位を戻し、物理画素と論理画素（dpi / 96 で割った値）を切り替える | 受理 |

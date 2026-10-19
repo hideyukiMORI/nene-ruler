@@ -265,7 +265,7 @@ fn draw_picker(pen: &Pen, layout: SettingsLayout, picker: Hsv) -> Result<(), Win
     Ok(())
 }
 
-/// 単位のボタン列と、右の換算の説明（FR-008・ADR 0027）。
+/// 単位のボタン列と、その下の換算の説明（FR-008・ADR 0027）。
 fn draw_unit_row(
     pen: &Pen,
     palette: &ModalPalette,

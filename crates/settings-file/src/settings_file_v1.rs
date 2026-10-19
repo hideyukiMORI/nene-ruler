@@ -12,7 +12,7 @@ const VERSION: &str = "1";
 
 /// `version = 1` のファイル 1 つ分。鍵は 4 つで、`unit` だけは無くてもよい（1.0.0 のファイルに無い）。
 ///
-/// `unit` は `px` / `css_px`。以前の `mm` / `in` は `px` として読む（ADR 0012 → 0027）。
+/// `unit` は `physical_px` / `logical_px`。以前の `px` / `mm` / `in` は物理画素として読む（ADR 0012 → 0027）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SettingsFileV1 {
     ink: Rgb,
@@ -93,7 +93,7 @@ impl SettingsFileV1 {
         }
         Ok(Self {
             ink: ink.ok_or(SettingsStoreFailure::Malformed)?,
-            unit: unit.unwrap_or(Unit::Px),
+            unit: unit.unwrap_or(Unit::Physical),
             modal_theme: modal_theme.ok_or(SettingsStoreFailure::Malformed)?,
             layer: layer.ok_or(SettingsStoreFailure::Malformed)?,
         })
@@ -111,8 +111,8 @@ const fn theme_word(theme: ModalTheme) -> &'static str {
 /// 単位の語。
 const fn unit_word(unit: Unit) -> &'static str {
     match unit {
-        Unit::Px => "px",
-        Unit::CssPx => "css_px",
+        Unit::Physical => "physical_px",
+        Unit::Logical => "logical_px",
     }
 }
 
@@ -132,11 +132,11 @@ fn parse_theme(value: &str) -> Result<ModalTheme, SettingsStoreFailure> {
     }
 }
 
-/// 単位。以前の `mm` / `in`（ADR 0012 で外した）は物理画素として読む。それ以外は壊れたファイル。
+/// 単位。以前の `px` / `mm` / `in`（ADR 0012 以前の形）は物理画素として読む。それ以外は壊れたファイル。
 fn parse_unit(value: &str) -> Result<Unit, SettingsStoreFailure> {
     match value {
-        "px" | "mm" | "in" => Ok(Unit::Px),
-        "css_px" => Ok(Unit::CssPx),
+        "physical_px" | "px" | "mm" | "in" => Ok(Unit::Physical),
+        "logical_px" => Ok(Unit::Logical),
         _other => Err(SettingsStoreFailure::Malformed),
     }
 }
@@ -156,7 +156,7 @@ mod tests {
     fn sample() -> RulerSettings {
         RulerSettings::INITIAL
             .with_ink(Rgb::new(0x00, 0xAA, 0x55))
-            .with_unit(Unit::CssPx)
+            .with_unit(Unit::Logical)
             .with_modal_theme(ModalTheme::Light)
             .with_layer(WindowLayer::Normal)
     }
@@ -166,7 +166,7 @@ mod tests {
         let text = SettingsFileV1::from_settings(sample()).render();
         assert_eq!(
             text,
-            "version = 1\nink = #00AA55\nmodal_theme = light\nunit = css_px\nlayer = normal\n"
+            "version = 1\nink = #00AA55\nmodal_theme = light\nunit = logical_px\nlayer = normal\n"
         );
     }
 
@@ -186,31 +186,31 @@ mod tests {
 
     #[test]
     fn tolerates_blank_lines_comments_spacing_and_order() {
-        let text = "\n# hand edited\nlayer=normal\n  unit =  css_px\nmodal_theme = dark\nink = #112233\nversion = 1\n";
+        let text = "\n# hand edited\nlayer=normal\n  unit =  logical_px\nmodal_theme = dark\nink = #112233\nversion = 1\n";
         let parsed = SettingsFileV1::parse(text).unwrap().into_settings();
         assert_eq!(parsed.ink(), Rgb::new(0x11, 0x22, 0x33));
-        assert_eq!(parsed.unit(), Unit::CssPx);
+        assert_eq!(parsed.unit(), Unit::Logical);
     }
 
     #[test]
     fn a_file_without_a_unit_line_is_physical_pixels() {
-        // 1.0.0 が書いたファイルの形。unit が無ければ px で、書き戻すと unit = px が足される。
+        // 1.0.0 が書いたファイルの形。unit が無ければ物理画素で、書き戻すと unit = physical_px が足される。
         let old = "version = 1\nink = #00AA55\nmodal_theme = light\nlayer = normal\n";
         let parsed = SettingsFileV1::parse(old).unwrap();
-        assert_eq!(parsed.into_settings(), sample().with_unit(Unit::Px));
-        assert!(parsed.render().contains("unit = px\n"));
+        assert_eq!(parsed.into_settings(), sample().with_unit(Unit::Physical));
+        assert!(parsed.render().contains("unit = physical_px\n"));
     }
 
     #[test]
-    fn retired_millimetres_and_inches_read_as_physical_pixels() {
-        // ADR 0012 より前のファイル（施主の手元にあった形）。mm / in は px として読む。
+    fn retired_px_millimetres_and_inches_read_as_physical_pixels() {
+        // ADR 0012 より前のファイル（施主の手元にあった形）。px / mm / in は物理画素として読む。
         for word in ["mm", "in", "px"] {
             let old = format!(
                 "version = 1\nink = #00AA55\nmodal_theme = light\nunit = {word}\nlayer = normal\n"
             );
             let parsed = SettingsFileV1::parse(&old).unwrap();
-            assert_eq!(parsed.into_settings().unit(), Unit::Px, "{word}");
-            assert!(parsed.render().contains("unit = px\n"));
+            assert_eq!(parsed.into_settings().unit(), Unit::Physical, "{word}");
+            assert!(parsed.render().contains("unit = physical_px\n"));
         }
     }
 

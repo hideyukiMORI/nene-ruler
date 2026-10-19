@@ -14,7 +14,7 @@ pub struct Measure {
 impl Measure {
     /// 物理画素。換算が要らないときの形。
     pub const PHYSICAL: Self = Self {
-        unit: Unit::Px,
+        unit: Unit::Physical,
         ratio: DevicePixelRatio::ONE,
     };
 
@@ -34,8 +34,8 @@ impl Measure {
     #[must_use]
     pub fn tenths(self, length: Length) -> u32 {
         match self.unit {
-            Unit::Px => u32::from(length.px()) * 10,
-            Unit::CssPx => self.ratio.css_tenths(length.px()),
+            Unit::Physical => u32::from(length.px()) * 10,
+            Unit::Logical => self.ratio.logical_tenths(length.px()),
         }
     }
 }
@@ -46,15 +46,15 @@ mod tests {
 
     #[test]
     fn physical_pixels_are_never_converted() {
-        let dense = Measure::new(Unit::Px, DevicePixelRatio::from_dpi(Some(192)));
+        let dense = Measure::new(Unit::Physical, DevicePixelRatio::from_dpi(Some(192)));
         assert_eq!(dense.tenths(Length::INITIAL_WIDTH), 4000);
-        assert_eq!(Measure::PHYSICAL.unit(), Unit::Px);
+        assert_eq!(Measure::PHYSICAL.unit(), Unit::Physical);
     }
 
     #[test]
-    fn css_pixels_follow_the_ratio() {
-        let css = Measure::new(Unit::CssPx, DevicePixelRatio::from_dpi(Some(192)));
-        assert_eq!(css.tenths(Length::INITIAL_WIDTH), 2000);
-        assert_eq!(css.unit(), Unit::CssPx);
+    fn logical_pixels_follow_the_ratio() {
+        let logical = Measure::new(Unit::Logical, DevicePixelRatio::from_dpi(Some(192)));
+        assert_eq!(logical.tenths(Length::INITIAL_WIDTH), 2000);
+        assert_eq!(logical.unit(), Unit::Logical);
     }
 }

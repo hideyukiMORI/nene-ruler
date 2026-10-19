@@ -400,7 +400,7 @@ fn draw_button(
     write_centred(context, rect, text, layout)
 }
 
-/// 単位のボタン列と、右の換算の説明（FR-008・ADR 0027）。
+/// 単位のボタン列と、その下の換算の説明（FR-008・ADR 0027）。
 fn draw_unit_row(
     context: &Context,
     palette: &ModalPalette,
@@ -560,7 +560,7 @@ mod tests {
     #[test]
     fn dark_background_and_the_selected_preset_have_the_expected_pixels() {
         let mut canvas = canvas(&[]);
-        assert_eq!((canvas.width(), canvas.height()), (320, 424));
+        assert_eq!((canvas.width(), canvas.height()), (320, 448));
         assert_eq!(
             canvas.pixel(305, 150).unwrap(),
             Some([0x00, 0x00, 0x00, 0xFF])
@@ -618,9 +618,9 @@ mod tests {
     fn the_modal_stays_single_even_at_double() {
         // モーダルは倍率を掛けない（ADR 0014）。
         let double = canvas_at(&NoStore(Ok(None)), Some(192), &[]);
-        assert_eq!((double.width(), double.height()), (320, 424));
+        assert_eq!((double.width(), double.height()), (320, 448));
         let single = canvas(&[]);
-        assert_eq!((single.width(), single.height()), (320, 424));
+        assert_eq!((single.width(), single.height()), (320, 448));
     }
 
     #[test]
@@ -646,7 +646,7 @@ mod tests {
         let border = [0x55, 0x55, 0x55, 0xFF];
         assert_eq!(canvas.pixel(0, 140).unwrap(), Some(border));
         assert_eq!(canvas.pixel(319, 140).unwrap(), Some(border));
-        assert_eq!(canvas.pixel(160, 423).unwrap(), Some(border));
+        assert_eq!(canvas.pixel(160, 447).unwrap(), Some(border));
         // × の交点（ボタンの中央）は文字色に近い明るさ。
         let close = SINGLE.close_button();
         let centre = canvas
@@ -695,9 +695,9 @@ mod tests {
 
     #[test]
     fn the_unit_row_shows_the_choice_and_the_ratio() {
-        let px = SINGLE.unit_button(Unit::Px);
-        let css = SINGLE.unit_button(Unit::CssPx);
-        // 既定は px が選ばれている（ダークの選択色は白）。CSS px は入力欄の地の色。
+        let px = SINGLE.unit_button(Unit::Physical);
+        let css = SINGLE.unit_button(Unit::Logical);
+        // 既定は物理画素が選ばれている（ダークの選択色は白）。論理画素は入力欄の地の色。
         let mut initial = canvas(&[]);
         assert_eq!(
             initial.pixel(px.x() + 2, px.y() + 2).unwrap(),
@@ -707,12 +707,12 @@ mod tests {
             initial.pixel(css.x() + 2, css.y() + 2).unwrap(),
             Some([0x2C, 0x2C, 0x2C, 0xFF])
         );
-        let mut chosen = canvas(&[RulerIntent::ChooseUnit(Unit::CssPx)]);
+        let mut chosen = canvas(&[RulerIntent::ChooseUnit(Unit::Logical)]);
         assert_eq!(
             chosen.pixel(css.x() + 2, css.y() + 2).unwrap(),
             Some([0xFF, 0xFF, 0xFF, 0xFF])
         );
-        // 右の換算の説明（`1 CSS px = 2 px`）は 192 dpi でも dpi 無しでも文字色の画素を残す。
+        // 下の換算の説明（`1 logical px = 2 physical px`）は 192 dpi でも dpi 無しでも文字色の画素を残す。
         let note = SINGLE.ratio_baseline();
         let lit = |canvas: &mut Canvas| {
             (note.x()..note.x() + 100)

@@ -6,7 +6,7 @@ use alloc::string::String;
 use crate::length::Length;
 use crate::measure::Measure;
 
-/// `400 px` / `266.7 CSS px` の形。整形はここだけが行う（ARC-001）。
+/// `400 px` / `266.7 logical px` の形。整形はここだけが行う（ARC-001）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LengthText(String);
 
@@ -17,7 +17,7 @@ impl LengthText {
         Self(format!(
             "{} {}",
             spell(measure.tenths(length)),
-            measure.unit().label()
+            measure.unit().suffix()
         ))
     }
 
@@ -28,7 +28,7 @@ impl LengthText {
             "{} \u{d7} {} {}",
             spell(measure.tenths(width)),
             spell(measure.tenths(height)),
-            measure.unit().label()
+            measure.unit().suffix()
         ))
     }
 
@@ -71,8 +71,8 @@ mod tests {
     use crate::device_pixel_ratio::DevicePixelRatio;
     use crate::unit::Unit;
 
-    fn css(dpi: u32) -> Measure {
-        Measure::new(Unit::CssPx, DevicePixelRatio::from_dpi(Some(dpi)))
+    fn logical(dpi: u32) -> Measure {
+        Measure::new(Unit::Logical, DevicePixelRatio::from_dpi(Some(dpi)))
     }
 
     #[test]
@@ -83,14 +83,14 @@ mod tests {
     }
 
     #[test]
-    fn spells_css_pixels_with_a_decimal_only_when_needed() {
-        let fractional = LengthText::single(Length::INITIAL_WIDTH, css(144));
-        assert_eq!(fractional.as_str(), "266.7 CSS px");
-        assert_eq!(fractional.chars(), 12);
-        let whole = LengthText::single(Length::INITIAL_HEIGHT, css(144));
-        assert_eq!(whole.as_str(), "160 CSS px");
-        let one_to_one = LengthText::single(Length::INITIAL_WIDTH, css(96));
-        assert_eq!(one_to_one.as_str(), "400 CSS px");
+    fn spells_logical_pixels_with_a_decimal_only_when_needed() {
+        let fractional = LengthText::single(Length::INITIAL_WIDTH, logical(144));
+        assert_eq!(fractional.as_str(), "266.7 logical px");
+        assert_eq!(fractional.chars(), 16);
+        let whole = LengthText::single(Length::INITIAL_HEIGHT, logical(144));
+        assert_eq!(whole.as_str(), "160 logical px");
+        let one_to_one = LengthText::single(Length::INITIAL_WIDTH, logical(96));
+        assert_eq!(one_to_one.as_str(), "400 logical px");
     }
 
     #[test]
@@ -99,8 +99,8 @@ mod tests {
         let text = LengthText::size(width, height, Measure::PHYSICAL);
         assert_eq!(text.as_str(), "100 \u{d7} 40 px");
         assert_eq!(text.chars(), 11);
-        let in_css = LengthText::size(width, height, css(192));
-        assert_eq!(in_css.as_str(), "50 \u{d7} 20 CSS px");
+        let in_logical = LengthText::size(width, height, logical(192));
+        assert_eq!(in_logical.as_str(), "50 \u{d7} 20 logical px");
     }
 
     #[test]
@@ -109,7 +109,7 @@ mod tests {
         let text = LengthText::short_size(side, side, Measure::PHYSICAL);
         assert_eq!(text.as_str(), "16\u{d7}16");
         assert_eq!(text.chars(), 5);
-        let in_css = LengthText::short_size(side, side, css(144));
-        assert_eq!(in_css.as_str(), "10.7\u{d7}10.7");
+        let in_logical = LengthText::short_size(side, side, logical(144));
+        assert_eq!(in_logical.as_str(), "10.7\u{d7}10.7");
     }
 }

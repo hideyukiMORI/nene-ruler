@@ -4,7 +4,7 @@ A tiny frameless screen ruler for Windows and X11. Rust, no UI toolkit: Win32 + 
 
 > **Status (2026-10-19):** v1.0.0 is out for Windows (Microsoft Store and GitHub) and Linux.
 > The Windows build has been tried by hand on Windows 11 (frame, settings window, icon); the Linux build on Xvfb (`make screenshot`) and WSLg.
-> Lengths are physical pixels, or CSS pixels (physical ÷ the desktop scale, what browser devtools show) when you switch the unit. Settings are saved to `~/.config/nene-ruler/settings.v1.txt` or `%APPDATA%\nene-ruler\settings.v1.txt`.
+> Lengths are physical pixels, or logical pixels (physical ÷ the desktop scale: what browser devtools and Windows DIPs show) when you switch the unit. Settings are saved to `~/.config/nene-ruler/settings.v1.txt` or `%APPDATA%\nene-ruler\settings.v1.txt`.
 > The Store version uses that folder only if it already exists; otherwise Windows keeps the file in the app's package storage and removes it on uninstall (see [PRIVACY.md](PRIVACY.md)).
 
 ## Download
@@ -22,11 +22,11 @@ Or from [Releases](https://github.com/hideyukiMORI/nene-ruler/releases). Each fi
 
 ## What it is
 
-- A transparent rectangle floating over the screen: four lines with tick marks, the width and height written on them in physical pixels or CSS pixels (your choice).
+- A transparent rectangle floating over the screen: four lines with tick marks, the width and height written on them in physical pixels or logical pixels (your choice).
 - Everything except the lines with their ticks, the numbers, the two bracket-shaped anchors and the gear is transparent and lets clicks through.
 - Drag a line or its ticks to move, drag an anchor to resize, click a number to copy it. One ink colour, chosen in the settings window.
 - Always on top on Windows and on window managers that support it (WSLg does not). Settings are saved with a version (`settings.v1.txt`, plain `key = value`).
-- Runs on Xorg and XWayland (WSLg included). Measures physical pixels; the CSS pixel unit divides by `Xft.dpi` / 96 on X11 and by the monitor DPI / 96 on Windows.
+- Runs on Xorg and XWayland (WSLg included). Measures physical pixels; the logical pixel unit divides by `Xft.dpi` / 96 on X11 and by the monitor DPI / 96 on Windows.
 
 The requirements are in [SPECIFICATION.md](SPECIFICATION.md) (Japanese).
 

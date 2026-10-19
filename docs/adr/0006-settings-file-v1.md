@@ -1,6 +1,6 @@
 # ADR 0006 — 設定は版付きの `key = value` テキストで保存し、読めない版は既定値へ落とさない
 
-- 状態: 受理（`unit` の鍵は置換 → [0012](0012-px-only-and-no-layer-notice.md) → [0027](0027-css-pixel-unit.md)）
+- 状態: 受理（`unit` の鍵は置換 → [0012](0012-px-only-and-no-layer-notice.md) → [0027](0027-logical-pixel-unit.md)）
 - 日付: 2026-10-16
 - Issue: #6
 - 影響する規則: ARC-003 / ARC-007 / ARC-008 / ARC-009 / ARC-010 / ARC-013 / RS-015。仕様 FR-012 / FR-014

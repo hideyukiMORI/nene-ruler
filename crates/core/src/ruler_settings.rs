@@ -18,7 +18,7 @@ impl RulerSettings {
     /// 初期値。既定のインク・物理画素・ダーク・最前面。
     pub const INITIAL: Self = Self {
         ink: Rgb::INITIAL_INK,
-        unit: Unit::Px,
+        unit: Unit::Physical,
         modal_theme: ModalTheme::Dark,
         layer: WindowLayer::AlwaysOnTop,
     };
@@ -83,12 +83,12 @@ mod tests {
     fn changes_one_field_at_a_time() {
         let changed = RulerSettings::INITIAL
             .with_ink(Rgb::new(1, 2, 3))
-            .with_unit(Unit::CssPx)
+            .with_unit(Unit::Logical)
             .with_modal_theme(ModalTheme::Light)
             .with_layer(WindowLayer::Normal);
         assert_eq!(changed.ink(), Rgb::new(1, 2, 3));
-        assert_eq!(changed.unit(), Unit::CssPx);
-        assert_eq!(RulerSettings::INITIAL.unit(), Unit::Px);
+        assert_eq!(changed.unit(), Unit::Logical);
+        assert_eq!(RulerSettings::INITIAL.unit(), Unit::Physical);
         assert_eq!(changed.modal_theme(), ModalTheme::Light);
         assert_eq!(changed.layer(), WindowLayer::Normal);
     }

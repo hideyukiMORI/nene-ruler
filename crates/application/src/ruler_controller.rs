@@ -68,7 +68,7 @@ impl<'p> RulerController<'p> {
             copy_mark: None,
             environment,
             scale: UiScale::choose(environment.desktop_dpi(), metrics),
-            // CSS 画素の比はデスクトップの dpi だけから決め、RandR のミリ寸法は見ない（ADR 0027）。
+            // 論理画素の比はデスクトップの dpi だけから決め、RandR のミリ寸法は見ない（ADR 0027）。
             ratio: DevicePixelRatio::from_dpi(environment.desktop_dpi()),
             version,
         }
@@ -613,7 +613,7 @@ mod tests {
     }
 
     #[test]
-    fn css_pixels_divide_by_the_desktop_dpi_and_are_saved() {
+    fn logical_pixels_divide_by_the_desktop_dpi_and_are_saved() {
         static NO_CLIPBOARD: NoClipboard = NoClipboard;
         let (screen, store, board) = (screen(), MemoryStore::empty(), clipboard());
         let mut controller = RulerController::new(
@@ -624,25 +624,25 @@ mod tests {
         controller.apply(RulerIntent::OpenSettings);
         assert_eq!(
             controller.settings_frame().unwrap().ratio_note(),
-            "1 CSS px = 1.5 px"
+            "1 logical px = 1.5 physical px"
         );
-        controller.apply(RulerIntent::ChooseUnit(Unit::CssPx));
+        controller.apply(RulerIntent::ChooseUnit(Unit::Logical));
         let frame = controller.frame();
-        assert_eq!(frame.text(LengthLabel::Width).as_str(), "266.7 CSS px");
-        assert_eq!(frame.text(LengthLabel::Height).as_str(), "160 CSS px");
+        assert_eq!(frame.text(LengthLabel::Width).as_str(), "266.7 logical px");
+        assert_eq!(frame.text(LengthLabel::Height).as_str(), "160 logical px");
         assert_eq!(
             *store.saved.borrow(),
-            Some(RulerSettings::INITIAL.with_unit(Unit::CssPx))
+            Some(RulerSettings::INITIAL.with_unit(Unit::Logical))
         );
         // コピーも表示と同じ文字列（FR-007）。
         controller.apply(RulerIntent::CopyText(LengthLabel::Width));
-        assert_eq!(board.copied.borrow().as_deref(), Some("266.7 CSS px"));
-        controller.apply(RulerIntent::ChooseUnit(Unit::Px));
+        assert_eq!(board.copied.borrow().as_deref(), Some("266.7 logical px"));
+        controller.apply(RulerIntent::ChooseUnit(Unit::Physical));
         assert_eq!(
             controller.frame().text(LengthLabel::Width).as_str(),
             "400 px"
         );
-        // dpi が無ければ CSS 画素は物理画素と同じ数で、説明は 1 倍。RandR の dpi は見ない。
+        // dpi が無ければ論理画素は物理画素と同じ数で、説明は 1 倍。RandR の dpi は見ない。
         let dense = FixedScreen(ScreenMetrics::new(3840, 2160, 600));
         let fresh = MemoryStore::empty();
         let mut plain = RulerController::new(
@@ -650,15 +650,15 @@ mod tests {
             Environment::new(Transparency::Composited),
             ProductVersion::new("0.1.0"),
         );
-        plain.apply(RulerIntent::ChooseUnit(Unit::CssPx));
+        plain.apply(RulerIntent::ChooseUnit(Unit::Logical));
         assert_eq!(
             plain.frame().text(LengthLabel::Width).as_str(),
-            "400 CSS px"
+            "400 logical px"
         );
         plain.apply(RulerIntent::OpenSettings);
         assert_eq!(
             plain.settings_frame().unwrap().ratio_note(),
-            "1 CSS px = 1 px"
+            "1 logical px = 1 physical px"
         );
     }
 
