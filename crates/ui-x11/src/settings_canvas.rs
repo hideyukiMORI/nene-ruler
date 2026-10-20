@@ -12,6 +12,7 @@ use nene_ruler_core::pixel_point::PixelPoint;
 use nene_ruler_core::pixel_rect::PixelRect;
 use nene_ruler_core::rgb::Rgb;
 use nene_ruler_core::settings_layout::SettingsLayout;
+use nene_ruler_core::unit::Unit;
 use nene_ruler_core::window_layer::WindowLayer;
 
 use crate::canvas::{Canvas, FONT_FAMILY, fill_rect, font_px, set_ink};
@@ -63,6 +64,7 @@ pub fn render_settings(
         draw_presets(context, &palette, layout, frame.settings().ink())?;
         draw_hex_field(context, &palette, frame, focus)?;
         draw_picker(context, frame)?;
+        draw_unit_row(context, &palette, frame)?;
         draw_theme_buttons(context, &palette, layout, frame.settings().modal_theme())?;
         draw_layer_toggle(context, &palette, layout, frame.settings().layer())?;
         draw_button(
@@ -398,6 +400,30 @@ fn draw_button(
     write_centred(context, rect, text, layout)
 }
 
+/// 単位のボタン列と、その下の換算の説明（FR-008・ADR 0027）。
+fn draw_unit_row(
+    context: &Context,
+    palette: &ModalPalette,
+    frame: &SettingsFrame,
+) -> Result<(), UiFailure> {
+    let layout = frame.layout();
+    for candidate in Unit::ALL {
+        draw_button(
+            context,
+            palette,
+            (layout.unit_button(candidate), layout),
+            (candidate.label(), candidate == frame.settings().unit()),
+        )?;
+    }
+    set_ink(context, palette.text());
+    write_at(
+        context,
+        layout.ratio_baseline(),
+        frame.ratio_note(),
+        font_px(BODY_FONT_PX, layout.scale()),
+    )
+}
+
 /// 見えのボタン列。
 fn draw_theme_buttons(
     context: &Context,
@@ -534,7 +560,7 @@ mod tests {
     #[test]
     fn dark_background_and_the_selected_preset_have_the_expected_pixels() {
         let mut canvas = canvas(&[]);
-        assert_eq!((canvas.width(), canvas.height()), (320, 376));
+        assert_eq!((canvas.width(), canvas.height()), (320, 448));
         assert_eq!(
             canvas.pixel(305, 150).unwrap(),
             Some([0x00, 0x00, 0x00, 0xFF])
@@ -592,9 +618,9 @@ mod tests {
     fn the_modal_stays_single_even_at_double() {
         // モーダルは倍率を掛けない（ADR 0014）。
         let double = canvas_at(&NoStore(Ok(None)), Some(192), &[]);
-        assert_eq!((double.width(), double.height()), (320, 376));
+        assert_eq!((double.width(), double.height()), (320, 448));
         let single = canvas(&[]);
-        assert_eq!((single.width(), single.height()), (320, 376));
+        assert_eq!((single.width(), single.height()), (320, 448));
     }
 
     #[test]
@@ -620,7 +646,7 @@ mod tests {
         let border = [0x55, 0x55, 0x55, 0xFF];
         assert_eq!(canvas.pixel(0, 140).unwrap(), Some(border));
         assert_eq!(canvas.pixel(319, 140).unwrap(), Some(border));
-        assert_eq!(canvas.pixel(160, 375).unwrap(), Some(border));
+        assert_eq!(canvas.pixel(160, 447).unwrap(), Some(border));
         // × の交点（ボタンの中央）は文字色に近い明るさ。
         let close = SINGLE.close_button();
         let centre = canvas
@@ -665,6 +691,42 @@ mod tests {
         let inside = field.x() + 4..field.right() - 3;
         assert!(inside.clone().any(|x| column_lit(&mut focused, x)));
         assert!(!inside.into_iter().any(|x| column_lit(&mut unfocused, x)));
+    }
+
+    #[test]
+    fn the_unit_row_shows_the_choice_and_the_ratio() {
+        let px = SINGLE.unit_button(Unit::Physical);
+        let css = SINGLE.unit_button(Unit::Logical);
+        // 既定は物理画素が選ばれている（ダークの選択色は白）。論理画素は入力欄の地の色。
+        let mut initial = canvas(&[]);
+        assert_eq!(
+            initial.pixel(px.x() + 2, px.y() + 2).unwrap(),
+            Some([0xFF, 0xFF, 0xFF, 0xFF])
+        );
+        assert_eq!(
+            initial.pixel(css.x() + 2, css.y() + 2).unwrap(),
+            Some([0x2C, 0x2C, 0x2C, 0xFF])
+        );
+        let mut chosen = canvas(&[RulerIntent::ChooseUnit(Unit::Logical)]);
+        assert_eq!(
+            chosen.pixel(css.x() + 2, css.y() + 2).unwrap(),
+            Some([0xFF, 0xFF, 0xFF, 0xFF])
+        );
+        // 下の換算の説明（`1 logical px = 2 physical px`）は 192 dpi でも dpi 無しでも文字色の画素を残す。
+        let note = SINGLE.ratio_baseline();
+        let lit = |canvas: &mut Canvas| {
+            (note.x()..note.x() + 100)
+                .filter(|x| {
+                    canvas
+                        .pixel(*x, note.y() - 4)
+                        .unwrap()
+                        .is_some_and(|p| p[0] > 0x80)
+                })
+                .count()
+        };
+        assert!(lit(&mut initial) > 0);
+        let mut dense = canvas_at(&NoStore(Ok(None)), Some(192), &[]);
+        assert!(lit(&mut dense) > 0);
     }
 
     #[test]

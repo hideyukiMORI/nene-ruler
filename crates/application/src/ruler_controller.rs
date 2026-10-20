@@ -1,12 +1,14 @@
 //! 物差しの状態の唯一の所有者（ARC-004）。
 
 use nene_ruler_core::axis::Axis;
+use nene_ruler_core::device_pixel_ratio::DevicePixelRatio;
 use nene_ruler_core::frame_detail::FrameDetail;
 use nene_ruler_core::frame_layout::FrameLayout;
 use nene_ruler_core::frame_size::FrameSize;
 use nene_ruler_core::hsv::Hsv;
 use nene_ruler_core::length::Length;
 use nene_ruler_core::length_text::LengthText;
+use nene_ruler_core::measure::Measure;
 use nene_ruler_core::ruler_settings::RulerSettings;
 use nene_ruler_core::screen_metrics::ScreenMetrics;
 use nene_ruler_core::screen_metrics_failure::ScreenMetricsFailure;
@@ -41,6 +43,7 @@ pub struct RulerController<'p> {
     copy_mark: Option<CopyMark>,
     environment: Environment,
     scale: UiScale,
+    ratio: DevicePixelRatio,
     version: ProductVersion,
 }
 
@@ -65,6 +68,8 @@ impl<'p> RulerController<'p> {
             copy_mark: None,
             environment,
             scale: UiScale::choose(environment.desktop_dpi(), metrics),
+            // 論理画素の比はデスクトップの dpi だけから決め、RandR のミリ寸法は見ない（ADR 0027）。
+            ratio: DevicePixelRatio::from_dpi(environment.desktop_dpi()),
             version,
         }
     }
@@ -82,6 +87,7 @@ impl<'p> RulerController<'p> {
                 self.change(self.settings.with_ink(ink));
                 self.modal = Some(ModalSession::open(ink));
             }
+            RulerIntent::ChooseUnit(unit) => self.change(self.settings.with_unit(unit)),
             RulerIntent::ChooseModalTheme(theme) => {
                 self.change(self.settings.with_modal_theme(theme));
             }
@@ -139,7 +145,7 @@ impl<'p> RulerController<'p> {
                 // モーダルは倍率を掛けない（施主指示 2026-10-17・ADR 0014）。
                 SettingsLayout::new(UiScale::Single),
                 (self.settings, session.clone()),
-                self.version,
+                (self.version, self.ratio),
                 self.store_failure,
             )
         })
@@ -212,18 +218,19 @@ impl<'p> RulerController<'p> {
         Length::clamped(px, max)
     }
 
-    /// 幅・高さ・両方を綴る。単位は物理画素だけ（ADR 0012）。表示とコピーで同じもの（FR-007）。
+    /// 幅・高さ・両方を、選んだ単位で綴る（FR-008・ADR 0027）。表示とコピーで同じもの（FR-007）。
     fn texts(&self) -> FrameTexts {
         let (width, height) = (
             self.size.along(Axis::Horizontal),
             self.size.along(Axis::Vertical),
         );
+        let measure = Measure::new(self.settings.unit(), self.ratio);
         FrameTexts::new(
-            LengthText::in_pixels(width),
-            LengthText::in_pixels(height),
+            LengthText::single(width, measure),
+            LengthText::single(height, measure),
             (
-                LengthText::size(width, height),
-                LengthText::short_size(width, height),
+                LengthText::size(width, height, measure),
+                LengthText::short_size(width, height, measure),
             ),
         )
     }
@@ -243,6 +250,7 @@ mod tests {
     use nene_ruler_core::modal_theme::ModalTheme;
     use nene_ruler_core::rgb::Rgb;
     use nene_ruler_core::rgb_failure::RgbFailure;
+    use nene_ruler_core::unit::Unit;
     use nene_ruler_core::window_layer::WindowLayer;
     struct FixedScreen(Result<ScreenMetrics, ScreenMetricsFailure>);
 
@@ -601,6 +609,56 @@ mod tests {
         assert_eq!(
             controller.settings_frame().unwrap().layout().scale(),
             UiScale::Single
+        );
+    }
+
+    #[test]
+    fn logical_pixels_divide_by_the_desktop_dpi_and_are_saved() {
+        static NO_CLIPBOARD: NoClipboard = NoClipboard;
+        let (screen, store, board) = (screen(), MemoryStore::empty(), clipboard());
+        let mut controller = RulerController::new(
+            Ports::new(&screen, &store, &board),
+            Environment::new(Transparency::Composited).with_desktop_dpi(Some(144)),
+            ProductVersion::new("0.1.0"),
+        );
+        controller.apply(RulerIntent::OpenSettings);
+        assert_eq!(
+            controller.settings_frame().unwrap().ratio_note(),
+            "1 logical px = 1.5 physical px"
+        );
+        controller.apply(RulerIntent::ChooseUnit(Unit::Logical));
+        let frame = controller.frame();
+        assert_eq!(frame.text(LengthLabel::Width).as_str(), "266.7 logical px");
+        assert_eq!(frame.text(LengthLabel::Height).as_str(), "160 logical px");
+        assert_eq!(
+            *store.saved.borrow(),
+            Some(RulerSettings::INITIAL.with_unit(Unit::Logical))
+        );
+        // コピーも表示と同じ文字列（FR-007）。
+        controller.apply(RulerIntent::CopyText(LengthLabel::Width));
+        assert_eq!(board.copied.borrow().as_deref(), Some("266.7 logical px"));
+        controller.apply(RulerIntent::ChooseUnit(Unit::Physical));
+        assert_eq!(
+            controller.frame().text(LengthLabel::Width).as_str(),
+            "400 px"
+        );
+        // dpi が無ければ論理画素は物理画素と同じ数で、説明は 1 倍。RandR の dpi は見ない。
+        let dense = FixedScreen(ScreenMetrics::new(3840, 2160, 600));
+        let fresh = MemoryStore::empty();
+        let mut plain = RulerController::new(
+            Ports::new(&dense, &fresh, &NO_CLIPBOARD),
+            Environment::new(Transparency::Composited),
+            ProductVersion::new("0.1.0"),
+        );
+        plain.apply(RulerIntent::ChooseUnit(Unit::Logical));
+        assert_eq!(
+            plain.frame().text(LengthLabel::Width).as_str(),
+            "400 logical px"
+        );
+        plain.apply(RulerIntent::OpenSettings);
+        assert_eq!(
+            plain.settings_frame().unwrap().ratio_note(),
+            "1 logical px = 1 physical px"
         );
     }
 

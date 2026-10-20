@@ -269,6 +269,7 @@ impl<'d> SettingsWindow<'d> {
                 };
                 intent
             }
+            SettingsControl::Unit(unit) => RulerIntent::ChooseUnit(unit),
             SettingsControl::Theme(theme) => RulerIntent::ChooseModalTheme(theme),
             SettingsControl::Layer(layer) => RulerIntent::ChooseLayer(layer),
             SettingsControl::Close => return Ok(SettingsFlow::Close),
@@ -294,6 +295,7 @@ impl<'d> SettingsWindow<'d> {
             SettingsControl::Hue => Some(RulerIntent::PickHue(layout.hue_at(point))),
             SettingsControl::Preset(_)
             | SettingsControl::HexField
+            | SettingsControl::Unit(_)
             | SettingsControl::Theme(_)
             | SettingsControl::Layer(_)
             | SettingsControl::Close
