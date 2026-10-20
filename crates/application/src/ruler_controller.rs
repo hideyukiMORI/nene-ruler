@@ -14,6 +14,7 @@ use nene_ruler_core::screen_metrics::ScreenMetrics;
 use nene_ruler_core::screen_metrics_failure::ScreenMetricsFailure;
 use nene_ruler_core::settings_layout::SettingsLayout;
 use nene_ruler_core::ui_scale::UiScale;
+use nene_ruler_core::unit::Unit;
 
 use crate::copy_mark::CopyMark;
 use crate::environment::Environment;
@@ -90,7 +91,7 @@ impl<'p> RulerController<'p> {
             }
             RulerIntent::ChooseUnit(unit) => self.change(self.settings.with_unit(unit)),
             // 比は窓が乗っているモニタに従う。UI の整数倍率（飾り）は起動時のまま（ADR 0029）。
-            RulerIntent::DpiChanged(dpi) => self.ratio = DevicePixelRatio::from_dpi(dpi),
+            RulerIntent::DpiChanged(dpi) => self.follow_dpi(DevicePixelRatio::from_dpi(dpi)),
             RulerIntent::ChooseModalTheme(theme) => {
                 self.change(self.settings.with_modal_theme(theme));
             }
@@ -211,6 +212,17 @@ impl<'p> RulerController<'p> {
         }
     }
 
+    /// 別の比のモニタへ移った。論理画素を選んでいれば論理画素の大きさを保つように枠を物理画素で伸縮し、
+    /// 物理画素を選んでいれば枠はそのまま（ADR 0029）。UI は伸縮した枠に窓を合わせる。
+    fn follow_dpi(&mut self, next: DevicePixelRatio) {
+        if self.settings.unit() == Unit::Logical && next != self.ratio {
+            let rescaled =
+                |axis: Axis| self.clamp(self.ratio.rescale(self.size.along(axis).px(), next), axis);
+            self.size = FrameSize::new(rescaled(Axis::Horizontal), rescaled(Axis::Vertical));
+        }
+        self.ratio = next;
+    }
+
     /// 外から来た長さを下限と画面の大きさの間に収める（FR-005）。
     fn clamp(&self, px: u16, axis: Axis) -> Length {
         let screen = self
@@ -258,7 +270,6 @@ mod tests {
     use nene_ruler_core::modal_theme::ModalTheme;
     use nene_ruler_core::rgb::Rgb;
     use nene_ruler_core::rgb_failure::RgbFailure;
-    use nene_ruler_core::unit::Unit;
     use nene_ruler_core::window_layer::WindowLayer;
     struct FixedScreen(Result<ScreenMetrics, ScreenMetricsFailure>);
 
@@ -683,10 +694,14 @@ mod tests {
             controller.frame().text(LengthLabel::Width).as_str(),
             "320 logical px"
         );
-        // 175% のモニタへ動かした。数字・字の大きさ・説明文が新しい比に従う。
+        // 175% のモニタへ動かした。論理画素の大きさを保つので枠は 560 × 336 物理画素に伸び、数字は同じ。
+        // 字の大きさ・説明文は新しい比に従う。
         controller.apply(RulerIntent::DpiChanged(Some(168)));
         let frame = controller.frame();
-        assert_eq!(frame.text(LengthLabel::Width).as_str(), "228.6 logical px");
+        assert_eq!(frame.text(LengthLabel::Width).as_str(), "320 logical px");
+        assert_eq!(frame.text(LengthLabel::Height).as_str(), "192 logical px");
+        assert_eq!(frame.layout().frame().width(), 560);
+        assert_eq!(frame.layout().frame().height(), 336);
         assert_eq!(
             (frame.layout().tick_label_px(), frame.layout().label_px()),
             (16, 19)
@@ -698,12 +713,34 @@ mod tests {
         );
         // 飾りの整数倍率は起動時（120 dpi → 1x）のまま。
         assert_eq!(frame.layout().scale(), UiScale::Single);
-        // dpi が分からなくなれば 1 倍。
-        controller.apply(RulerIntent::DpiChanged(None));
+    }
+
+    #[test]
+    fn physical_pixels_keep_the_frame_when_the_dpi_changes() {
+        let (screen, store, board) = (screen(), MemoryStore::empty(), clipboard());
+        let mut controller = RulerController::new(
+            Ports::new(&screen, &store, &board),
+            Environment::new(Transparency::Composited).with_desktop_dpi(Some(120)),
+            ProductVersion::new("0.1.0"),
+        );
+        // 物理画素を選んでいれば枠はそのままで、数字も変わらない。字の大きさだけ新しい比に従う。
+        controller.apply(RulerIntent::DpiChanged(Some(192)));
         assert_eq!(
             controller.frame().text(LengthLabel::Width).as_str(),
-            "400 logical px"
+            "400 px"
         );
+        assert_eq!(controller.frame().layout().label_px(), 22);
+        // 論理画素でも画面より大きくはならない（FR-005）。
+        controller.apply(RulerIntent::ChooseUnit(Unit::Logical));
+        controller.apply(RulerIntent::WindowResized {
+            width_px: 1900,
+            height_px: 1000,
+        });
+        controller.apply(RulerIntent::DpiChanged(Some(384)));
+        assert!(controller.frame().layout().frame().width() <= 1920);
+        // dpi が分からなくなれば 1 倍で、論理画素の大きさは保つ（384 dpi の 1920 は 480 論理画素）。
+        controller.apply(RulerIntent::DpiChanged(None));
+        assert_eq!(controller.frame().layout().frame().width(), 480);
     }
 
     #[test]
