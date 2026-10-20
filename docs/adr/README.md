@@ -44,3 +44,4 @@ ADR は「なぜそう決めたか」「何を却下したか」を書く。
 | [0026](0026-store-msix-wraps-the-same-exe.md) | Microsoft Store を配布経路に足し、配る exe をそのまま MSIX に包む | 受理 |
 | [0027](0027-logical-pixel-unit.md) | 単位を戻し、物理画素と論理画素（dpi / 96 で割った値）を切り替える | 受理（決定 7 の目盛の間隔は改訂 → 0028） |
 | [0028](0028-text-in-logical-pixels-and-ticks-follow-the-unit.md) | 字の大きさは論理画素で定め、目盛は選んだ単位で刻む | 受理 |
+| [0029](0029-dpi-of-the-monitor-under-the-ruler.md) | 論理画素の比は、定規の窓が乗っているモニタの dpi に従う | 受理 |

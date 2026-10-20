@@ -102,6 +102,21 @@ impl<'c, 'p> WindowsApp<'c, 'p> {
         ))
     }
 
+    /// 定規の窓が乗っているモニタの dpi が分かった・変わった（`WM_DPICHANGED`・窓を作った直後）。
+    /// 数字・字の大きさ・目盛と、開いていればモーダルの説明文を描き直す（ADR 0029）。
+    ///
+    /// # Errors
+    ///
+    /// 描き直しに失敗した。
+    pub fn dpi_changed(&mut self, dpi: Option<u32>) -> Result<(), Win32Failure> {
+        self.controller.apply(RulerIntent::DpiChanged(dpi));
+        self.present_frame()?;
+        if self.modal.is_some() {
+            self.present_modal()?;
+        }
+        Ok(())
+    }
+
     /// 枠の窓の大きさが変わった（`WM_SIZE`）。
     ///
     /// # Errors

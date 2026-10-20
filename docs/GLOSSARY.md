@@ -40,7 +40,7 @@
 | アンカー | 左上と右下の鉤括弧。掴んで伸縮する | `Anchor`（core） |
 | 当たり判定 | クリックを受ける物理画素の矩形と、そこを掴んだときの意味（移動・伸縮・ギア・コピー） | `HitRegion` / `HitTarget`（core） |
 | 透明 | 描いたもの以外のアルファが 0 であること。合成器が無ければ不透明に落ちる | `Transparency`（application） |
-| 環境 | 透明と、デスクトップの dpi（X11 は `Xft.dpi`、Windows はモニタの dpi）の組。合成ルートが起動時に渡す。UI の倍率と論理画素の比の元 | `Environment`（application） |
+| 環境 | 透明と、デスクトップの dpi（X11 は `Xft.dpi`、Windows は主モニタの dpi）の組。合成ルートが起動時に渡す。UI の倍率と、論理画素の比の最初の元（比はその後、窓が乗っているモニタに従う・ADR 0029） | `Environment`（application） |
 | 見えないが触れる | アルファ 1/255 の画素。WSLg は描いた画素だけを当たりにするので、当たり判定の帯をこれで下塗りする | `canvas` の `TOUCHABLE_ALPHA`（ui-x11）・ADR 0008 |
 | 合成器 | `_NET_WM_CM_S0` を所有し、ARGB の窓を画面に合成するプログラム（Weston・xcompmgr 等） | adapters-x11 / ui-x11 |
 | モーダルの見え | 設定モーダルの背景と文字の配色。ダーク・ライトの閉じた集合（「システムに従う」は置かない・FR-010）。枠の窓には効かない | `ModalTheme`（core） |

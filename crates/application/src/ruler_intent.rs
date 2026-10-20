@@ -47,4 +47,7 @@ pub enum RulerIntent {
     CopyText(LengthLabel),
     /// ポインタが数字から離れた。コピーの印を消す。
     ClearCopyMark,
+    /// 定規の窓が乗っているモニタの dpi が分かった・変わった（Windows の `WM_DPICHANGED`・窓を作った直後）。
+    /// 論理画素の比と字の大きさの元。無ければ 1 倍（ADR 0029）。
+    DpiChanged(Option<u32>),
 }

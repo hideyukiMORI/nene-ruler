@@ -69,6 +69,7 @@ impl<'p> RulerController<'p> {
             environment,
             scale: UiScale::choose(environment.desktop_dpi(), metrics),
             // 論理画素の比はデスクトップの dpi だけから決め、RandR のミリ寸法は見ない（ADR 0027）。
+            // 窓が乗っているモニタが分かれば `DpiChanged` で取り直す（ADR 0029）。
             ratio: DevicePixelRatio::from_dpi(environment.desktop_dpi()),
             version,
         }
@@ -88,6 +89,8 @@ impl<'p> RulerController<'p> {
                 self.modal = Some(ModalSession::open(ink));
             }
             RulerIntent::ChooseUnit(unit) => self.change(self.settings.with_unit(unit)),
+            // 比は窓が乗っているモニタに従う。UI の整数倍率（飾り）は起動時のまま（ADR 0029）。
+            RulerIntent::DpiChanged(dpi) => self.ratio = DevicePixelRatio::from_dpi(dpi),
             RulerIntent::ChooseModalTheme(theme) => {
                 self.change(self.settings.with_modal_theme(theme));
             }
@@ -664,6 +667,42 @@ mod tests {
         assert_eq!(
             plain.settings_frame().unwrap().ratio_note(),
             "1 logical px = 1 physical px"
+        );
+    }
+
+    #[test]
+    fn the_ratio_follows_the_monitor_under_the_window() {
+        let (screen, store, board) = (screen(), MemoryStore::empty(), clipboard());
+        let mut controller = RulerController::new(
+            Ports::new(&screen, &store, &board),
+            Environment::new(Transparency::Composited).with_desktop_dpi(Some(120)),
+            ProductVersion::new("0.1.0"),
+        );
+        controller.apply(RulerIntent::ChooseUnit(Unit::Logical));
+        assert_eq!(
+            controller.frame().text(LengthLabel::Width).as_str(),
+            "320 logical px"
+        );
+        // 175% のモニタへ動かした。数字・字の大きさ・説明文が新しい比に従う。
+        controller.apply(RulerIntent::DpiChanged(Some(168)));
+        let frame = controller.frame();
+        assert_eq!(frame.text(LengthLabel::Width).as_str(), "228.6 logical px");
+        assert_eq!(
+            (frame.layout().tick_label_px(), frame.layout().label_px()),
+            (16, 19)
+        );
+        controller.apply(RulerIntent::OpenSettings);
+        assert_eq!(
+            controller.settings_frame().unwrap().ratio_note(),
+            "1 logical px = 1.75 physical px"
+        );
+        // 飾りの整数倍率は起動時（120 dpi → 1x）のまま。
+        assert_eq!(frame.layout().scale(), UiScale::Single);
+        // dpi が分からなくなれば 1 倍。
+        controller.apply(RulerIntent::DpiChanged(None));
+        assert_eq!(
+            controller.frame().text(LengthLabel::Width).as_str(),
+            "400 logical px"
         );
     }
 

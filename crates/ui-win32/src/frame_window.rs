@@ -17,7 +17,7 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::HiDpi::{
-    DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext,
+    DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, GetDpiForWindow, SetProcessDpiAwarenessContext,
 };
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     GetKeyState, ReleaseCapture, SetCapture, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent, VK_BACK,
@@ -30,10 +30,10 @@ use windows::Win32::UI::WindowsAndMessaging::{
     LR_DEFAULTCOLOR, LoadCursorW, LoadImageW, MINMAXINFO, MSG, PostQuitMessage, RegisterClassExW,
     SM_CXICON, SM_CXSCREEN, SM_CXSMICON, SM_CYICON, SM_CYSCREEN, SM_CYSMICON, SW_SHOW,
     SYSTEM_METRICS_INDEX, SetCursor, SetWindowLongPtrW, ShowWindow, TranslateMessage,
-    WINDOW_EX_STYLE, WINDOW_STYLE, WM_CHAR, WM_DESTROY, WM_GETMINMAXINFO, WM_KEYDOWN, WM_KILLFOCUS,
-    WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_NCCALCSIZE, WM_NCCREATE, WM_NCHITTEST,
-    WM_SETCURSOR, WM_SETFOCUS, WM_SIZE, WNDCLASSEXW, WS_EX_LAYERED, WS_EX_TOOLWINDOW,
-    WS_EX_TOPMOST, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
+    WINDOW_EX_STYLE, WINDOW_STYLE, WM_CHAR, WM_DESTROY, WM_DPICHANGED, WM_GETMINMAXINFO,
+    WM_KEYDOWN, WM_KILLFOCUS, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_NCCALCSIZE,
+    WM_NCCREATE, WM_NCHITTEST, WM_SETCURSOR, WM_SETFOCUS, WM_SIZE, WNDCLASSEXW, WS_EX_LAYERED,
+    WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
 };
 use windows::core::{PCWSTR, w};
 
@@ -107,7 +107,8 @@ pub fn run(controller: &mut RulerController<'_>) -> Result<(), Win32Failure> {
     {
         let mut app = cell.borrow_mut();
         app.attach_frame(created);
-        app.present_frame()?;
+        // 比は主モニタでなく、窓が乗っているモニタの dpi から（ADR 0029）。
+        app.dpi_changed(window_dpi(created))?;
     }
     // SAFETY: 作った窓を見せる。借りていないので、入れ子のメッセージも状態に届く。
     let _was_visible = unsafe { ShowWindow(created, SW_SHOW) };
@@ -289,6 +290,13 @@ fn frame_message(
             report(app.resized(width, height));
             Some(LRESULT(0))
         }
+        // 窓がモニタをまたいだ・倍率が変わった。wparam の下位語が新しい dpi。推奨の矩形（lparam）は使わない:
+        // 枠の大きさは測った値なので、Windows の勧めで伸縮させない（ADR 0029）。
+        WM_DPICHANGED => {
+            let dpi = u16::try_from(wparam.0 & 0xFFFF).ok().map(u32::from);
+            report(app.dpi_changed(dpi.filter(|dpi| *dpi > 0)));
+            Some(LRESULT(0))
+        }
         WM_LBUTTONDOWN => {
             if app.frame_pressed(signed_words(lparam)).unwrap_or(false) {
                 report(open_modal(app, cell));
@@ -411,6 +419,17 @@ fn open_modal(app: &mut WindowsApp<'_, '_>, cell: &AppCell<'_, '_>) -> Result<()
     // SAFETY: 作ったモーダルを見せる。入れ子のメッセージは借りられず既定へ流れる（焦点は modal_opened が持たせた）。
     let _was_visible = unsafe { ShowWindow(modal, SW_SHOW) };
     Ok(())
+}
+
+/// 窓が乗っているモニタの dpi。窓が無効なら 0 が返るので `None`。
+#[expect(
+    unsafe_code,
+    reason = "RS-010: Win32 の GetDpiForWindow を呼ぶ（ADR 0021）"
+)]
+fn window_dpi(window: HWND) -> Option<u32> {
+    // SAFETY: 自分の窓のハンドルを渡して読むだけ。
+    let dpi = unsafe { GetDpiForWindow(window) };
+    (dpi > 0).then_some(dpi)
 }
 
 /// 失敗を握る。窓の手続きは失敗を返せないので、次の描き直しに任せる（ADR 0021 の 11）。

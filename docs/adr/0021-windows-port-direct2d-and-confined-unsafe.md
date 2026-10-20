@@ -25,7 +25,7 @@
 **Windows 版は、中核（core / application）をそのまま使い、新しい 2 クレートで実装する。**
 
 1. `crates/settings-file`（`nene-ruler-settings-file`）: 設定ファイルの形（v1）と置き場を `adapters-x11` から切り出す。標準ライブラリだけで、Linux は XDG、Windows は `%APPDATA%\nene-ruler\settings.v1.txt`。外部クレートを持たない（CNF-013）
-2. `crates/adapters-windows`（`nene-ruler-adapters-windows`）: 主モニタの画素数と dpi（`MonitorFromPoint`・`GetMonitorInfoW`・`GetDpiForMonitor`）、クリップボード（`CF_UNICODETEXT`）。dpi は `Environment::with_desktop_dpi` で渡す（X11 の `Xft.dpi` と同じ口。`xft_dpi` から改名した）
+2. `crates/adapters-windows`（`nene-ruler-adapters-windows`）: 主モニタの画素数と dpi（`MonitorFromPoint`・`GetMonitorInfoW`・`GetDpiForMonitor`）、クリップボード（`CF_UNICODETEXT`）。dpi は `Environment::with_desktop_dpi` で渡す（X11 の `Xft.dpi` と同じ口。`xft_dpi` から改名した）。主モニタの dpi は UI の整数倍率の元に限り、論理画素の比は窓が乗っているモニタの dpi に従う（ADR 0029）
 3. `crates/ui-win32`（`nene-ruler-ui-win32`）: `WS_EX_LAYERED` の枠の窓とモーダル。Direct2D の DC レンダーターゲットに描き、`UpdateLayeredWindow` で出す。字は DirectWrite。最前面は `HWND_TOPMOST`、移動と伸縮は `WM_NCLBUTTONDOWN`（`HTCAPTION` / `HTTOPLEFT` / `HTBOTTOMRIGHT`）、ポインタは `IDC_SIZEALL` / `IDC_SIZENWSE` / `IDC_HAND`、アイコンは ADR 0020 の絵を Direct2D で描く。per-monitor v2 の dpi 対応にして、測る値は物理画素のまま
 4. 置き場と当たり判定は core の `FrameLayout` / `SettingsLayout` から出す（ARC-001）。描く手続きだけが X11（cairo）と Windows（Direct2D）で 2 本になる
 5. `crates/app` は `cfg(target_os)` で合成ルートを選ぶ。Linux は今まで通り、Windows は新しい 2 クレート
