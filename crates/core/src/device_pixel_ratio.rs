@@ -37,6 +37,14 @@ impl DevicePixelRatio {
         (scaled + self.dpi / 2) / self.dpi
     }
 
+    /// 論理画素の寸法を物理画素に換算する（四捨五入）。字の大きさと、論理画素で刻む目盛の位置に使う（ADR 0028）。
+    /// `u16` に収まらなければ `u16::MAX`。
+    #[must_use]
+    pub fn physical(self, logical: u16) -> u16 {
+        let scaled = u32::from(logical) * self.dpi + Self::BASE_DPI / 2;
+        u16::try_from(scaled / Self::BASE_DPI).unwrap_or(u16::MAX)
+    }
+
     /// 換算の説明（`1 logical px = 1.5 physical px`）。小数は 2 桁までで、末尾の 0 は書かない。
     #[must_use]
     pub fn describe(self) -> String {
@@ -76,6 +84,23 @@ mod tests {
         assert_eq!(
             DevicePixelRatio::from_dpi(Some(192)).logical_tenths(u16::MAX),
             327_675
+        );
+    }
+
+    #[test]
+    fn scales_logical_sizes_to_physical_pixels_and_rounds() {
+        let half_again = DevicePixelRatio::from_dpi(Some(144));
+        assert_eq!(half_again.physical(9), 14);
+        assert_eq!(half_again.physical(11), 17);
+        assert_eq!(half_again.physical(5), 8);
+        assert_eq!(half_again.physical(15), 23);
+        assert_eq!(half_again.physical(50), 75);
+        assert_eq!(DevicePixelRatio::ONE.physical(11), 11);
+        assert_eq!(DevicePixelRatio::from_dpi(Some(120)).physical(9), 11);
+        assert_eq!(DevicePixelRatio::from_dpi(Some(192)).physical(11), 22);
+        assert_eq!(
+            DevicePixelRatio::from_dpi(Some(192)).physical(u16::MAX),
+            u16::MAX
         );
     }
 

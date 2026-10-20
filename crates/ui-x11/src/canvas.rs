@@ -17,12 +17,8 @@ use crate::ui_failure::UiFailure;
 
 /// 数字のフォント。toy text API なので家族名だけ（ADR 0002）。
 pub(crate) const FONT_FAMILY: &str = "sans-serif";
-/// 幅・高さの数字の大きさ。倍率に関わらずこの大きさ（ADR 0015）。
-const LABEL_FONT_PX: f64 = 11.0;
-/// 主目盛の数字の大きさ。倍率に関わらずこの大きさ（ADR 0013）。
-const TICK_FONT_PX: f64 = 9.0;
 
-/// 1x の字の大きさに UI の倍率を掛ける（FR-016・ADR 0011）。
+/// 1x の字の大きさに UI の倍率を掛ける（モーダルの字・FR-016・ADR 0011）。枠の字の大きさは `FrameLayout` が比で決める（ADR 0028）。
 pub(crate) fn font_px(base: f64, scale: UiScale) -> f64 {
     base * f64::from(scale.factor())
 }
@@ -198,8 +194,8 @@ pub(crate) fn fill_rect(context: &Context, rect: PixelRect) -> Result<(), UiFail
 /// 上辺と左辺の主目盛の数字。
 fn draw_tick_labels(context: &Context, frame: &RulerFrame) -> Result<(), UiFailure> {
     context.select_font_face(FONT_FAMILY, FontSlant::Normal, FontWeight::Normal);
-    // 主目盛の数字は倍率を掛けない（ADR 0013）。
-    context.set_font_size(TICK_FONT_PX);
+    // 字の大きさは論理画素 9 を比で物理画素にしたもの（ADR 0028）。
+    context.set_font_size(f64::from(frame.layout().tick_label_px()));
     for edge in [Edge::Top, Edge::Left] {
         for label in frame.layout().tick_labels(edge) {
             let baseline = label.baseline();
@@ -222,8 +218,8 @@ fn draw_label(context: &Context, frame: &RulerFrame, label: LengthLabel) -> Resu
         fill_rect(context, hit)?;
     }
     context.select_font_face(FONT_FAMILY, FontSlant::Normal, FontWeight::Normal);
-    // 幅と高さの数字は倍率を掛けない（ADR 0015）。
-    context.set_font_size(LABEL_FONT_PX);
+    // 字の大きさは論理画素 11 を比で物理画素にしたもの（ADR 0028）。
+    context.set_font_size(f64::from(frame.layout().label_px()));
     let extents = context.text_extents(text)?;
     let centred = -(extents.width() / 2.0_f64 + extents.x_bearing());
     context.save()?;

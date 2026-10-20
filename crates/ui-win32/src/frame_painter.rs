@@ -18,9 +18,6 @@ use crate::pen::Pen;
 use crate::text_align::TextAlign;
 use crate::win32_failure::Win32Failure;
 
-/// 主目盛の数字（ADR 0013）と幅・高さの数字（ADR 0015）の大きさ。倍率に関わらずこの大きさ。
-const TICK_FONT_PX: f32 = 9.0;
-const LABEL_FONT_PX: f32 = 11.0;
 /// 目に見えないが当たり判定には乗るアルファ（ADR 0008）。
 const TOUCHABLE_ALPHA: f32 = 1.0 / 255.0;
 /// ギアの歯の数と、1 つの円弧を割る線分の数。
@@ -46,14 +43,12 @@ fn draw(pen: &Pen, frame: &RulerFrame) -> Result<(), Win32Failure> {
     for rect in frame.layout().ink_rects() {
         pen.fill(rect, &ink);
     }
+    // 字の大きさは論理画素を比で物理画素にしたもの。`FrameLayout` が決める（ADR 0028）。
+    let tick_px = f32::from(frame.layout().tick_label_px());
     for edge in [Edge::Top, Edge::Left] {
         for label in frame.layout().tick_labels(edge) {
             let value = label.value().to_string();
-            pen.write(
-                (&value, label.baseline()),
-                (TICK_FONT_PX, TextAlign::Left),
-                &ink,
-            )?;
+            pen.write((&value, label.baseline()), (tick_px, TextAlign::Left), &ink)?;
         }
     }
     for label in frame.layout().labels() {
@@ -88,7 +83,7 @@ fn draw_label(
         pen.fill(hit, ink);
     }
     pen.rotate_about(baseline, label == LengthLabel::Height);
-    let style = (LABEL_FONT_PX, TextAlign::Centre);
+    let style = (f32::from(frame.layout().label_px()), TextAlign::Centre);
     let written = if inverted {
         pen.copying(|| pen.write((text, baseline), style, touchable).map(|_end| ()))
     } else {
