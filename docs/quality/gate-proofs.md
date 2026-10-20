@@ -1140,4 +1140,6 @@ ui-win32 と adapters-windows は `cargo clippy --target x86_64-pc-windows-gnu -
 
 Xvfb では確かめられない（X11 には `DpiChanged` を送る所が無い）。
 
-**planned のまま**: 施主の 3 モニタで、125% の主モニタで起動 → 150% / 175% へ動かすと説明文が 1.5 / 1.75 に変わり、開発者ツールの数字と合うこと（ADR 0029）。
+施主の 2 回目の実測（同日）: モニタをまたぐと `Physical px` の数字が数 px 変わった（Windows が非クライアント領域の再計算で窓を伸縮させる）。`WM_GETDPISCALEDSIZE` で大きさを覚えて「このまま」と答え、`WM_DPICHANGED` で `SetWindowPos` で戻す形にした（ADR 0029 の決定 3）。Windows clippy 0 件、exe を作り直して置いた。
+
+**planned のまま**: 施主の 3 モニタで、125% の主モニタで起動 → 150% / 175% へ動かすと説明文が 1.5 / 1.75 に変わり開発者ツールの数字と合うこと、`Physical px` の数字がまたいでも変わらないこと（ADR 0029）。

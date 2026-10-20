@@ -11,7 +11,7 @@ use core::ptr;
 use nene_ruler_application::ruler_controller::RulerController;
 use nene_ruler_core::nudge_direction::NudgeDirection;
 use nene_ruler_core::window_layer::WindowLayer;
-use windows::Win32::Foundation::{HMODULE, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
+use windows::Win32::Foundation::{HMODULE, HWND, LPARAM, LRESULT, POINT, RECT, SIZE, WPARAM};
 use windows::Win32::Graphics::Gdi::{
     GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromWindow, ScreenToClient,
 };
@@ -30,10 +30,11 @@ use windows::Win32::UI::WindowsAndMessaging::{
     LR_DEFAULTCOLOR, LoadCursorW, LoadImageW, MINMAXINFO, MSG, PostQuitMessage, RegisterClassExW,
     SM_CXICON, SM_CXSCREEN, SM_CXSMICON, SM_CYICON, SM_CYSCREEN, SM_CYSMICON, SW_SHOW,
     SYSTEM_METRICS_INDEX, SetCursor, SetWindowLongPtrW, ShowWindow, TranslateMessage,
-    WINDOW_EX_STYLE, WINDOW_STYLE, WM_CHAR, WM_DESTROY, WM_DPICHANGED, WM_GETMINMAXINFO,
-    WM_KEYDOWN, WM_KILLFOCUS, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_NCCALCSIZE,
-    WM_NCCREATE, WM_NCHITTEST, WM_SETCURSOR, WM_SETFOCUS, WM_SIZE, WNDCLASSEXW, WS_EX_LAYERED,
-    WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
+    WINDOW_EX_STYLE, WINDOW_STYLE, WM_CHAR, WM_DESTROY, WM_DPICHANGED, WM_GETDPISCALEDSIZE,
+    WM_GETMINMAXINFO, WM_KEYDOWN, WM_KILLFOCUS, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE,
+    WM_NCCALCSIZE, WM_NCCREATE, WM_NCHITTEST, WM_SETCURSOR, WM_SETFOCUS, WM_SIZE, WNDCLASSEXW,
+    WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU,
+    WS_THICKFRAME,
 };
 use windows::core::{PCWSTR, w};
 
@@ -290,8 +291,13 @@ fn frame_message(
             report(app.resized(width, height));
             Some(LRESULT(0))
         }
+        // dpi が変わる直前。窓の大きさはこのままと答える（lparam の SIZE に書いて TRUE）。
+        WM_GETDPISCALEDSIZE => {
+            keep_size(app.pin_size_for_dpi_change(), lparam);
+            Some(LRESULT(1))
+        }
         // 窓がモニタをまたいだ・倍率が変わった。wparam の下位語が新しい dpi。推奨の矩形（lparam）は使わない:
-        // 枠の大きさは測った値なので、Windows の勧めで伸縮させない（ADR 0029）。
+        // 枠の大きさは測った値なので、Windows の勧めで伸縮させず、直前の大きさに戻す（ADR 0029）。
         WM_DPICHANGED => {
             let dpi = u16::try_from(wparam.0 & 0xFFFF).ok().map(u32::from);
             report(app.dpi_changed(dpi.filter(|dpi| *dpi > 0)));
@@ -419,6 +425,21 @@ fn open_modal(app: &mut WindowsApp<'_, '_>, cell: &AppCell<'_, '_>) -> Result<()
     // SAFETY: 作ったモーダルを見せる。入れ子のメッセージは借りられず既定へ流れる（焦点は modal_opened が持たせた）。
     let _was_visible = unsafe { ShowWindow(modal, SW_SHOW) };
     Ok(())
+}
+
+/// `WM_GETDPISCALEDSIZE`: lparam が指す SIZE に、新しい dpi でも変えない窓の大きさを書く。
+#[expect(
+    unsafe_code,
+    reason = "RS-010: WM_GETDPISCALEDSIZE の lparam が指す SIZE を書く（ADR 0021）"
+)]
+fn keep_size((width, height): (u16, u16), lparam: LPARAM) {
+    // SAFETY: WM_GETDPISCALEDSIZE の lparam は Windows が用意した SIZE を指し、この処理の間だけ書ける。
+    let size =
+        unsafe { ptr::with_exposed_provenance_mut::<SIZE>(lparam.0.cast_unsigned()).as_mut() };
+    if let Some(size) = size {
+        size.cx = i32::from(width);
+        size.cy = i32::from(height);
+    }
 }
 
 /// 窓が乗っているモニタの dpi。窓が無効なら 0 が返るので `None`。

@@ -24,14 +24,15 @@ X11 の `Xft.dpi` は画面全体で 1 つで、ブラウザもそれしか見�
 
 1. `RulerIntent::DpiChanged(Option<u32>)` を足す。`RulerController` は比 `DevicePixelRatio` を持ち替え、次のフレームから数字の綴り（ADR 0027）・字の大きさと目盛（ADR 0028）・モーダルの説明文が新しい比に従う。比の所有者は application のまま（ARC-004）
 2. ui-win32 は窓を作った直後に `GetDpiForWindow` を読んで `DpiChanged` を送り、`WM_DPICHANGED` では wparam の下位語を送る（0 なら `None`）。推奨の矩形は使わず `LRESULT(0)` で答える: 枠の大きさは測った値で、Windows の勧めで伸縮させない。モーダルが開いていれば説明文も描き直す
-3. 起動時の `Environment::desktop_dpi`（主モニタ・ADR 0021）は UI の整数倍率（飾り・ADR 0011）の元としてそのまま残す。倍率は起動時に一度だけ（窓の余白が変わるので、変えるなら別の Issue）
-4. X11 は変えない。`DpiChanged` を送る所が無い
+3. **窓の大きさは dpi が変わる前のものに戻す。** 施主の実測（2026-10-20）で、モニタをまたぐと `Physical px` の数字が数 px 変わった。per-monitor v2 の窓は DPI が変わると Windows が非クライアント領域（`WS_THICKFRAME`）を再計算して窓を数 px 伸縮させる。`WM_GETDPISCALEDSIZE`（変わる直前）でいまの大きさを覚えて「このまま」と答え（SIZE に書いて TRUE）、`WM_DPICHANGED` で `SetWindowPos`（位置と重なり順は変えない）で戻す。`SetWindowPos` が同期で届ける `WM_SIZE` は状態を借りている最中なので既定へ流れ、枠の大きさは `WindowResized` を直接当てて合わせる
+4. 起動時の `Environment::desktop_dpi`（主モニタ・ADR 0021）は UI の整数倍率（飾り・ADR 0011）の元としてそのまま残す。倍率は起動時に一度だけ（窓の余白が変わるので、変えるなら別の Issue）
+5. X11 は変えない。`DpiChanged` を送る所が無い
 
 ## 強制
 
 - **active**: application の単体テスト（120 dpi で起動して `Logical px` の 400 px が `320 logical px`、`DpiChanged(Some(168))` で `228.6 logical px`・字が 16 / 19・説明文が `1 logical px = 1.75 physical px`・整数倍率は 1x のまま、`DpiChanged(None)` で `400 logical px`）
 - **active**: ui-win32 は `cargo clippy --target x86_64-pc-windows-gnu -- -D warnings` が 0 件
-- **planned**: 施主の 3 モニタ（125% / 150% / 175%）で、動かすと説明文と数字が変わり開発者ツールと合うこと（QLT-013）。記録は gate-proofs 第 51 節
+- **planned**: 施主の 3 モニタ（125% / 150% / 175%）で、動かすと説明文と数字が変わり開発者ツールと合うこと、`Physical px` の数字がまたいでも変わらないこと（QLT-013）。記録は gate-proofs 第 51 節
 
 ## 結果
 

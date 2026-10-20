@@ -37,6 +37,8 @@ pub struct WindowsApp<'c, 'p> {
     pen: Pen,
     frame: HWND,
     modal: Option<ModalWindow>,
+    /// dpi が変わる直前の窓の大きさ。変わった後に戻す（ADR 0029）。
+    pinned: Option<(u16, u16)>,
 }
 
 impl<'c, 'p> WindowsApp<'c, 'p> {
@@ -48,6 +50,7 @@ impl<'c, 'p> WindowsApp<'c, 'p> {
             pen,
             frame: HWND(core::ptr::null_mut()),
             modal: None,
+            pinned: None,
         }
     }
 
@@ -102,18 +105,55 @@ impl<'c, 'p> WindowsApp<'c, 'p> {
         ))
     }
 
+    /// dpi が変わる直前（`WM_GETDPISCALEDSIZE`）。いまの窓の大きさを覚えて返す。Windows にはこの大きさのままと答える。
+    pub fn pin_size_for_dpi_change(&mut self) -> (u16, u16) {
+        let window = self.controller.frame().layout().window();
+        let size = (window.width(), window.height());
+        self.pinned = Some(size);
+        size
+    }
+
     /// 定規の窓が乗っているモニタの dpi が分かった・変わった（`WM_DPICHANGED`・窓を作った直後）。
+    /// 窓の大きさを変わる直前のものに戻し（Windows は非クライアント領域の再計算で数 px 伸縮させる）、
     /// 数字・字の大きさ・目盛と、開いていればモーダルの説明文を描き直す（ADR 0029）。
     ///
     /// # Errors
     ///
-    /// 描き直しに失敗した。
+    /// 窓の大きさを戻せない・描き直しに失敗した。
     pub fn dpi_changed(&mut self, dpi: Option<u32>) -> Result<(), Win32Failure> {
         self.controller.apply(RulerIntent::DpiChanged(dpi));
+        if let Some((width, height)) = self.pinned.take() {
+            self.restore_size(width, height)?;
+        }
         self.present_frame()?;
         if self.modal.is_some() {
             self.present_modal()?;
         }
+        Ok(())
+    }
+
+    /// 窓の大きさを戻す。`SetWindowPos` が同期で届ける `WM_SIZE` は借用中で既定へ流れるので、枠の大きさはここで直接合わせる。
+    #[expect(
+        unsafe_code,
+        reason = "RS-010: Win32 の SetWindowPos を呼ぶ（ADR 0021）"
+    )]
+    fn restore_size(&mut self, width: u16, height: u16) -> Result<(), Win32Failure> {
+        // SAFETY: 窓は attach_frame で結んだもの。位置と重なり順は変えず、大きさだけを戻す。
+        unsafe {
+            SetWindowPos(
+                self.frame,
+                None,
+                0,
+                0,
+                i32::from(width),
+                i32::from(height),
+                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE,
+            )?;
+        }
+        self.controller.apply(RulerIntent::WindowResized {
+            width_px: width,
+            height_px: height,
+        });
         Ok(())
     }
 
