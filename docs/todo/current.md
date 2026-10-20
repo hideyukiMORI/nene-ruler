@@ -1,6 +1,6 @@
 # いまのタスク — NeNe Ruler
 
-> GitHub Issue と PR が進行状態の正本。この文書はその要約（2026-10-19 時点）。再開の手順は [handover-2026-10-19](handover-2026-10-19.md)。
+> GitHub Issue と PR が進行状態の正本。この文書はその要約（2026-10-20 時点）。再開の手順は [handover-2026-10-20](handover-2026-10-20.md)。
 
 ## 状態
 
