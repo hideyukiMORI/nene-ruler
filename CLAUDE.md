@@ -135,6 +135,7 @@ Issue / 規則 ID:
 現在のタスクは [docs/todo/current.md](docs/todo/current.md)。GitHub Issue が正で、そこは要約。
 
 2026-10-19: Windows 版と Linux（X11）版の全機能が main にある。版 1.0.0 が Microsoft Store で公開され、同じ実行の成果物で GitHub の v1.0.0 を出した（ADR 0026）。
+2026-10-20: 論理画素の単位（ADR 0027）・字の大きさと目盛（ADR 0028）・モニタごとの dpi（ADR 0029）が main に入り、版 1.1.0 の配る物を実行 39437069290 で作った。Store の提出と GitHub Release はこれから（current.md の 1）。
 配る物は `make dist` と release.yml で 1 回だけ作り、その実行の成果物をそのまま出す（ADR 0025）。再開の手順は [docs/todo/handover-2026-10-19.md](docs/todo/handover-2026-10-19.md)。
 
 ---
