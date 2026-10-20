@@ -45,6 +45,14 @@ impl DevicePixelRatio {
         u16::try_from(scaled / Self::BASE_DPI).unwrap_or(u16::MAX)
     }
 
+    /// 別の比のモニタへ移ったとき、論理画素の大きさを保つ物理画素（四捨五入）。
+    /// 400 px は 120 dpi → 168 dpi で 560 px（どちらも 320 論理画素・ADR 0029）。`u16` に収まらなければ `u16::MAX`。
+    #[must_use]
+    pub fn rescale(self, px: u16, into: Self) -> u16 {
+        let scaled = u32::from(px) * into.dpi + self.dpi / 2;
+        u16::try_from(scaled / self.dpi).unwrap_or(u16::MAX)
+    }
+
     /// 換算の説明（`1 logical px = 1.5 physical px`）。小数は 2 桁までで、末尾の 0 は書かない。
     #[must_use]
     pub fn describe(self) -> String {
@@ -100,6 +108,23 @@ mod tests {
         assert_eq!(DevicePixelRatio::from_dpi(Some(192)).physical(11), 22);
         assert_eq!(
             DevicePixelRatio::from_dpi(Some(192)).physical(u16::MAX),
+            u16::MAX
+        );
+    }
+
+    #[test]
+    fn rescales_to_keep_the_logical_size_on_another_monitor() {
+        let (quarter, half_again, three_quarters) = (
+            DevicePixelRatio::from_dpi(Some(120)),
+            DevicePixelRatio::from_dpi(Some(144)),
+            DevicePixelRatio::from_dpi(Some(168)),
+        );
+        assert_eq!(quarter.rescale(400, three_quarters), 560);
+        assert_eq!(three_quarters.rescale(560, quarter), 400);
+        assert_eq!(half_again.rescale(400, three_quarters), 467);
+        assert_eq!(half_again.rescale(400, half_again), 400);
+        assert_eq!(
+            DevicePixelRatio::ONE.rescale(u16::MAX, half_again),
             u16::MAX
         );
     }

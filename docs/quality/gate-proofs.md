@@ -1131,3 +1131,17 @@ ui-win32 と adapters-windows は `cargo clippy --target x86_64-pc-windows-gnu -
 見えた穴（ADR 0028 の「失うもの」に記録）: 論理画素の高さ 240 では左辺の `150`（原点から物理 225 px）が下辺の主目盛（長さ 24 px）に重なる。判定が枠の底しか見ない Issue #46 のままで、物理画素でも高さ 260 の `250` で起きる既存の穴。
 
 **planned のまま**: 施主の Windows（150%）で字が読めることと、ブラウザの開発者ツールの要素の幅と目盛が合うこと（ADR 0028）。
+
+## 51. Issue #104 — 比は定規の窓が乗っているモニタの dpi に従う（2026-10-20）
+
+同じ WSL。PR #103 の枝の上。施主の実測（主 125%・他 150% / 175%・主で起動すると他のモニタで外れる）から、比を `WM_DPICHANGED` で取り直すようにした。
+`make lint` / `make fmt-check` / `make test`（application 23 件。`the_ratio_follows_the_monitor_under_the_window` を追加）/ `make conformance` / `make doc-check` / `make deny` が 0 件。
+ui-win32 と adapters-windows は `cargo clippy --target x86_64-pc-windows-gnu -- -D warnings` が 0 件。`make build-windows` で exe を作り、施主の Windows に置いた。
+
+Xvfb では確かめられない（X11 には `DpiChanged` を送る所が無い）。
+
+施主の 2 回目の実測（同日）: モニタをまたぐと `Physical px` の数字が数 px 変わった（Windows が非クライアント領域の再計算で窓を伸縮させる）。`WM_GETDPISCALEDSIZE` で大きさを覚えて「このまま」と答え、`WM_DPICHANGED` で `SetWindowPos` で戻す形にした（ADR 0029 の決定 3）。Windows clippy 0 件、exe を作り直して置いた。
+
+施主の 3 回目の実測（同日）: 物理画素を保ったので `Logical px` の数字が 320 → 228.6 → 266.7 と変わった。枠は選んだ単位の大きさを保つ形に改めた（論理画素なら `rescale` で物理画素を伸縮・ADR 0029 の決定 3）。core 92 件・application 23 件、Windows clippy 0 件、exe を作り直して置いた。
+
+**planned のまま**: 施主の 3 モニタで、125% の主モニタで起動 → 150% / 175% へ動かすと説明文が 1.5 / 1.75 に変わり、`Logical px` の数字は変わらず枠が物理的に伸縮して開発者ツールと合うこと、`Physical px` の数字もまたいでも変わらないこと（ADR 0029）。
