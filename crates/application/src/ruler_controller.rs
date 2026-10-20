@@ -118,8 +118,8 @@ impl<'p> RulerController<'p> {
     #[must_use]
     pub fn frame(&self) -> RulerFrame {
         let texts = self.texts();
-        let layout =
-            FrameLayout::new(self.size, self.scale).fitted(|label| texts.text(label).chars());
+        let layout = FrameLayout::new(self.size, self.scale, self.measure())
+            .fitted(|label| texts.text(label).chars());
         // 詰めた表示では通知も描かない（ADR 0017）。
         let full = layout.detail() == FrameDetail::Full;
         RulerFrame::new(
@@ -218,13 +218,18 @@ impl<'p> RulerController<'p> {
         Length::clamped(px, max)
     }
 
+    /// 選んだ単位と、起動時に決めた比の組。数字の綴り・字の大きさ・目盛の刻みの元（ADR 0027 / 0028）。
+    const fn measure(&self) -> Measure {
+        Measure::new(self.settings.unit(), self.ratio)
+    }
+
     /// 幅・高さ・両方を、選んだ単位で綴る（FR-008・ADR 0027）。表示とコピーで同じもの（FR-007）。
     fn texts(&self) -> FrameTexts {
         let (width, height) = (
             self.size.along(Axis::Horizontal),
             self.size.along(Axis::Vertical),
         );
-        let measure = Measure::new(self.settings.unit(), self.ratio);
+        let measure = self.measure();
         FrameTexts::new(
             LengthText::single(width, measure),
             LengthText::single(height, measure),

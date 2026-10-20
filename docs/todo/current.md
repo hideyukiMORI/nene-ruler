@@ -25,6 +25,7 @@
 | HiDPI の倍率 1x / 2x（`Xft.dpi` → RandR の dpi）を枠の飾りとモーダルに掛ける | ✅ Issue #28・ADR 0011・Xvfb で実測（gate-proofs 第 20 節）。施主の WSLg は `Xft.dpi` が無く主画面が 0 mm なので 1x |
 | mm / in と最前面の通知を外し、長さは常に px（施主決定 2026-10-17） | ✅ Issue #30・ADR 0012 |
 | 単位を戻し、物理画素と論理画素（÷ dpi / 96・ブラウザの開発者ツールの CSS px / Windows の DIP）を切り替える。モーダルに `Unit` の段（`Physical px` / `Logical px`）と換算の説明、設定ファイルに `unit = physical_px` / `logical_px`。枠の数字は `400 px` / `266.7 logical px` | ✅ Issue #100・ADR 0027・Xvfb の 144 dpi と 1x で実測（gate-proofs 第 49 節）。施主の Windows（150%）での突き合わせは planned |
+| 字の大きさを論理画素で定め（単位に依らず比で物理画素に・150% で 14 / 17 px）、目盛を選んだ単位で刻む（`Logical px` なら 150% の主目盛は物理 75 px ごとに `50` `100` …）。全部描ける判定を交差判定に改める | ✅ Issue #102・ADR 0028・Xvfb の 144 dpi で両単位を実測（gate-proofs 第 50 節）。施主の Windows（150%）での目視は planned。PR #101 の枝の上 |
 | Windows 版の土台: 設定ファイルの切り出し・adapters-windows・ui-win32（Direct2D の枠の窓）・unsafe の例外（CNF-014） | ✅ Issue #60・ADR 0021。施主の Windows で枠が描けた。枠の操作 6 項目は施主が確かめた（2026-10-18）。PR #61 |
 | Windows の設定モーダル（Direct2D）・枠とモーダルで状態を `RefCell` で共有 | ✅ Issue #62。部品の操作 7 項目は施主が確かめた（2026-10-18）。PR #63 |
 | 目盛の帯を移動の当たり判定にする（目盛の上ならどこでも掴める・両 OS） | ✅ Issue #66・ADR 0022・Windows の地図と Xvfb で実測、施主の目視 OK（gate-proofs 第 38 節）。PR #67 |
@@ -42,7 +43,7 @@
 
 1.0.0 が 2026-10-19 に Microsoft Store で公開され、同じ日に同じ実行 39109585664 の成果物で GitHub の `v1.0.0` を出した。README の Download に Store のリンクを足し、Store 版の設定の置き場を実測して PRIVACY.md と README に書いた（Issue #96・gate-proofs 第 48 節）。
 
-1. Issue #100（論理画素の単位）を施主の Windows（150%）でブラウザの開発者ツールと突き合わせ、合えば 1.1.0 として出す（Store は掲載文の `colour` → `color` も一緒に）
+1. Issue #100（論理画素の単位）と Issue #102（字の大きさと目盛）を施主の Windows（150%）でブラウザの開発者ツールと突き合わせ、合えば 1.1.0 として出す（Store は掲載文の `colour` → `color` も一緒に）
 2. v1.0.0 のリリースノートの先頭に要約を足す（施主に案を見せてから `gh release edit`・v0.1.0 と同じ）
 3. Issue #76（check.yml の checkout）・#21・#25。Linux の zip は施主の機械でまだ試していない
 

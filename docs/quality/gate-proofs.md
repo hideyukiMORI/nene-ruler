@@ -1110,3 +1110,24 @@ ui-win32 と adapters-windows は `cargo clippy --target x86_64-pc-windows-gnu -
 | ギアを押す（`mousemove 417 257 click 1`） | 下の説明が `1 logical px = 1 physical px` | [modal-1x](screenshots/2026-10-19-xvfb-logical-px-modal-1x.png) |
 
 **planned のまま**: 施主の Windows（150%）でブラウザの開発者ツールと数字を突き合わせること（ADR 0027）。
+
+## 50. Issue #102 — 字の大きさは論理画素で、目盛は選んだ単位で（2026-10-20）
+
+施主の WSL（Ubuntu・`/tmp/.X11-unix` が読み取り専用なので Xvfb は `-listen tcp -nolisten unix -ac` で立て、`DISPLAY=127.0.0.1:98`）。PR #101 の枝の上。
+`make lint` / `make fmt-check` / `make test`（core 90・application 22・settings-file 10 ほか。ui-x11 の `a_successful_copy_inverts_the_number` はこの機械では main でも落ちる・フォント依存）/ `make conformance`（189 ファイル・違反なし）/ `make doc-check` / `make deny` が 0 件。
+`make coverage` は core ＋ application で regions 98.99%・functions 97.35%・lines 98.36%。
+ui-win32 と adapters-windows は `cargo clippy --target x86_64-pc-windows-gnu -- -D warnings` が 0 件。
+
+### 50.1 Xvfb（`Xft.dpi: 144`・合成器あり・WM 無し・`XDG_CONFIG_HOME` は空のディレクトリ）
+
+`xprop -root -format RESOURCE_MANAGER 8s -set RESOURCE_MANAGER 'Xft.dpi:<TAB>144'` のあと `./target/debug/nene-ruler` を起動。UI の倍率は 2x、比は 1.5。
+
+| 操作 | 結果 | PNG |
+| --- | --- | --- |
+| 起動（物理画素） | `400 px` / `240 px`。字は 1.5 倍（主目盛の数字 14 px・幅と高さの数字 17 px）。目盛は 5 物理 px ごとで `50` `100` … `350` が 50 px ごと。第 49 節の同じ場面より字が大きく、目盛と数字の置き場はそのまま | [physical](screenshots/2026-10-20-xvfb-text-ratio-physical-144dpi.png) |
+| ギア → `Logical px` → Esc | `266.7 logical px` / `160 logical px` で**全部描く**（第 49 節では字が小さかったので全部描けていた。字が大きくなっても、縦の数字と横の数字は横に離れているので交差判定で全部描ける）。目盛は 7.5 物理 px ごと（8 / 7 の交互）、主目盛は 75 px ごとに `50` `100` `150` `200`。字の大きさは物理画素のときと同じ | [logical](screenshots/2026-10-20-xvfb-text-ratio-logical-144dpi.png) |
+| 右下の鉤括弧で 500 × 280 に引く | `333.3 logical px` / `186.7 logical px`。上辺の数字は `50` … `300`、左辺は `50` … `150`。ファイルは `unit = logical_px` | [logical-500x280](screenshots/2026-10-20-xvfb-text-ratio-logical-500x280-144dpi.png) |
+
+見えた穴（ADR 0028 の「失うもの」に記録）: 論理画素の高さ 240 では左辺の `150`（原点から物理 225 px）が下辺の主目盛（長さ 24 px）に重なる。判定が枠の底しか見ない Issue #46 のままで、物理画素でも高さ 260 の `250` で起きる既存の穴。
+
+**planned のまま**: 施主の Windows（150%）で字が読めることと、ブラウザの開発者ツールの要素の幅と目盛が合うこと（ADR 0028）。

@@ -27,13 +27,13 @@
 | 軸 | 横（幅）か縦（高さ）かの閉じた集合。目盛と数字がどちらの辺のものかを言う | `Axis`（core） |
 | 画面の大きさ | RandR が返す画面の画素数と横のミリ寸法。伸縮の上限と UI の倍率（dpi）に使う。長さの換算には使わない（ADR 0012） | `ScreenMetrics`（core） |
 | 単位 | 長さを綴る単位。物理画素（`px`）と論理画素（`logical px`）の閉じた集合。設定の一部（FR-008） | `Unit`（core）・ADR 0027 |
-| 論理画素 | 物理画素 ÷（デスクトップの dpi / 96）。ブラウザの開発者ツールの CSS px、Windows の DIP、Android の dp と同じ数 | `DevicePixelRatio`（core）・ADR 0027 |
+| 論理画素 | 物理画素 ÷（デスクトップの dpi / 96）。ブラウザの開発者ツールの CSS px、Windows の DIP、Android の dp と同じ数。枠の字の大きさはこれで定める（ADR 0028） | `DevicePixelRatio`（core）・ADR 0027 / 0028 |
 | 換算 | 選んだ単位と、いまの環境の比の組。長さを綴るときに 10 分の 1 の単位の整数にする | `Measure`（core） |
 | 表示文字列 | 長さを `400 px` / `266.7 logical px` の形に綴った文字列。表示とクリップボードで同じものを使う | `LengthText`（core） |
 | 数字の種類 | 枠に出す長さの数字。幅・高さ・両方（`W × H px`）の閉じた集合。表示・当たり判定・コピーの単位 | `LengthLabel`（core）・ADR 0017 |
 | 詰めた表示 | 数字が目盛を避けた内側に収まらない小さな枠の描き方。目盛と通知を消し、中央に `W × H px` | `FrameDetail::Compact`（core）・ADR 0017 |
 | 線を消した表示 | 詰めても `W × H px` が枠に収まらない大きさの描き方。線を描かず鉤括弧を細くし、文字を窓の中央に枠の外へはみ出して描く | `FrameDetail::Bare`（core）・ADR 0018 |
-| 目盛 | 線の上の位置と、小・中・主の種類 | `TickMark` / `TickKind`（core） |
+| 目盛 | 選んだ単位での値と、物理画素に丸めた位置と、小・中・主の種類（ADR 0028） | `TickMark` / `TickKind`（core） |
 | 色 | 不透明な RGB の値型。インク色にもモーダルの配色にもこれ 1 つ。`#RRGGBB` で読み書きする | `Rgb`（core） |
 | インク色 | 枠の窓に描くものすべてに使う 1 色。設定の一部 | `RulerSettings::ink`（core） |
 | 直接入力 | `#RRGGBB` を打ち込む欄の編集状態。16 進の文字だけを受ける | `HexEntry`（core） |
