@@ -1145,3 +1145,15 @@ Xvfb では確かめられない（X11 には `DpiChanged` を送る所が無い
 施主の 3 回目の実測（同日）: 物理画素を保ったので `Logical px` の数字が 320 → 228.6 → 266.7 と変わった。枠は選んだ単位の大きさを保つ形に改めた（論理画素なら `rescale` で物理画素を伸縮・ADR 0029 の決定 3）。core 92 件・application 23 件、Windows clippy 0 件、exe を作り直して置いた。
 
 **planned のまま**: 施主の 3 モニタで、125% の主モニタで起動 → 150% / 175% へ動かすと説明文が 1.5 / 1.75 に変わり、`Logical px` の数字は変わらず枠が物理的に伸縮して開発者ツールと合うこと、`Physical px` の数字もまたいでも変わらないこと（ADR 0029）。
+
+## 52. 1.1.0 の配る物（2026-10-20）
+
+#101 / #103 / #105 を順に squash merge し（施主の 3 モニタでの実測が合った後）、#107 で版を 1.1.0 に上げた。main（`33137c5`）で release.yml を `workflow_dispatch`（`publish_from_run` 空・`dry_run` true）で 1 回だけ実行した。
+
+| 実行 | ジョブ | 成果物 |
+| --- | --- | --- |
+| [39437069290](https://github.com/hideyukiMORI/nene-ruler/actions/runs/39437069290) | build ✅ / msi ✅ / release（skipped・出すときに使う） | `nene-ruler-linux`（669 KB）・`nene-ruler-windows`（499 KB）・`nene-ruler-exe`（550 KB）・`nene-ruler-msi`（935 KB）・`nene-ruler-store-msix`（546 KB） |
+
+`nene-ruler-store-msix` を手元に落として `AppxManifest.xml` を読んだ: `Identity Name="HideyukiMori.NeNeRuler" Version="1.1.0.0"`。`NeNe-Ruler-store.msix`（3.75 MB）と `.sha256` を施主の Windows の `Downloads\nene-ruler-1.1.0\` に置いた。
+
+**次**: 施主が Partner Center に出す → 認定の後、同じ実行を `publish_from_run=39437069290` で dry run → 本番（ADR 0025 / 0026）。成果物の保存期間は 90 日（2027-01-18 ごろまで）。

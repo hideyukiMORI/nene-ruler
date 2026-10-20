@@ -33,7 +33,7 @@ Drag a line or its ticks to move the frame. Drag the bracket at the top-left or 
 • Click a number to copy it, for example "400 px".
 • Nudge with the arrow keys: 1 px, or 10 px with Shift.
 • Small frames stay readable: when the numbers no longer fit, the ticks give way to the size in the middle, down to 16 × 16 px.
-• One ink colour of your choice: 8 swatches, a colour picker or a hex code.
+• One ink color of your choice: 8 swatches, a color picker or a hex code.
 • Always on top, with a switch to turn it off.
 • Sharp on high-DPI displays.
 • Private. No network connections, no account, no telemetry. The only thing saved is three settings in a local file.
@@ -54,7 +54,7 @@ Width and height in physical pixels
 Move by dragging a line, resize by dragging a corner bracket
 Click a number to copy it
 Arrow keys nudge by 1 px, Shift by 10 px
-Ink colour from swatches, a colour picker or a hex code
+Ink color from swatches, a color picker or a hex code
 Always on top, switchable
 No network connections, no account, no telemetry
 ```
@@ -79,7 +79,7 @@ on-screen ruler
 | --- | --- |
 | `docs/images/store/store-1-measure-card.png` | `Lay the frame over anything on your screen and read its width and height in physical pixels.` |
 | `docs/images/store/store-2-measure-field.png` | `Small frames show the size in the middle. Click a number to copy it.` |
-| `docs/images/store/store-3-settings.png` | `Settings: ink colour from swatches, a picker or a hex code, dark or light look, always on top.` |
+| `docs/images/store/store-3-settings.png` | `Settings: ink color from swatches, a picker or a hex code, dark or light look, always on top.` |
 
 ## 日本語（ja-JP）
 
@@ -180,7 +180,7 @@ Loupe では、入力欄は「申請オプション」のページには無く�
 
 ```text
 NeNe Ruler is a transparent on-screen ruler. On launch it shows a frame with tick marks on all four edges; the inside of the frame is intentionally transparent and click-through, so that the user can measure what is underneath. Only the lines, ticks, numbers, the two corner brackets and the gear respond to the mouse. This is by design, not a rendering failure.
-To test: launch the app. Drag a line or its ticks to move the frame; drag the bracket at the top-left or bottom-right corner to resize it; the width and height update in pixels. Click a number to copy it to the clipboard. The arrow keys move the frame by 1 px (10 px with Shift). Click the gear at the bottom-right to open the settings (ink colour, dark/light look, always on top, Quit). Press Esc to close the frame. No account, sign-in or network is needed.
+To test: launch the app. Drag a line or its ticks to move the frame; drag the bracket at the top-left or bottom-right corner to resize it; the width and height update in pixels. Click a number to copy it to the clipboard. The arrow keys move the frame by 1 px (10 px with Shift). Click the gear at the bottom-right to open the settings (ink color, dark/light look, always on top, Quit). Press Esc to close the frame. No account, sign-in or network is needed.
 ```
 
 ### `runFullTrust` が必要な理由
